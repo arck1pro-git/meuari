@@ -1,26 +1,209 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* Inter em tudo — inclusive no slot mono, para nao sobrar nenhuma superficie
+     com a fonte do sistema. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Paleta da marca. Os cinzas da escala neutra continuam valendo para bordas
+     e texto de apoio — estas cinco sao a tinta, os fundos e os acentos. */
+  --color-tinta: #001449; /* texto principal e titulos — entra no lugar do preto */
+  --color-marinho: #012677; /* acoes primarias, serie do grafico */
+  --color-azul: #005bc5; /* links, foco, estado interativo */
+  --color-ceu: #00b4fc; /* fim do degrade do cabecalho */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Acento. Sobre fundo claro rende 1,3:1 — invisivel. So vale em superficie
+     escura, como o brilho do cabecalho; no branco, quem faz o papel de acento
+     legivel é o `azul`. */
+  --color-ciano: #17f9ff;
+
+  /* Curva de saida rapida ("ease-out expo"): o elemento chega quase inteiro no
+     primeiro terco do tempo, o que da a sensacao de resposta imediata. */
+  --ease-suave: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Curva simetrica, para quando duas coisas se cruzam — uma saindo e outra
+     entrando ao mesmo tempo. A `suave` é de entrada: ela arranca no primeiro
+     terco, o que numa saida vira tranco. Esta acelera e freia no mesmo ritmo,
+     entao as duas metades da troca pesam igual. */
+  --ease-macia: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Entrada padrao dos blocos. `both` segura o estado inicial durante o
+     animation-delay — sem isso o bloco pisca visivel antes de comecar. */
+  --animate-surgir: surgir 0.55s var(--ease-suave) both;
+
+  /* So opacidade. Usada onde ja existe outra animacao por dentro — dois
+     deslocamentos aninhados dao a impressao de que a tela escorregou. */
+  --animate-aparecer: aparecer 0.35s var(--ease-suave) both;
+
+  @keyframes surgir {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Barras de progresso. scaleX em vez de width porque so transform e opacity
+     rodam fora da thread principal — width forcaria layout a cada quadro. */
+  --animate-preencher: preencher 0.9s var(--ease-suave) both;
+
+  /* Brilho do cabecalho: passeia devagar e sem fim sobre o gradiente, o que da
+     vida a faixa sem competir com o conteudo. `alternate` evita o salto que um
+     loop simples daria ao voltar do fim para o comeco. Curva simetrica de
+     proposito — a `ease-suave` é de entrada, e num vaivem ela pesa de um lado
+     so. Anima transform, nao background-position: o resto fica no compositor. */
+  --animate-deriva: deriva 17s ease-in-out infinite alternate;
+
+  /* Varredura de luz que cruza a faixa uma vez, na carga. */
+  --animate-brilho: brilho 1.9s var(--ease-suave) 0.45s both;
+
+  /* Objeto pairando. `alternate` evita o salto que um loop simples daria ao
+     voltar do fim para o comeco, e a curva simetrica faz a subida pesar igual
+     a descida — com curva de saida o movimento fica manco de um lado. */
+  --animate-boiar: boiar 2.6s ease-in-out infinite alternate;
+
+  @keyframes deriva {
+    from {
+      transform: translate3d(-9%, -6%, 0) scale(1);
+    }
+    to {
+      transform: translate3d(16%, 8%, 0) scale(1.3);
+    }
+  }
+
+  @keyframes boiar {
+    from {
+      transform: translateY(-7px);
+    }
+    to {
+      transform: translateY(7px);
+    }
+  }
+
+  @keyframes brilho {
+    from {
+      transform: translateX(-160%) skewX(-18deg);
+      opacity: 0;
+    }
+    40% {
+      opacity: 1;
+    }
+    to {
+      transform: translateX(320%) skewX(-18deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes preencher {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
   }
 }
 
+:root {
+  color-scheme: light;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: var(--color-tinta);
+}
+
+/* Acessibilidade: quem pede menos movimento recebe o resultado final na hora,
+   sem deslocamento nem espera. Vale para tudo, inclusive libs de terceiros. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/**
+ * Entrada em cascata: cada filho direto sobe e aparece um pouco depois do
+ * anterior. Fica no CSS, e nao no JSX, porque os cartoes sao Server Components
+ * — nao ha indice em maos para calcular o atraso na marcacao.
+ */
+@utility escalonar {
+  & > * {
+    animation: var(--animate-surgir);
+  }
+  & > *:nth-child(2) {
+    animation-delay: 90ms;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 180ms;
+  }
+  & > *:nth-child(n + 4) {
+    animation-delay: 270ms;
+  }
+}
+
+/**
+ * Elevacao dos cartoes. Duas camadas puxadas para baixo, com spread negativo
+ * segurando as laterais: a sombra le como peso na base, e nao como halo em
+ * volta. Tingida de `tinta` — preto puro sobre branco esverdeia a borda.
+ *
+ * Mora aqui, e nao em valor arbitrario no JSX, porque o cartao de saldo e o
+ * `Cartao` compartilham a mesma elevacao; duplicada, uma das duas sairia do
+ * lugar no primeiro ajuste.
+ */
+@utility sombra-cartao {
+  box-shadow:
+    0 3px 6px -2px rgb(0 20 73 / 0.12),
+    0 14px 26px -8px rgb(0 20 73 / 0.2);
+}
+
+/** O mesmo desenho, mais fundo. Para o estado de hover. */
+@utility sombra-cartao-alta {
+  box-shadow:
+    0 4px 8px -2px rgb(0 20 73 / 0.14),
+    0 20px 36px -10px rgb(0 20 73 / 0.26);
+}
+
+/**
+ * Brilho que passeia sobre o cabecalho. Fica aqui, e nao num valor arbitrario
+ * no JSX, para conseguir referenciar o token direto: e o unico lugar do app
+ * claro em que o `ciano` tem fundo escuro o bastante para aparecer.
+ */
+@utility brilho-ciano {
+  background-image: radial-gradient(
+    45% 140% at 25% 15%,
+    color-mix(in oklab, var(--color-ciano) 38%, transparent),
+    transparent 72%
+  );
+}
+
+/* Inter em tudo, inclusive nos elementos que trazem font-family propria do
+   user agent (input, select, button, textarea, code, pre). */
+input,
+select,
+textarea,
+button,
+code,
+pre,
+kbd,
+samp {
+  font-family: inherit;
 }
