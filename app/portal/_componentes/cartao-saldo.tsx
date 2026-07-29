@@ -35,7 +35,7 @@ export function CartaoSaldo({
       {/* O atalho sobe para a linha do saldo e centra com ele; a frase abaixo
           fica com a largura inteira do cartao. */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-tinta sm:text-3xl">
+        <p className="text-2xl font-semibold tracking-tight text-black sm:text-3xl">
           {saldo}
         </p>
 

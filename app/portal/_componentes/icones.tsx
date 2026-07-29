@@ -13,12 +13,13 @@ const BASE = {
   "aria-hidden": true,
 } as const;
 
-/** Curva ascendente: a evolucao do saldo. */
+/** Moeda: o dinheiro aportado e o saldo. */
 export function IconeInvestimento({ className = "h-5 w-5" }) {
   return (
     <svg {...BASE} className={className}>
-      <path d="M3 17.5 9.5 11l4 4L21 7.5" />
-      <path d="M15.5 7.5H21v5.5" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v10" />
+      <path d="M14.6 9.6c-.5-.9-1.5-1.4-2.6-1.4-1.6 0-2.6.8-2.6 1.9 0 1.2 1 1.7 2.7 2.1 1.8.4 2.9.9 2.9 2.2 0 1.2-1.1 2-2.8 2-1.2 0-2.2-.5-2.8-1.3" />
     </svg>
   );
 }
@@ -43,14 +44,18 @@ export function IconeSetaDireita({ className = "h-5 w-5" }) {
   );
 }
 
-/** Predio: a obra e os documentos do empreendimento. */
+/**
+ * Documento com a ponta dobrada: os relatorios e papeis do empreendimento.
+ * Duas linhas de texto, e nao tres — no rodape o traco vai a 2.5 e uma terceira
+ * fecharia o miolo do icone.
+ */
 export function IconeTransparencia({ className = "h-5 w-5" }) {
   return (
     <svg {...BASE} className={className}>
-      <path d="M3 21h18" />
-      <path d="M6 21V6.5L12 3l6 3.5V21" />
-      <path d="M10 21v-4.5h4V21" />
-      <path d="M9.5 9h1m4 0h1m-6 3.5h1m4 0h1" />
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13.5h6" />
+      <path d="M9 17h4" />
     </svg>
   );
 }

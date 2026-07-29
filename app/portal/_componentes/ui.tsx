@@ -28,7 +28,7 @@ export function Cartao({
       id={id}
       className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
         escuro
-          ? "border-white/10 bg-linear-to-br from-marinho via-azul to-ceu text-white"
+          ? "border-transparent bg-linear-to-br from-marinho via-azul to-ceu text-white"
           : "border-tinta/12 bg-white"
       }`}
     >
@@ -75,11 +75,14 @@ export function Etiqueta({
     // nunca quebra. O `destaque` carrega frase, e ai flex atrapalha — cada
     // trecho solto viraria um item anonimo, quebrando a frase em caixas que nao
     // fluem entre si. `inline-block` deixa o texto correr e quebrar de verdade.
+    // A borda saiu da base e ficou so no `suave`. Ela existia para os dois toms
+    // terem a mesma altura, o que deixou de importar quando eles passaram a ter
+    // formas e respiros diferentes.
     <span
-      className={`border text-xs font-medium ${
+      className={`text-xs ${
         tom === "destaque"
-          ? "inline-block rounded-lg border-ciano/30 bg-ciano/30 px-3 py-1.5 leading-relaxed text-pretty text-tinta"
-          : "inline-flex items-center rounded-full border-marinho/15 bg-marinho/5 px-2.5 py-0.5 text-marinho"
+          ? "inline-block rounded-2xl bg-ciano/15 px-4 py-2 leading-relaxed font-normal text-pretty text-black"
+          : "inline-flex items-center rounded-full border border-marinho/15 bg-marinho/5 px-2.5 py-0.5 font-medium text-marinho"
       }`}
     >
       {children}

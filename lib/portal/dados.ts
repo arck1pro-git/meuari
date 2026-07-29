@@ -16,6 +16,13 @@ export type Aporte = {
   /** Como o dinheiro entrou — aparece no historico. */
   origem: "Aporte inicial" | "Aporte adicional" | "Reinvestimento";
   observacao?: string;
+  /**
+   * Arquivo do instrumento que formaliza este aporte — o mesmo caminho de um
+   * `Documento` da categoria "Contratos". Nome nao é so `contrato` para nao
+   * confundir com `Investidor.contrato`, que guarda o codigo, e nao o arquivo.
+   * Opcional: aporte sem instrumento proprio nao mostra o atalho.
+   */
+  contratoArquivo?: string;
 };
 
 export type FaixaDeTaxa = {
@@ -114,6 +121,7 @@ const INVESTIDOR: Investidor = {
       origem: "Aporte inicial",
       observacao:
         "Entrada na rodada de captacao do empreendimento, a 2,30% a.m. fixos.",
+      contratoArquivo: "/documentos/contrato-participacao-ari-2023-0417.pdf",
     },
     {
       id: "ap-2",
@@ -122,6 +130,9 @@ const INVESTIDOR: Investidor = {
       origem: "Aporte adicional",
       observacao:
         "Ampliacao de participacao no primeiro aniversario do contrato, com nova taxa acordada.",
+      // Aporte que trouxe taxa nova: quem o formaliza é o aditivo, e nao o
+      // contrato original.
+      contratoArquivo: "/documentos/aditivo-mudanca-taxa-2024-08.pdf",
     },
     {
       id: "ap-3",
@@ -130,6 +141,8 @@ const INVESTIDOR: Investidor = {
       origem: "Aporte adicional",
       observacao:
         "Terceiro aporte do plano de entrada. A taxa foi mantida em 2,60% a.m.",
+      // Sem instrumento proprio: entrou sob o contrato vigente, que nao mudou.
+      contratoArquivo: "/documentos/contrato-participacao-ari-2023-0417.pdf",
     },
   ],
   taxas: [

@@ -65,15 +65,10 @@ export function BotaoNovoAporte({ className }: { className?: string }) {
             WhatsApp. Você aceita?
           </p>
 
-          <div className="mt-7 flex w-full gap-3">
-            <button
-              type="button"
-              onClick={() => dialogo.current?.close()}
-              className="flex-1 rounded-xl border border-tinta/15 px-4 py-2.5 text-sm font-semibold text-neutral-600 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-            >
-              Cancelar
-            </button>
-
+          {/* Empilhados, com a acao principal em cima: no polegar, o que fica
+              mais perto da base é o que se alcanca primeiro, e ali deve estar a
+              saida, nao a confirmacao. */}
+          <div className="mt-7 flex w-full flex-col gap-2.5">
             {/* Link de verdade, e nao um botao com `window.open`: preserva
                 abrir em nova aba, copiar endereco e o aviso de saida do app. */}
             <a
@@ -81,10 +76,18 @@ export function BotaoNovoAporte({ className }: { className?: string }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => dialogo.current?.close()}
-              className="flex-1 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+              className="rounded-xl bg-marinho px-4 py-3 text-center text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
             >
               Falar com comercial
             </a>
+
+            <button
+              type="button"
+              onClick={() => dialogo.current?.close()}
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-neutral-500 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       </dialog>
