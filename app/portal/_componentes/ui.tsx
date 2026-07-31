@@ -6,6 +6,7 @@ export function Cartao({
   apoio,
   acessorio,
   tom = "claro",
+  elevacao = "padrao",
   children,
 }: {
   /** Alvo de ancora: `#id` na mesma pagina rola ate este cartao. */
@@ -15,9 +16,19 @@ export function Cartao({
   acessorio?: React.ReactNode;
   /** `escuro` traz o mesmo degrade do cabecalho e corre o conteudo em branco. */
   tom?: "claro" | "escuro";
+  /**
+   * `leve` para cartao que vive em pilha. A elevacao padrao é calibrada para um
+   * cartao sozinho; repetida a cada 12px, ela tinge os vaos e a lista inteira
+   * passa a ler cinza, mesmo com todo cartao sendo branco puro.
+   */
+  elevacao?: "padrao" | "leve";
   children: React.ReactNode;
 }) {
   const escuro = tom === "escuro";
+  const sombra =
+    elevacao === "leve"
+      ? "sombra-cartao-leve hover:sombra-cartao"
+      : "sombra-cartao hover:sombra-cartao-alta";
 
   return (
     // A borda fica nos dois tons, so mudando de cor: sem ela o cartao escuro
@@ -26,10 +37,19 @@ export function Cartao({
     // do cartao quando uma ancora rolasse ate aqui.
     <section
       id={id}
-      className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
+      // A elevacao fica so no `claro`. No escuro, a sombra tingida de `tinta`
+      // desenha um halo escuro rente ao azul e le como contorno — o cartao ja
+      // se destaca do fundo branco pelo proprio degrade.
+      //
+      // A cor do tom escuro vem da classe `degrade-cartao`, escrita em CSS puro
+      // no `globals.css`: `tinta → marinho → azul`, os tres a 80%. O degrade
+      // para em `azul`, e nao em `ceu`, porque o `ceu` a 70% sobre branco
+      // virava um azul-claro lavado, onde o texto e as barras brancas caiam
+      // para 1,86:1 de contraste. Assim o pior ponto fica em 4,25:1.
+      className={`scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
         escuro
-          ? "border-transparent bg-linear-to-br from-marinho via-azul to-ceu text-white"
-          : "border-tinta/12 bg-white"
+          ? "degrade-cartao border-transparent text-white"
+          : `${sombra} border-tinta/12 bg-white`
       }`}
     >
       {(titulo || acessorio) && (

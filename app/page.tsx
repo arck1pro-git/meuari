@@ -1,19 +1,27 @@
 import Link from "next/link";
-import { getEmpreendimento, getInvestidorAtual } from "@/lib/portal/dados";
+import { exigirSessao } from "@/lib/auth";
+
+// Depende da sessao, entao nada de resposta guardada.
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const investidor = await getInvestidorAtual();
-  const empreendimento = await getEmpreendimento();
+  const sessao = await exigirSessao("/");
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-white px-5 py-16">
+    // `min-h-dvh` pelo mesmo motivo do /login: o Lenis zera a altura do
+    // documento, entao `flex-1` sozinho nao centraliza na vertical.
+    <div className="flex min-h-dvh flex-1 items-center justify-center bg-white px-5 py-16">
       <main className="escalonar w-full max-w-sm">
         <h1 className="text-3xl font-semibold tracking-tight text-tinta">
-          Portal do Investidor {empreendimento.nome}
+          Portal do Investidor ARI
         </h1>
+        {/* Sem o nome do empreendimento aqui: quem tem mais de um contrato tem
+            mais de um empreendimento, e escolher um deles nesta tela seria
+            escolher errado. Os nomes aparecem no /portal, cada um no seu
+            cartao. */}
         <p className="mt-3 text-sm leading-relaxed text-neutral-500">
           Acompanhe seus aportes, sua participacao nos resultados e o andamento
-          da obra do empreendimento {empreendimento.nome}.
+          das obras.
         </p>
 
         <Link
@@ -24,7 +32,7 @@ export default async function Home() {
         </Link>
 
         <p className="mt-4 text-xs text-neutral-400">
-          Sessao ativa: {investidor.nome} · contrato {investidor.contrato}
+          Sessao ativa: {sessao.nome}
         </p>
       </main>
     </div>

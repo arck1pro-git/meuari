@@ -18,6 +18,12 @@
      legivel é o `azul`. */
   --color-ciano: #17f9ff;
 
+  /* Ouro. Marca o "agora": o mes corrente no grafico, a aba aberta no rodape e
+     o nome ARI no cartao de saldo. Como o ciano, é acento e nao cor de texto
+     corrido — sobre branco rende 1,5:1, entao so funciona em peca curta, em
+     icone ou em area cheia. */
+  --color-ouro: #f7bc05;
+
   /* Curva de saida rapida ("ease-out expo"): o elemento chega quase inteiro no
      primeiro terco do tempo, o que da a sensacao de resposta imediata. */
   --ease-suave: cubic-bezier(0.16, 1, 0.3, 1);
@@ -30,11 +36,12 @@
 
   /* Entrada padrao dos blocos. `both` segura o estado inicial durante o
      animation-delay — sem isso o bloco pisca visivel antes de comecar. */
-  --animate-surgir: surgir 0.55s var(--ease-suave) both;
+  --animate-surgir: surgir 0.8s var(--ease-suave) both;
 
   /* So opacidade. Usada onde ja existe outra animacao por dentro — dois
-     deslocamentos aninhados dao a impressao de que a tela escorregou. */
-  --animate-aparecer: aparecer 0.35s var(--ease-suave) both;
+     deslocamentos aninhados dao a impressao de que a tela escorregou. É ela que
+     roda na troca de aba, no painel inteiro. */
+  --animate-aparecer: aparecer 0.6s var(--ease-suave) both;
 
   @keyframes surgir {
     from {
@@ -117,8 +124,20 @@
   }
 }
 
+/*
+ * `only light`, e nao `light`.
+ *
+ * Com `light` o Chrome ainda pode aplicar o modo escuro automatico (a flag
+ * "Auto Dark Mode for Web Contents"), que reescreve fundo e degrade por conta
+ * propria — o cabecalho e o cartao do Meu ARI perdem a cor e o resto da tela
+ * segue igual. O `only` é a recusa explicita: a pagina é clara e nao aceita
+ * ser convertida.
+ *
+ * Extensao de tema, como o Dark Reader, ignora isto — ali a saida é a lista de
+ * sites da propria extensao.
+ */
 :root {
-  color-scheme: light;
+  color-scheme: only light;
 }
 
 body {
@@ -161,6 +180,27 @@ body {
 }
 
 /**
+ * Fundo pontilhado da tela de entrada.
+ *
+ * A mascara apaga os pontos nas bordas: sem ela a grade encosta nos cantos e a
+ * tela ganha cara de papel quadriculado, em vez de textura. Como a mascara
+ * recorta o elemento inteiro, isto precisa viver numa camada propria — nunca no
+ * container que carrega o conteudo, que sumiria junto nas bordas.
+ */
+@utility pontilhado {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--color-marinho) 24%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: radial-gradient(
+    ellipse 75% 65% at 50% 45%,
+    #000 35%,
+    transparent 100%
+  );
+}
+
+/**
  * Elevacao dos cartoes. Duas camadas puxadas para baixo, com spread negativo
  * segurando as laterais: a sombra le como peso na base, e nao como halo em
  * volta. Tingida de `tinta` — preto puro sobre branco esverdeia a borda.
@@ -173,6 +213,18 @@ body {
   box-shadow:
     0 3px 6px -2px rgb(0 20 73 / 0.12),
     0 14px 26px -8px rgb(0 20 73 / 0.2);
+}
+
+/**
+ * A mesma ideia, bem mais rasa. Para pilha de cartoes: com 9 deles a 12px de
+ * distancia, a `sombra-cartao` preenche os vaos e o conjunto inteiro le cinza,
+ * mesmo com cada cartao sendo branco puro. Sozinha, aquela sombra é elegante;
+ * repetida, vira fundo.
+ */
+@utility sombra-cartao-leve {
+  box-shadow:
+    0 1px 2px rgb(0 20 73 / 0.05),
+    0 5px 10px -6px rgb(0 20 73 / 0.1);
 }
 
 /** O mesmo desenho, mais fundo. Para o estado de hover. */
@@ -190,8 +242,64 @@ body {
 @utility brilho-ciano {
   background-image: radial-gradient(
     45% 140% at 25% 15%,
-    color-mix(in oklab, var(--color-ciano) 38%, transparent),
+    /* 18%, e nao 38%: com o degrade escuro por baixo, era este brilho que
+       devolvia a claridade que se queria tirar da faixa. */
+    rgba(23, 249, 255, 0.18),
     transparent 72%
+  );
+}
+
+/**
+ * O mesmo brilho, no canto oposto.
+ *
+ * Ele substitui o fim claro que o degrade tinha ali: uma parada de cor termina
+ * em parede — a faixa inteira ficava lavada de azul-claro no canto —, enquanto
+ * o radial acende e apaga sozinho, do mesmo jeito que o de cima.
+ */
+@utility brilho-ciano-canto {
+  background-image: radial-gradient(
+    45% 140% at 85% 95%,
+    rgba(23, 249, 255, 0.18),
+    transparent 72%
+  );
+}
+
+/**
+ * Os dois degrades escuros do portal: a faixa do cabecalho e o cartao do
+ * Meu ARI.
+ *
+ * Em CSS puro, e nao com os utilitarios de degrade do Tailwind. Aqueles saem
+ * como `linear-gradient(… in oklab, color-mix(in oklab, …))`, empilhados em
+ * variaveis (`--tw-gradient-stops`) e dentro de um `@supports`. Sao muitas
+ * camadas para a cor atravessar, e basta uma delas nao valer — navegador sem
+ * suporte, modo escuro automatico, extensao de tema — para a faixa ficar sem
+ * fundo nenhum. Com `rgb()`/`rgba()` escritos por extenso nao ha o que
+ * reinterpretar: a cor chega.
+ *
+ * Sao as mesmas cores do `@theme`, repetidas aqui de proposito:
+ *   tinta #001449 · marinho #012677 · azul #005bc5
+ * Mudou la, muda aqui.
+ */
+.degrade-cabecalho {
+  /* A parada em 55% segura o tom escuro por mais da metade da faixa; o
+     marinho entra so no fim, no canto de baixo a direita. */
+  background-image: linear-gradient(
+    to bottom right,
+    #001449 0%,
+    #001449 55%,
+    #012677 100%
+  );
+}
+
+.degrade-cartao {
+  /* 0.8 é o `/80` que era feito com opacidade no utilitario: mesma cor, so
+     que ja resolvida contra o branco da pagina. No ponto mais claro, o canto
+     inferior direito, o branco por cima le em 4,25:1. */
+  background-image: linear-gradient(
+    to bottom right,
+    rgba(0, 20, 73, 0.8) 0%,
+    rgba(1, 38, 119, 0.8) 50%,
+    rgba(0, 91, 197, 0.8) 100%
   );
 }
 
@@ -206,4 +314,95 @@ pre,
 kbd,
 samp {
   font-family: inherit;
+}
+
+/**
+ * O texto dos artigos da Airticles.
+ *
+ * O HTML chega pronto e sem uma classe sequer, entao nao ha onde pendurar
+ * utilitario do Tailwind — a formatacao precisa vir por seletor de elemento,
+ * escopada nesta classe para nao escapar para o resto do portal.
+ */
+.article-body {
+  color: var(--color-tinta);
+  line-height: 1.75;
+}
+
+.article-body > * + * {
+  margin-top: 1.25rem;
+}
+
+.article-body h2,
+.article-body h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  /* Titulo respira mais em cima do que embaixo: ele pertence ao que vem
+     depois, e o espaco desigual é o que mostra isso. */
+  margin-top: 2.5rem;
+}
+
+.article-body h2 {
+  font-size: 1.25rem;
+}
+
+.article-body h3 {
+  font-size: 1.0625rem;
+}
+
+.article-body a {
+  color: var(--color-azul);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-body ul,
+.article-body ol {
+  padding-left: 1.5rem;
+}
+
+.article-body ul {
+  list-style: disc;
+}
+
+.article-body ol {
+  list-style: decimal;
+}
+
+.article-body li::marker {
+  color: var(--color-marinho);
+}
+
+.article-body li + li {
+  margin-top: 0.5rem;
+}
+
+.article-body img {
+  border-radius: 1rem;
+  width: 100%;
+}
+
+.article-body blockquote {
+  border-left: 3px solid var(--color-ceu);
+  padding-left: 1rem;
+  color: #525252;
+}
+
+.article-body strong {
+  font-weight: 600;
+  color: #000000;
+}
+
+/* Tabela larga rola dentro do artigo, e nao empurra a pagina inteira. */
+.article-body table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.article-body th,
+.article-body td {
+  border: 1px solid color-mix(in oklab, var(--color-tinta) 12%, transparent);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
 }

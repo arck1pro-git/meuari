@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { BotaoNovoAporte } from "./botao-aporte";
+import { BotaoSimulador } from "./botao-simulador";
 import { rolarAte } from "@/app/_componentes/rolagem-suave";
 
 export type Aba = {
@@ -152,9 +152,12 @@ export function Abas({ abas, className }: { abas: Aba[]; className?: string }) {
                 // svg de dentro: o mesmo elemento de icone é reaproveitado nas
                 // abas do topo, e um seletor descendente vence tanto as classes
                 // de tamanho dele quanto o atributo `stroke-width` do SVG.
+                // O icone da aba aberta vai em ouro. A marca de cima continua
+                // marinho: é ela que carrega o contraste do estado ativo, e o
+                // ouro sobre branco rende 1,5:1 — bom de ver, fraco de ler.
                 className={`relative flex flex-1 items-center justify-center py-2.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azul [&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-[2.5] ${
                   selecionada
-                    ? "text-marinho"
+                    ? "text-ouro"
                     : "text-neutral-400 hover:text-marinho/70"
                 }`}
               >
@@ -183,7 +186,7 @@ export function Abas({ abas, className }: { abas: Aba[]; className?: string }) {
          * negativo conta a partir da borda de cima da barra, entao `-top-8`
          * significa literalmente 32px acima dela — sobram 24px dentro.
          */}
-        <BotaoNovoAporte className="absolute -top-8 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-white text-tinta shadow-[0_6px_16px_-4px_rgba(0,20,73,0.35)] transition-transform duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2" />
+        <BotaoSimulador className="absolute -top-8 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-white text-tinta shadow-[0_6px_16px_-4px_rgba(0,20,73,0.35)] transition-transform duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2" />
       </nav>
     </div>
   );
