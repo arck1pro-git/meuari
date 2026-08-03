@@ -96,17 +96,22 @@ export function usePush() {
 
     try {
       /*
-       * A ordem importa: o `requestPermission` precisa acontecer dentro do
-       * gesto da pessoa, e o registro do service worker é rapido o bastante
-       * para caber antes sem perder essa condicao.
+       * O pedido de permissao vem primeiro, e sem nenhum `await` antes dele.
+       *
+       * Todo navegador exige que ele nasca de um gesto da pessoa, mas o Safari
+       * do iPhone é o rigoroso: qualquer espera no meio consome a "ativacao
+       * transitoria" do toque, e o pedido é recusado sem sequer mostrar a
+       * caixa. Era o que acontecia aqui — o registro do service worker vinha
+       * antes, e no iOS a caixa nunca aparecia.
        */
-      const registro = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-
       const permissao = await Notification.requestPermission();
       if (permissao !== "granted") {
         return setEstado(permissao === "denied" ? "negado" : "desligado");
       }
+
+      // Com a permissao em maos, o resto pode esperar o quanto precisar.
+      const registro = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
 
       const existente = await registro.pushManager.getSubscription();
       const inscricao =

@@ -142,9 +142,28 @@ export function Sino({
 function Interruptor() {
   const { estado, ativar, desativar } = usePush();
 
-  // Sem suporte nao ha o que oferecer, e "verificando" nao vira interruptor
-  // meio ligado: o pé so aparece quando ha uma resposta.
-  if (estado === "verificando" || estado === "indisponivel") return null;
+  // "verificando" nao vira interruptor meio ligado: o pé so aparece quando ha
+  // uma resposta.
+  if (estado === "verificando") return null;
+
+  /*
+   * Sem suporte é quase sempre uma de duas coisas, e as duas tem conserto do
+   * lado de quem le — por isso o texto, e nao o silencio:
+   *
+   * - a pagina esta em `http` (o servidor de desenvolvimento na rede local, por
+   *   exemplo). Fora de `localhost`, o navegador nao entrega service worker
+   *   nem push sem `https`;
+   * - é um iPhone com o site aberto no Safari, e nao pelo icone da tela de
+   *   inicio. O iOS so libera push para o app instalado.
+   */
+  if (estado === "indisponivel") {
+    return (
+      <p className="sticky bottom-0 border-t border-tinta/10 bg-white px-4 py-3 text-xs leading-relaxed text-neutral-500">
+        Este navegador não aceita avisos aqui. No iPhone, abra pelo ícone do app
+        na tela de início; e a página precisa estar em <code>https</code>.
+      </p>
+    );
+  }
 
   if (estado === "negado") {
     return (
