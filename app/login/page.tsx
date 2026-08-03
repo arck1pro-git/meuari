@@ -118,24 +118,28 @@ export default async function LoginPage({
       </div>
 
       <main className="escalonar relative w-full max-w-sm">
-        {/* Marca em circulo branco, como no cabecalho do portal: a arte é
-            horizontal (1526x859), entao `object-contain` — recortar comeria as
-            letras das pontas. */}
-        <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white p-4 shadow-[0_4px_14px_-6px_rgb(0_20_73_/_0.3)] ring-1 ring-tinta/10">
-          <Image
-            src="/ARI.png"
-            alt="ARI"
-            width={1526}
-            height={859}
-            className="h-auto w-full object-contain"
-            loading="eager"
-          />
-        </span>
+        {/* O logo do app, o mesmo icone da tela de inicio. Ele ja é quadrado
+            e ja traz o fundo tinta, entao dispensa o circulo branco que a arte
+            deitada exigia — aqui basta arredondar. */}
+        <Image
+          src="/logo.png"
+          alt="Meu ARI"
+          width={1080}
+          height={1080}
+          className="mx-auto h-20 w-20 rounded-2xl shadow-[0_6px_18px_-6px_rgb(0_20_73_/_0.45)]"
+          loading="eager"
+        />
 
-        {/* Mesmo degrade do cartao do grafico. */}
-        <div className="sombra-cartao-alta mt-6 rounded-2xl bg-linear-to-br from-marinho via-azul to-ceu p-6 text-white sm:p-8">
-          <h1 className="text-2xl font-semibold tracking-tight">Meu ARI</h1>
-          <p className="mt-2 text-sm leading-relaxed text-white/80">
+        {/*
+          * O mesmo cartao escuro do resto do app: a classe `degrade-cartao` do
+          * `globals.css`, em CSS puro. Antes era um degrade montado com os
+          * utilitarios do Tailwind e terminando no `ceu`, que é justamente o
+          * par que foi trocado no portal — o fim claro lavava o canto e as
+          * camadas de `color-mix` sumiam em alguns navegadores.
+          */}
+        <div className="degrade-cartao sombra-cartao-alta mt-6 rounded-2xl p-6 text-white sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight">Meu ARI</h1>
+          <p className="mt-2 text-sm leading-relaxed text-white/75">
             Entre para acompanhar seus aportes, sua participação nos resultados e
             o andamento da obra.
           </p>

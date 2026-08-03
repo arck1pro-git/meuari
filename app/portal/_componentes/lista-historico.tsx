@@ -5,7 +5,7 @@ import {
   formatarMoeda,
   formatarPercentual,
 } from "@/lib/portal/formato";
-import { IconeSetaDireita } from "./icones";
+import { IconeTransparencia } from "./icones";
 import { Cartao } from "./ui";
 
 /*
@@ -26,14 +26,14 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
   return (
     /* Um cartao por aporte. A lista continua sendo lista para quem le por
        audio — a mudanca é de forma, nao de semantica. */
-    <ol className="escalonar space-y-3">
+    <ol className="escalonar space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
       {itens.map(({ aporte, taxaAnterior }) => (
         <li key={aporte.id}>
-          {/* Elevacao leve: sao muitos, e a sombra padrao repetida a cada 12px
-              preenche os vaos e faz a pilha ler cinza. */}
-          <Cartao elevacao="leve">
+          <Cartao>
             <div className="flex items-baseline justify-between gap-4">
-              <p className="text-lg font-semibold tabular-nums text-black">
+              {/* O valor sai no ouro da marca, o mesmo do ARI no cartao de
+                  saldo e do icone da secao aberta no rodape. */}
+              <p className="text-lg font-bold tabular-nums text-ouro">
                 {formatarMoeda(aporte.valor)}
               </p>
               {/* `dateTime` carrega o ISO: com a data em numeros, `10/03` é
@@ -46,7 +46,9 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
               </time>
             </div>
 
-            <p className="mt-1 text-sm text-neutral-500">
+            {/* Linha de contexto, nao de leitura: quem já viu o valor e a data
+                so precisa dela de relance. Menor que o resto do cartao. */}
+            <p className="mt-1 text-xs text-neutral-500">
               {aporte.tipo} · {aporte.empreendimentoNome}
             </p>
 
@@ -54,23 +56,49 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
                 direita. O `min-h` segura a linha quando falta o atalho, para a
                 participacao nao mudar de altura. */}
             <div className="mt-4 flex min-h-8 items-center justify-between gap-3">
-              <p className="text-sm text-neutral-600">
-                Participacao{" "}
-                <span className="font-semibold text-black">
-                  {formatarPercentual(aporte.taxaMensal)} ao mês
-                </span>
-              </p>
+              {/* A participacao e a troca de taxa sao a mesma lista: uma diz
+                  quanto vale hoje, a outra de onde veio. Separadas, a segunda
+                  parecia comentario solto no pé do cartao. */}
+              <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-600 marker:text-marinho">
+                <li>
+                  Participacao{" "}
+                  <span className="font-semibold tabular-nums text-black">
+                    {formatarPercentual(aporte.taxaMensal)} ao mês
+                  </span>
+                </li>
 
-              <span className="flex shrink-0 items-center gap-3">
+                {taxaAnterior !== undefined && (
+                  <li>
+                    <span className="tabular-nums">
+                      {formatarPercentual(taxaAnterior)}
+                    </span>
+                    <span aria-hidden className="mx-1.5 text-neutral-400">
+                      →
+                    </span>
+                    <span className="sr-only">passou para </span>
+                    <span className="font-semibold tabular-nums text-black">
+                      {formatarPercentual(aporte.taxaMensal)}
+                    </span>
+                  </li>
+                )}
+              </ul>
+
+              {/* Empilhados: o contrato em cima, o foguinho embaixo. Antes o
+                  atalho era a palavra "Contrato" ao lado do fogo, e a linha
+                  ficava com tres coisas disputando a mesma altura. */}
+              <span className="flex shrink-0 flex-col items-center gap-1.5">
                 {aporte.documento && (
                   <a
                     href={aporte.documento}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium text-marinho transition-colors hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+                    // O nome fica no `sr-only`: sem texto visivel, o link
+                    // precisa de algum nome para quem le por audio, e "Contrato"
+                    // diz mais do que o arquivo em si.
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-marinho/8 text-marinho transition-colors duration-200 hover:bg-marinho/15 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
                   >
-                    Contrato
-                    <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    <IconeTransparencia className="h-4.5 w-4.5" />
+                    <span className="sr-only">Contrato</span>
                   </a>
                 )}
 
@@ -85,23 +113,6 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
                 />
               </span>
             </div>
-
-            {taxaAnterior !== undefined && (
-              <ul className="mt-2 list-disc pl-5 text-sm text-neutral-600 marker:text-marinho">
-                <li>
-                  <span className="tabular-nums">
-                    {formatarPercentual(taxaAnterior)}
-                  </span>
-                  <span aria-hidden className="mx-1.5 text-neutral-400">
-                    →
-                  </span>
-                  <span className="sr-only">passou para </span>
-                  <span className="font-semibold tabular-nums text-black">
-                    {formatarPercentual(aporte.taxaMensal)}
-                  </span>
-                </li>
-              </ul>
-            )}
           </Cartao>
         </li>
       ))}

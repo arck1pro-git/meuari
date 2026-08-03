@@ -14,16 +14,22 @@ export default async function LoginPage({
   const { erro } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-5">
-      <div className="w-full max-w-sm rounded-2xl border border-tinta/10 bg-white p-8 shadow-sm">
-        <h1 className="text-lg font-bold text-tinta">Administracao</h1>
+    // O mesmo fundo pontilhado da entrada do investidor, com a mesma mascara
+    // que apaga os pontos nas bordas.
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-white px-5">
+      <div aria-hidden className="pontilhado absolute inset-0" />
+
+      <div className="sombra-cartao-alta relative w-full max-w-sm animate-surgir rounded-2xl border border-tinta/12 bg-white p-8">
+        <h1 className="text-lg font-bold tracking-tight text-black">
+          Administração
+        </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Area restrita a administradores.
+          Área restrita a administradores.
         </p>
 
         {erro === "restrito" && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            Sua conta nao tem acesso a esta area.
+          <p className="mt-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+            Sua conta não tem acesso a esta área.
           </p>
         )}
 

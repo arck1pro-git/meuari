@@ -117,9 +117,10 @@ export function GraficoRecebimentos({
       MARGEM.topo + plot.altura - (valor / topo) * plot.altura;
 
     // Uma fatia por mes, com respiro proporcional: em 11 meses a barra fica
-    // larga, em 60 fica fina, e em nenhum dos dois encosta na vizinha.
+    // larga, em 60 fica fina, e em nenhum dos dois encosta na vizinha. A barra
+    // ocupa 80% da fatia — os 20% restantes sao o vao, metade de cada lado.
     const fatia = plot.largura / pagamentos.length;
-    const espessura = Math.max(2, fatia * 0.62);
+    const espessura = Math.max(2, fatia * 0.8);
 
     return {
       plot,

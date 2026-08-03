@@ -18,10 +18,10 @@ const RECUO = -96;
 const RESPEITAR_MENOS_MOVIMENTO = true;
 
 /*
- * A instancia mora no modulo, e nao num contexto do React: quem precisa dela
- * (a rolagem por ancora, dentro do `Abas`) so quer disparar um efeito, nao
- * re-renderizar quando ela muda. Um contexto aqui custaria um provider e um
- * re-render em toda a arvore, sem nada em troca.
+ * A instancia mora no modulo, e nao num contexto do React: quem rola por
+ * ancora so quer disparar um efeito, nao re-renderizar quando ela muda. Um
+ * contexto aqui custaria um provider e um re-render em toda a arvore, sem nada
+ * em troca.
  */
 let instancia: Lenis | null = null;
 
@@ -44,13 +44,13 @@ export function RolagemSuave() {
     }
 
     /*
-     * `autoRaf` deixa o proprio Lenis tocar o loop de quadros. E `anchors` fica
-     * desligado: as ancoras daqui apontam para dentro de paineis de aba, que
-     * precisam ser abertos antes da rolagem. Quem cuida disso é o `Abas`, e ele
-     * termina chamando `rolarAte` — com os dois ligados, haveria duas rolagens
-     * disputando o mesmo destino.
+     * `autoRaf` deixa o proprio Lenis tocar o loop de quadros. `anchors` ficava
+     * desligado enquanto as secoes eram abas: o alvo vivia num painel escondido,
+     * que precisava abrir antes da rolagem, e quem cuidava disso chamava
+     * `rolarAte` no fim. Agora cada secao é uma rota e toda ancora aponta para
+     * algo visivel na propria pagina — o Lenis pode cuidar delas sozinho.
      */
-    const lenis = new Lenis({ autoRaf: true });
+    const lenis = new Lenis({ autoRaf: true, anchors: { offset: RECUO } });
     instancia = lenis;
 
     return () => {

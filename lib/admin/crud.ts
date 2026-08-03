@@ -23,9 +23,27 @@ function coluna(campo: Campo): string {
   return campo.tipo === "senha" ? "senha_hash" : campo.nome;
 }
 
-export async function listar(t: Tabela): Promise<Linha[]> {
+export async function listar(
+  t: Tabela,
+  filtro?: { campo: string; valor: string },
+): Promise<Linha[]> {
+  /*
+   * O nome da coluna é conferido contra o registro antes de entrar na consulta.
+   * Coluna nao pode ser `$1` — ela faz parte do texto do SQL —, entao a defesa
+   * é so essa: o que nao esta declarado como filtro nao filtra nada.
+   */
+  const permitido = filtro && t.filtros?.includes(filtro.campo);
+  if (!permitido) {
+    return consultar(
+      `select * from ${ident(t.tabela)} order by criado_em desc limit 200`,
+    );
+  }
+
   return consultar(
-    `select * from ${ident(t.tabela)} order by criado_em desc limit 200`,
+    `select * from ${ident(t.tabela)}
+      where ${ident(filtro.campo)} = $1
+      order by criado_em desc limit 200`,
+    [filtro.valor],
   );
 }
 

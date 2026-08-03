@@ -31,6 +31,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# as variaveis de ambiente prontas para colar no painel da Vercel — é o .env
+# inteiro em outro formato, entao vale a mesma regra: nunca no git.
+vercel.txt
+
+# credenciais de conta de servico do Firebase — o JSON que o console baixa
+# carrega uma private_key com poder de enviar push e mexer no projeto inteiro.
+# Nunca no git.
+*firebase-adminsdk*.json
+*-service-account*.json
+
 # env files (can opt-in for committing if needed)
 .env*
 

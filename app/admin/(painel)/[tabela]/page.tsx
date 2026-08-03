@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { listar, obter, opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
 import { acaoExcluir } from "../../acoes";
+import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
 
 export const dynamic = "force-dynamic";
@@ -29,40 +30,72 @@ export default async function TabelaPage({
   searchParams,
 }: {
   params: Promise<{ tabela: string }>;
-  searchParams: Promise<{ editar?: string }>;
+  /** `f` é o valor do filtro declarado no registro da tabela. */
+  searchParams: Promise<{ editar?: string; f?: string }>;
 }) {
   const { tabela: slug } = await params;
-  const { editar } = await searchParams;
+  const { editar, f } = await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
   if (!tabela) notFound();
 
-  const [linhas, rotulos, emEdicao] = await Promise.all([
-    listar(tabela),
+  /*
+   * So a primeira coluna declarada em `filtros` — hoje nenhuma tabela pede
+   * duas, e uma fila de seletores para um caso hipotetico seria peso morto.
+   */
+  const campoDoFiltro = tabela.filtros?.[0];
+  const campoReferencia = tabela.campos.find((c) => c.nome === campoDoFiltro);
+  const filtro = campoDoFiltro && f ? { campo: campoDoFiltro, valor: f } : undefined;
+
+  const [linhas, rotulos, emEdicao, opcoesDoFiltro] = await Promise.all([
+    listar(tabela, filtro),
     mapaDeRotulos(tabela),
     editar ? obter(tabela, editar) : Promise.resolve(undefined),
+    campoReferencia ? opcoesDeReferencia(campoReferencia) : Promise.resolve([]),
   ]);
 
   return (
     <>
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-xl font-bold">{tabela.rotulo}</h1>
-        <span className="text-xs text-neutral-500">
-          {linhas.length} {linhas.length === 1 ? "registro" : "registros"}
-        </span>
+      <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
+        <h1 className="text-base font-bold tracking-tight text-black">
+          {tabela.rotulo}
+        </h1>
+        <div className="flex shrink-0 items-center gap-4">
+          {campoReferencia && (
+            <FiltroDaListagem
+              rotulo={campoReferencia.rotulo}
+              parametro="f"
+              opcoes={opcoesDoFiltro}
+              selecionado={f ?? ""}
+              destino={`/admin/${tabela.slug}`}
+            />
+          )}
+
+          <span className="text-xs text-neutral-500">
+            <span className="font-bold tabular-nums text-ouro">
+              {linhas.length}
+            </span>{" "}
+            {linhas.length === 1 ? "registro" : "registros"}
+          </span>
+        </div>
       </div>
 
       <div className="mt-6">
         <Formulario tabela={tabela} linha={emEdicao} />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-tinta/10 bg-white">
+      {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
+          dentro do cartao em vez de empurrar a pagina inteira de lado. */}
+      <div className="sombra-cartao mt-6 overflow-x-auto rounded-2xl border border-tinta/12 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-tinta/10 text-xs text-neutral-500">
+          <thead className="border-b border-tinta/10 bg-tinta/[0.03] text-xs text-neutral-500">
             <tr>
               {tabela.colunas.map((c) => (
-                <th key={c} className="px-4 py-3 font-medium whitespace-nowrap">
+                <th
+                  key={c}
+                  className="px-4 py-3 font-medium tracking-wide whitespace-nowrap uppercase"
+                >
                   {c}
                 </th>
               ))}
@@ -74,7 +107,7 @@ export default async function TabelaPage({
               <tr>
                 <td
                   colSpan={tabela.colunas.length + 1}
-                  className="px-4 py-8 text-center text-sm text-neutral-400"
+                  className="px-4 py-10 text-center text-sm text-neutral-500"
                 >
                   Nenhum registro ainda.
                 </td>
@@ -82,7 +115,10 @@ export default async function TabelaPage({
             )}
 
             {linhas.map((linha: Linha) => (
-              <tr key={String(linha.id)}>
+              <tr
+                key={String(linha.id)}
+                className="transition-colors duration-200 hover:bg-azul/[0.04]"
+              >
                 {tabela.colunas.map((c) => (
                   <td key={c} className="px-4 py-3 whitespace-nowrap">
                     {exibir(linha[c], rotulos)}
@@ -91,7 +127,7 @@ export default async function TabelaPage({
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   <Link
                     href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
-                    className="text-xs font-medium text-marinho hover:text-azul"
+                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
                   >
                     Editar
                   </Link>
@@ -103,11 +139,11 @@ export default async function TabelaPage({
                       tabela.slug,
                       String(linha.id),
                     )}
-                    className="ml-4 inline"
+                    className="ml-1 inline"
                   >
                     <button
                       type="submit"
-                      className="text-xs font-medium text-red-600 hover:text-red-700"
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-red-600 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                     >
                       Excluir
                     </button>

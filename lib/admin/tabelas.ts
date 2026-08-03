@@ -50,6 +50,13 @@ export type Tabela = {
   campos: Campo[];
   /** Colunas mostradas na listagem. */
   colunas: string[];
+  /**
+   * Campos de `referencia` que viram filtro no topo da listagem.
+   *
+   * Sai daqui, e nunca da URL: o nome da coluna entra no texto do SQL, e é o
+   * mesmo cuidado dos nomes de tabela. O valor, esse sim, vai parametrizado.
+   */
+  filtros?: string[];
 };
 
 export const TABELAS: Tabela[] = [
@@ -104,6 +111,9 @@ export const TABELAS: Tabela[] = [
     tabela: "contratos",
     rotuloRef: "data",
     colunas: ["usuario_id", "data", "valor", "taxa", "modalidade", "tipo"],
+    // Um investidor tem varios aportes, e a pergunta de sempre é "o que fulano
+    // tem". Sem filtro, a lista é a mistura de todo mundo em ordem de criacao.
+    filtros: ["usuario_id"],
     campos: [
       {
         nome: "usuario_id",

@@ -11,7 +11,7 @@ export function FormularioLogin() {
   return (
     <form action={acao} className="mt-6 space-y-4">
       <label className="block">
-        <span className="text-xs font-medium text-neutral-600">
+        <span className="text-xs font-semibold text-neutral-600">
           E-mail ou usuário
         </span>
         <input
@@ -24,18 +24,18 @@ export function FormularioLogin() {
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          className="mt-1 w-full rounded-lg border border-tinta/15 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+          className="mt-1.5 w-full rounded-xl border border-tinta/12 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
         />
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-600">Senha</span>
+        <span className="text-xs font-semibold text-neutral-600">Senha</span>
         <input
           name="senha"
           type="password"
           required
           autoComplete="current-password"
-          className="mt-1 w-full rounded-lg border border-tinta/15 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+          className="mt-1.5 w-full rounded-xl border border-tinta/12 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
         />
       </label>
 
@@ -48,9 +48,9 @@ export function FormularioLogin() {
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded-lg bg-marinho px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-azul disabled:opacity-60"
+        className="w-full rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 disabled:opacity-60"
       >
-        {enviando ? "Entrando..." : "Entrar"}
+        {enviando ? "Entrando…" : "Entrar"}
       </button>
     </form>
   );

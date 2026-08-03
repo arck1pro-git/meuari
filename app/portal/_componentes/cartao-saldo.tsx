@@ -29,30 +29,35 @@ export function CartaoSaldo({
     // cartao e a segunda, mais aberta, faz a queda. O spread negativo segura as
     // laterais, entao a sombra le como peso na base e nao como halo em volta.
     // Tingida de `tinta` — preto puro sobre branco esverdeia a borda.
-    <div className="sombra-cartao hover:sombra-cartao-alta mx-auto w-full max-w-sm animate-surgir rounded-2xl bg-white px-5 py-4 ring-1 ring-tinta/10 transition-shadow duration-300 [animation-delay:90ms]">
-      {/* O atalho sobe para a linha do saldo e centra com ele; a frase abaixo
-          fica com a largura inteira do cartao. */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-black sm:text-3xl">
-          {saldo}
-        </p>
+    <div className="sombra-cartao hover:sombra-cartao-alta mx-auto w-full max-w-sm animate-surgir rounded-2xl bg-white px-5 py-4 ring-1 ring-tinta/10 transition-shadow duration-300 md:flex md:max-w-none md:items-center md:justify-between md:gap-10 md:px-8 md:py-6 [animation-delay:90ms]">
+      {/*
+       * `contents` no mobile: o invólucro nao existe para o layout, e as duas
+       * partes seguem empilhadas como sempre. A partir do desktop ele vira
+       * bloco e passa a ser a coluna da esquerda do cartao. Assim a mudanca é
+       * so de CSS — a marcacao é a mesma nos dois tamanhos.
+       */}
+      <div className="contents md:block">
+        {/* O atalho sobe para a linha do saldo e centra com ele; a frase abaixo
+            fica com a largura inteira do cartao. */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-3xl font-semibold tracking-tight text-black sm:text-4xl">
+            {saldo}
+          </p>
 
-        {/* Ancora comum: o alvo esta na mesma pagina. Quem cuida de abrir a aba
-            certa antes de rolar é o componente `Abas`. Sem aporte nao ha
-            historico para onde levar. */}
-        {resultado && (
-          <a
-            href="#historico"
-            className="group inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium text-marinho transition-colors hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-          >
-            Historico
-            <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </a>
-        )}
-      </div>
+          {/* Ancora comum: o alvo esta logo abaixo, na mesma pagina. Sem aporte
+              nao ha historico para onde levar. */}
+          {resultado && (
+            <a
+              href="#historico"
+              className="group inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium text-marinho transition-colors hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 md:ml-6"
+            >
+              Historico
+              <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </a>
+          )}
+        </div>
 
-      {resultado ? (
-        <>
+        {resultado ? (
           <p
             className={`mt-1.5 text-xs font-medium ${
               resultado.subiu ? "text-azul" : "text-neutral-500"
@@ -97,22 +102,26 @@ export function CartaoSaldo({
               aportes acumularam {resultado.rentabilidade} até agora.
             </span>
           </p>
-
-          <p className="mt-2.5">
-            <Etiqueta tom="destaque">
-              {/* Uma taxa só: a participacao vigente vale para o capital
-                  inteiro, e é a ultima contratada. */}
-              Sua participação nos resultados é de{" "}
-              <span className="font-semibold">{resultado.participacao}</span> ao
-              mês com o <span className="font-bold text-ouro">ARI</span>
-            </Etiqueta>
+        ) : (
+          /* Carteira vazia: nada de frase rotativa nem de participacao — nao ha
+             numero para girar. */
+          <p className="mt-1.5 text-xs font-medium text-neutral-500">
+            Você ainda não tem aportes registrados.
           </p>
-        </>
-      ) : (
-        /* Carteira vazia: nada de frase rotativa nem de participacao — nao ha
-           numero para girar. */
-        <p className="mt-1.5 text-xs font-medium text-neutral-500">
-          Você ainda não tem aportes registrados.
+        )}
+      </div>
+
+      {/* A participacao vai para a direita no desktop, e continua embaixo no
+          mobile. `shrink-0` para a frase nao ser espremida pelo numero. */}
+      {resultado && (
+        <p className="mt-2.5 md:mt-0 md:max-w-xs md:shrink-0">
+          <Etiqueta tom="destaque">
+            {/* Uma taxa só: a participacao vigente vale para o capital
+                inteiro, e é a ultima contratada. */}
+            Sua participação nos resultados é de{" "}
+            <span className="font-semibold">{resultado.participacao}</span> ao
+            mês com o <span className="font-bold text-ouro">ARI</span>
+          </Etiqueta>
         </p>
       )}
     </div>

@@ -34,16 +34,6 @@ export function IconeMais({ className = "h-5 w-5" }) {
   );
 }
 
-/** Sino: a caixa de notificacoes. */
-export function IconeSino({ className = "h-5 w-5" }) {
-  return (
-    <svg {...BASE} className={className}>
-      <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
-      <path d="M13.7 20a2 2 0 0 1-3.4 0" />
-    </svg>
-  );
-}
-
 /** Fotos empilhadas: a galeria da obra. */
 export function IconeGaleria({ className = "h-5 w-5" }) {
   return (

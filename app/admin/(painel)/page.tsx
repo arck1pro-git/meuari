@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { consultar } from "@/lib/db";
 import { TABELAS } from "@/lib/admin/tabelas";
+import { IconeSetaDireita } from "@/app/portal/_componentes/icones";
 
 // Contagem por tabela, sempre do banco — nada de cache entre visitas.
 export const dynamic = "force-dynamic";
@@ -18,22 +19,35 @@ export default async function AdminPage() {
 
   return (
     <>
-      <h1 className="text-xl font-bold">Tabelas</h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <h1 className="animate-surgir text-base font-bold tracking-tight text-black">
+        Tabelas
+      </h1>
+      <p className="mt-1 animate-surgir text-sm text-neutral-500 [animation-delay:60ms]">
         Criar, editar e excluir registros de cada tabela.
       </p>
 
-      <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="escalonar mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {contagens.map((t) => (
           <li key={t.slug}>
             <Link
               href={`/admin/${t.slug}`}
-              className="block rounded-xl border border-tinta/10 bg-white p-5 transition-shadow hover:shadow-md"
+              className="sombra-cartao hover:sombra-cartao-alta group flex h-full items-center justify-between gap-4 rounded-2xl border border-tinta/12 bg-white p-5 transition-shadow duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
             >
-              <span className="block text-sm font-semibold">{t.rotulo}</span>
-              <span className="mt-1 block text-xs text-neutral-500">
-                {t.total} {t.total === 1 ? "registro" : "registros"}
+              <span>
+                <span className="block text-sm font-semibold text-tinta">
+                  {t.rotulo}
+                </span>
+                {/* A contagem em ouro, como o "agora" do portal: é o dado da
+                    peca, e o resto do cartao é rotulo. */}
+                <span className="mt-1 block text-xs text-neutral-500">
+                  <span className="font-bold tabular-nums text-ouro">
+                    {t.total}
+                  </span>{" "}
+                  {t.total === 1 ? "registro" : "registros"}
+                </span>
               </span>
+
+              <IconeSetaDireita className="h-5 w-5 shrink-0 text-marinho transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </li>
         ))}

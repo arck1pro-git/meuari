@@ -12,6 +12,22 @@ self.addEventListener("activate", (evento) =>
   evento.waitUntil(self.clients.claim()),
 );
 
+/*
+ * Repasse puro: pede a rede e devolve o que vier, sem guardar nada.
+ *
+ * Existe por uma exigencia do Chrome — para oferecer a instalacao do app, ele
+ * quer um service worker com tratador de `fetch`. Sem isto o portal nao aparece
+ * como instalavel, mesmo com manifesto completo.
+ *
+ * E de proposito que ele nao faz cache: o portal é todo dinamico (saldo,
+ * creditos, URLs assinadas que expiram) e servir uma copia velha disso seria
+ * pior do que nao funcionar offline.
+ */
+self.addEventListener("fetch", (evento) => {
+  if (evento.request.method !== "GET") return;
+  evento.respondWith(fetch(evento.request));
+});
+
 self.addEventListener("push", (evento) => {
   // O corpo pode vir como JSON ou texto puro, dependendo de quem enviou.
   let dados = { titulo: "Meu ARI", corpo: "", url: "/portal" };
@@ -24,8 +40,8 @@ self.addEventListener("push", (evento) => {
   evento.waitUntil(
     self.registration.showNotification(dados.titulo, {
       body: dados.corpo,
-      icon: "/ARI.png",
-      badge: "/ARI.png",
+      icon: "/icons/app-192.png",
+      badge: "/icons/app-192.png",
       data: { url: dados.url },
     }),
   );

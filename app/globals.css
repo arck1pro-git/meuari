@@ -205,26 +205,14 @@ body {
  * segurando as laterais: a sombra le como peso na base, e nao como halo em
  * volta. Tingida de `tinta` — preto puro sobre branco esverdeia a borda.
  *
- * Mora aqui, e nao em valor arbitrario no JSX, porque o cartao de saldo e o
- * `Cartao` compartilham a mesma elevacao; duplicada, uma das duas sairia do
- * lugar no primeiro ajuste.
+ * Mora aqui, e nao em valor arbitrario no JSX, porque o cartao de saldo, o
+ * `Cartao` e os cartoes de artigo compartilham a mesma elevacao; duplicada,
+ * uma delas sairia do lugar no primeiro ajuste.
  */
 @utility sombra-cartao {
   box-shadow:
     0 3px 6px -2px rgb(0 20 73 / 0.12),
     0 14px 26px -8px rgb(0 20 73 / 0.2);
-}
-
-/**
- * A mesma ideia, bem mais rasa. Para pilha de cartoes: com 9 deles a 12px de
- * distancia, a `sombra-cartao` preenche os vaos e o conjunto inteiro le cinza,
- * mesmo com cada cartao sendo branco puro. Sozinha, aquela sombra é elegante;
- * repetida, vira fundo.
- */
-@utility sombra-cartao-leve {
-  box-shadow:
-    0 1px 2px rgb(0 20 73 / 0.05),
-    0 5px 10px -6px rgb(0 20 73 / 0.1);
 }
 
 /** O mesmo desenho, mais fundo. Para o estado de hover. */
@@ -288,6 +276,22 @@ body {
     #001449 0%,
     #001449 55%,
     #012677 100%
+  );
+}
+
+/**
+ * Veu na base da foto, para titulo branco por cima de imagem.
+ *
+ * Escurece so o pé: a foto continua sendo a foto, e o texto ganha um chao
+ * escuro onde apoiar. Vai ate 68% da altura para a passagem nao ter linha
+ * visivel. Em rgba literal, pelo mesmo motivo dos outros degrades daqui.
+ */
+.veu-foto {
+  background-image: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.45) 34%,
+    rgba(0, 0, 0, 0) 68%
   );
 }
 

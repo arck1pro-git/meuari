@@ -3,8 +3,10 @@ import type { Campo, Tabela } from "@/lib/admin/tabelas";
 import { acaoAtualizar, acaoCriar } from "../../acoes";
 import { CampoArquivo } from "./campo-arquivo";
 
+/* O mesmo desenho de campo do login: canto de 12px, borda discreta e o anel
+   azul so no foco por teclado. */
 const CLASSE_CAMPO =
-  "mt-1 w-full rounded-lg border border-tinta/15 bg-white px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-azul";
+  "mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
 
 /**
  * `AAAA-MM-DD` para o `input[type=date]`.
@@ -69,7 +71,7 @@ async function CampoDoFormulario({
 
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-600">
+      <span className="text-xs font-semibold text-neutral-600">
         {campo.rotulo}
         {campo.obrigatorio && campo.tipo !== "senha" && (
           <span aria-hidden className="text-red-600">
@@ -162,9 +164,9 @@ export async function Formulario({
        */
       key={editando ? String(linha!.id) : "novo"}
       action={acao}
-      className="rounded-xl border border-tinta/10 bg-white p-5"
+      className="sombra-cartao animate-surgir rounded-2xl border border-tinta/12 bg-white p-5 sm:p-8 [animation-delay:60ms]"
     >
-      <h2 className="text-sm font-semibold">
+      <h2 className="text-sm font-bold tracking-tight text-black">
         {editando ? "Editar registro" : `Novo em ${tabela.rotulo}`}
       </h2>
 
@@ -179,17 +181,17 @@ export async function Formulario({
         ))}
       </div>
 
-      <div className="mt-5 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-3">
         <button
           type="submit"
-          className="rounded-lg bg-marinho px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-azul"
+          className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
         >
           {editando ? "Salvar" : "Criar"}
         </button>
         {editando && (
           <a
             href={`/admin/${tabela.slug}`}
-            className="rounded-lg border border-tinta/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-tinta/5"
+            className="rounded-xl border border-tinta/12 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
           >
             Cancelar
           </a>

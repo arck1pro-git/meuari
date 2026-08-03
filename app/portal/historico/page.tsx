@@ -4,7 +4,7 @@ import { exigirSessao } from "@/lib/auth";
 import { montarHistorico } from "@/lib/portal/calculo";
 import { getAportes, getEmpreendimentos } from "@/lib/portal/dados";
 import { getNotificacoes } from "@/lib/portal/notificacoes";
-import { Cabecalho } from "../_componentes/cabecalho";
+import { Moldura } from "../_componentes/moldura";
 import { IconeSetaEsquerda } from "../_componentes/icones";
 import { ListaHistorico } from "../_componentes/lista-historico";
 
@@ -48,10 +48,9 @@ export default async function HistoricoPage({
     : undefined;
 
   return (
-    <div className="flex flex-1 flex-col">
-      <Cabecalho nome={sessao.nome} notificacoes={notificacoes} />
+    <Moldura nome={sessao.nome} notificacoes={notificacoes}>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         {/* A volta leva ao /portal com o mesmo filtro, para a pessoa cair de
             novo na tela que deixou. */}
         <Link
@@ -78,6 +77,6 @@ export default async function HistoricoPage({
             como filho unico e os cartoes entrariam todos de uma vez. */}
         <ListaHistorico itens={historico} />
       </main>
-    </div>
+    </Moldura>
   );
 }

@@ -9,7 +9,7 @@ import { entrar } from "./acoes";
  * campo transparente o resultado sai de outra cor. Branco ja é o destino dele.
  */
 const CLASSE_CAMPO =
-  "mt-1 w-full rounded-xl border border-transparent bg-white px-4 py-2.5 text-sm text-tinta transition-shadow placeholder:text-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-azul";
+  "mt-1.5 w-full rounded-xl border border-transparent bg-white px-3.5 py-2.5 text-sm text-tinta transition-shadow placeholder:text-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho";
 
 export function FormularioLogin({ proximo }: { proximo?: string }) {
   // `useActionState` devolve o que a acao retorna — sem estado proprio nem
@@ -23,7 +23,7 @@ export function FormularioLogin({ proximo }: { proximo?: string }) {
       {proximo && <input type="hidden" name="proximo" value={proximo} />}
 
       <label className="block">
-        <span className="text-xs font-medium text-white/80">
+        <span className="text-xs font-semibold text-white/75">
           E-mail ou usuário
         </span>
         <input
@@ -47,7 +47,7 @@ export function FormularioLogin({ proximo }: { proximo?: string }) {
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-white/80">Senha</span>
+        <span className="text-xs font-semibold text-white/75">Senha</span>
         <input
           name="senha"
           type="password"
@@ -71,9 +71,9 @@ export function FormularioLogin({ proximo }: { proximo?: string }) {
       <button
         type="submit"
         disabled={enviando}
-        className="flex w-full items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-marinho transition-all duration-200 hover:bg-ciano hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-azul active:scale-[0.98] disabled:opacity-60"
+        className="mt-6 flex w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-marinho transition-all duration-200 hover:bg-ciano hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho active:scale-[0.98] disabled:opacity-60"
       >
-        {enviando ? "Entrando..." : "Entrar"}
+        {enviando ? "Entrando…" : "Entrar"}
       </button>
     </form>
   );

@@ -235,3 +235,56 @@ async function resolver<T extends Arquivo>(
     .map((item) => ({ ...item, url: assinadas.get(item.url) ?? null }))
     .filter((item): item is T => Boolean(item.url));
 }
+
+/** Quem é a pessoa, para a tela de perfil. */
+export type Perfil = {
+  nome: string;
+  email: string;
+  /** `investidor` ou `administrador`. */
+  tipo: string;
+  /** Data de criacao da conta, em `AAAA-MM-DD`. */
+  desde: DataISO;
+  /** Quantos aportes e quantas obras — o resumo do vinculo com o ARI. */
+  aportes: number;
+  obras: number;
+};
+
+export async function getPerfil(usuarioId: string): Promise<Perfil | null> {
+  /*
+   * Um `select` só: os dois contadores vem de subconsultas em vez de `join` +
+   * `group by`, porque um join com contratos multiplicaria a linha do usuario e
+   * o `distinct` para desfazer isso é justamente o que se quer evitar.
+   */
+  const [linha] = await consultar<{
+    nome: string;
+    email: string;
+    tipo: string;
+    desde: string;
+    aportes: string;
+    obras: string;
+  }>(
+    `select u.nome,
+            u.email,
+            u.tipo,
+            to_char(u.criado_em, 'YYYY-MM-DD') as desde,
+            (select count(*) from contratos c where c.usuario_id = u.id) as aportes,
+            (select count(distinct c.empreendimento_id)
+               from contratos c where c.usuario_id = u.id) as obras
+       from usuarios u
+      where u.id = $1`,
+    [usuarioId],
+  );
+
+  if (!linha) return null;
+
+  // `count` volta como texto no driver: bigint nao cabe em number com garantia,
+  // e o pg prefere nao decidir por nos.
+  return {
+    nome: linha.nome,
+    email: linha.email,
+    tipo: linha.tipo,
+    desde: linha.desde,
+    aportes: Number(linha.aportes),
+    obras: Number(linha.obras),
+  };
+}

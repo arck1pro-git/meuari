@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Arquivo, Empreendimento } from "@/lib/portal/dados";
 import { formatarData } from "@/lib/portal/formato";
-import { IconeGaleria, IconeSetaDireita, IconeSetaEsquerda } from "./icones";
-import { Cartao, Etiqueta } from "./ui";
+import {
+  IconeGaleria,
+  IconeSetaDireita,
+  IconeSetaEsquerda,
+} from "../../portal/_componentes/icones";
+import { Cartao, Etiqueta } from "../../portal/_componentes/ui";
 
 /*
  * As obras em que a pessoa aportou, e a ficha de cada uma.
@@ -20,7 +24,7 @@ import { Cartao, Etiqueta } from "./ui";
  * resto do que aquela obra tem a mostrar.
  */
 
-export function AbaEmpreendimentos({
+export function ListaDeObras({
   empreendimentos,
 }: {
   empreendimentos: Empreendimento[];
@@ -44,7 +48,7 @@ export function AbaEmpreendimentos({
   if (aberto) return <Ficha empreendimento={aberto} voltar={() => setAbertoId(null)} />;
 
   return (
-    <div className="escalonar space-y-3">
+    <div className="escalonar space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
       {empreendimentos.map((empreendimento) => (
         <button
           key={empreendimento.id}

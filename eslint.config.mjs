@@ -9,6 +9,10 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Build de verificacao, que o `NEXT_DIST_DIR` manda para fora do `.next`
+    // para nao atropelar o servidor de desenvolvimento. E codigo gerado como
+    // qualquer outro `.next` — nao passa pelo lint.
+    ".next-*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

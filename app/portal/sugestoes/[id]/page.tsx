@@ -5,7 +5,7 @@ import { exigirSessao } from "@/lib/auth";
 import { capa, getArtigo } from "@/lib/artigos";
 import { formatarData } from "@/lib/portal/formato";
 import { getNotificacoes } from "@/lib/portal/notificacoes";
-import { Cabecalho } from "../../_componentes/cabecalho";
+import { Moldura } from "../../_componentes/moldura";
 import { IconeSetaEsquerda } from "../../_componentes/icones";
 
 export const dynamic = "force-dynamic";
@@ -44,10 +44,9 @@ export default async function ArtigoPage({
   const imagem = capa(artigo);
 
   return (
-    <div className="flex flex-1 flex-col">
-      <Cabecalho nome={sessao.nome} notificacoes={notificacoes} />
+    <Moldura nome={sessao.nome} notificacoes={notificacoes}>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 pt-6 pb-28 sm:px-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         <Link
           href="/portal"
           className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-marinho transition-colors hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
@@ -99,6 +98,6 @@ export default async function ArtigoPage({
           />
         </article>
       </main>
-    </div>
+    </Moldura>
   );
 }
