@@ -144,9 +144,34 @@ export async function getRecebimentosLancados(usuarioId: string): Promise<
 }
 
 /**
+ * So o id e o nome dos empreendimentos da pessoa.
+ *
+ * O `/portal` precisava disto — validar o `?e=` da URL e montar o seletor —
+ * e estava chamando `getEmpreendimentos`, que alem da consulta traz
+ * documentos, imagens e videos e assina a URL de cada arquivo no Supabase. Eram
+ * tres consultas e uma ida a rede por bucket, toda vez, para acabar usando dois
+ * campos.
+ */
+export async function getEmpreendimentosBasicos(
+  usuarioId: string,
+): Promise<{ id: string; nome: string }[]> {
+  return consultar<{ id: string; nome: string }>(
+    `select distinct e.id, e.nome
+       from empreendimentos e
+       join contratos c on c.empreendimento_id = e.id
+      where c.usuario_id = $1
+      order by e.nome`,
+    [usuarioId],
+  );
+}
+
+/**
  * Empreendimentos que o investidor pode ver: aqueles em que ele aportou, e
  * nenhum outro. Um empreendimento sem aporte nao aparece no portal de ninguem —
  * o que é o comportamento certo, e nao um bug.
+ *
+ * Traz tudo: arquivos, fotos e videos, ja com URL assinada. Para quem so precisa
+ * de id e nome, ha `getEmpreendimentosBasicos` — bem mais barata.
  */
 export async function getEmpreendimentos(
   usuarioId: string,

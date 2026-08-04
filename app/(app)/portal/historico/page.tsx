@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { exigirSessao } from "@/lib/auth";
 import { montarHistorico } from "@/lib/portal/calculo";
-import { getAportes, getEmpreendimentos } from "@/lib/portal/dados";
-import { getNotificacoes } from "@/lib/portal/notificacoes";
-import { Moldura } from "../_componentes/moldura";
+import { getAportes, getEmpreendimentosBasicos } from "@/lib/portal/dados";
 import { IconeSetaEsquerda } from "../_componentes/icones";
 import { ListaHistorico } from "../_componentes/lista-historico";
 
@@ -26,12 +24,11 @@ export default async function HistoricoPage({
 }) {
   const sessao = await exigirSessao("/portal/historico");
 
-  const [{ e: escolhido }, todosOsAportes, empreendimentos, notificacoes] =
+  const [{ e: escolhido }, todosOsAportes, empreendimentos] =
     await Promise.all([
       searchParams,
       getAportes(sessao.id),
-      getEmpreendimentos(sessao.id),
-      getNotificacoes(sessao.id),
+      getEmpreendimentosBasicos(sessao.id),
     ]);
 
   // Mesmo filtro do /portal, validado do mesmo jeito: id alheio ou inventado
@@ -48,8 +45,6 @@ export default async function HistoricoPage({
     : undefined;
 
   return (
-    <Moldura nome={sessao.nome} notificacoes={notificacoes}>
-
       <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         {/* A volta leva ao /portal com o mesmo filtro, para a pessoa cair de
             novo na tela que deixou. */}
@@ -77,6 +72,5 @@ export default async function HistoricoPage({
             como filho unico e os cartoes entrariam todos de uma vez. */}
         <ListaHistorico itens={historico} />
       </main>
-    </Moldura>
   );
 }

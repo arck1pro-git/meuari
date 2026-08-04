@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { consultar } from "@/lib/db";
 import { TABELAS } from "@/lib/admin/tabelas";
-import { IconeSetaDireita } from "@/app/portal/_componentes/icones";
+import { IconeSetaDireita } from "@/app/(app)/portal/_componentes/icones";
 
 // Contagem por tabela, sempre do banco — nada de cache entre visitas.
 export const dynamic = "force-dynamic";

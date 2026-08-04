@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { exigirSessao } from "@/lib/auth";
 import { apurarPosicao, montarHistorico } from "@/lib/portal/calculo";
 import {
   dataDeReferencia,
   getAportes,
-  getEmpreendimentos,
+  getEmpreendimentosBasicos,
   getRecebimentosLancados,
 } from "@/lib/portal/dados";
 import { formatarMoeda, formatarPercentual } from "@/lib/portal/formato";
-import { getNotificacoes } from "@/lib/portal/notificacoes";
 import { montarRecebimentos } from "@/lib/portal/recebimentos";
 import { AbaAporte } from "./_componentes/aba-aporte";
 import { CartaoDeNotificacoes } from "./_componentes/cartao-notificacoes";
 import { CartaoSaldo } from "./_componentes/cartao-saldo";
-import { Moldura } from "./_componentes/moldura";
 import { SeletorDeEmpreendimento } from "./_componentes/seletor-empreendimento";
 import { Sugestoes } from "./_componentes/sugestoes";
 
@@ -39,14 +38,12 @@ export default async function PortalPage({
     todosOsAportes,
     empreendimentos,
     todosOsLancados,
-    notificacoes,
   ] = await Promise.all([
     searchParams,
     dataDeReferencia(),
     getAportes(sessao.id),
-    getEmpreendimentos(sessao.id),
+    getEmpreendimentosBasicos(sessao.id),
     getRecebimentosLancados(sessao.id),
-    getNotificacoes(sessao.id),
   ]);
 
   /*
@@ -88,10 +85,8 @@ export default async function PortalPage({
       ? rendimento / posicao.totalAportado
       : 0;
 
+  // pb reserva a altura da barra do rodape no mobile — sem isso o ultimo cartao fica sob ela.
   return (
-    <Moldura nome={sessao.nome} notificacoes={notificacoes} ativo="/portal">
-      {/* pb reserva a altura da barra do rodape no mobile — sem isso o ultimo
-          cartao fica sob ela. */}
       <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         {/* Primeira coisa da tela para quem ainda nao decidiu sobre avisos.
             Ele mesmo se esconde depois — ver o componente. */}
@@ -101,10 +96,7 @@ export default async function PortalPage({
             uma linha inteira para dizer o obvio. */}
         {empreendimentos.length > 1 && (
           <SeletorDeEmpreendimento
-            empreendimentos={empreendimentos.map(({ id, nome }) => ({
-              id,
-              nome,
-            }))}
+            empreendimentos={empreendimentos}
             selecionado={selecionado}
           />
         )}
@@ -163,12 +155,37 @@ export default async function PortalPage({
             }
           />
 
-          {/* Server Component dentro de um componente de cliente: ele é
-              renderizado aqui e viaja pronto, entao a chave da Airticles nao
-              encosta no navegador. */}
-          <Sugestoes />
+          {/*
+           * Server Component dentro de um componente de cliente: ele é
+           * renderizado aqui e viaja pronto, entao a chave da Airticles nao
+           * encosta no navegador.
+           *
+           * Em `Suspense` porque ele fala com um servico de fora: sem isto, a
+           * pagina inteira esperava a Airticles responder — era ela que fazia a
+           * troca de aba demorar mais de um segundo. Agora o portal aparece na
+           * hora e os artigos entram depois, sozinhos.
+           */}
+          <Suspense fallback={<EsqueletoDeSugestoes />}>
+            <Sugestoes />
+          </Suspense>
         </div>
       </main>
-    </Moldura>
+  );
+}
+
+/** O lugar dos tres cartoes de artigo, enquanto a Airticles responde. */
+function EsqueletoDeSugestoes() {
+  return (
+    <div aria-hidden className="mt-16">
+      <div className="mb-5 h-5 w-24 animate-pulse rounded bg-tinta/[0.06]" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="aspect-3/2 animate-pulse rounded-2xl bg-tinta/[0.06]"
+          />
+        ))}
+      </div>
+    </div>
   );
 }

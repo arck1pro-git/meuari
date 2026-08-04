@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { exigirSessao } from "@/lib/auth";
-import { getNotificacoes } from "@/lib/portal/notificacoes";
 import { IconeSetaEsquerda } from "../portal/_componentes/icones";
-import { Moldura } from "../portal/_componentes/moldura";
 
 export const metadata: Metadata = {
   title: "Simulador ARI · Meu ARI",
@@ -21,14 +19,10 @@ export const dynamic = "force-dynamic";
  * entrar, é aqui.
  */
 export default async function SimuladorPage() {
-  const sessao = await exigirSessao("/simulador");
-  const notificacoes = await getNotificacoes(sessao.id);
+  await exigirSessao("/simulador");
 
+  // // A barra lateral do desktop entra aqui tambem: chegar pelo botao do // simulador e perder a navegacao deixaria a tela sem saida que nao o // "Voltar".
   return (
-    // A barra lateral do desktop entra aqui tambem: chegar pelo botao do
-    // simulador e perder a navegacao deixaria a tela sem saida que nao o
-    // "Voltar".
-    <Moldura nome={sessao.nome} notificacoes={notificacoes} cabecalho={false}>
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8">
         <Link
           href="/portal"
@@ -57,6 +51,5 @@ export default async function SimuladorPage() {
           </p>
         </div>
       </main>
-    </Moldura>
   );
 }

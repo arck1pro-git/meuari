@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { exigirSessao } from "@/lib/auth";
 import { getEmpreendimentos } from "@/lib/portal/dados";
 import { formatarData } from "@/lib/portal/formato";
-import { IconeSetaEsquerda } from "../../portal/_componentes/icones";
+import { IconeSetaEsquerda } from "@/app/(app)/portal/_componentes/icones";
 
 export const dynamic = "force-dynamic";
 

@@ -39,6 +39,10 @@
     ".next-estavel/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    // Scripts de linha de comando rodados com `node --experimental-strip-types`.
+    // O Node exige a extensao `.ts` no import, e o `tsc` do projeto recusa —
+    // sao dois resolvedores com regras diferentes para o mesmo arquivo.
+    "db/**/*.ts"
   ]
 }

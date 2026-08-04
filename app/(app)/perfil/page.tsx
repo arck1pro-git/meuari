@@ -5,8 +5,6 @@ import { sair } from "@/app/login/acoes";
 import { exigirSessao } from "@/lib/auth";
 import { getPerfil } from "@/lib/portal/dados";
 import { formatarData } from "@/lib/portal/formato";
-import { getNotificacoes } from "@/lib/portal/notificacoes";
-import { Moldura } from "../portal/_componentes/moldura";
 import { IconeSetaEsquerda } from "../portal/_componentes/icones";
 import { Cartao } from "../portal/_componentes/ui";
 
@@ -21,9 +19,8 @@ export const dynamic = "force-dynamic";
 export default async function PerfilPage() {
   const sessao = await exigirSessao("/perfil");
 
-  const [perfil, notificacoes] = await Promise.all([
+  const [perfil] = await Promise.all([
     getPerfil(sessao.id),
-    getNotificacoes(sessao.id),
   ]);
 
   // A sessao existe mas o usuario nao: conta apagada com o cookie ainda de pé.
@@ -32,8 +29,6 @@ export default async function PerfilPage() {
   const inicial = (Array.from(perfil.nome)[0] ?? "?").toUpperCase();
 
   return (
-    <Moldura nome={sessao.nome} notificacoes={notificacoes}>
-
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         <Link
           href="/portal"
@@ -93,7 +88,6 @@ export default async function PerfilPage() {
           </Cartao>
         </div>
       </main>
-    </Moldura>
   );
 }
 

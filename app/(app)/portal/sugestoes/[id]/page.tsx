@@ -4,8 +4,6 @@ import { notFound } from "next/navigation";
 import { exigirSessao } from "@/lib/auth";
 import { capa, getArtigo } from "@/lib/artigos";
 import { formatarData } from "@/lib/portal/formato";
-import { getNotificacoes } from "@/lib/portal/notificacoes";
-import { Moldura } from "../../_componentes/moldura";
 import { IconeSetaEsquerda } from "../../_componentes/icones";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +29,7 @@ export default async function ArtigoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const sessao = await exigirSessao(`/portal/sugestoes/${id}`);
+  await exigirSessao(`/portal/sugestoes/${id}`);
 
   const artigo = await getArtigo(id).catch((erro) => {
     console.error("[sugestoes] Airticles:", erro);
@@ -39,13 +37,9 @@ export default async function ArtigoPage({
   });
   // Id inexistente e Airticles fora dao no mesmo lugar: nao ha artigo para ler.
   if (!artigo) notFound();
-
-  const notificacoes = await getNotificacoes(sessao.id);
   const imagem = capa(artigo);
 
   return (
-    <Moldura nome={sessao.nome} notificacoes={notificacoes}>
-
       <main className="mx-auto w-full max-w-3xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         <Link
           href="/portal"
@@ -98,6 +92,5 @@ export default async function ArtigoPage({
           />
         </article>
       </main>
-    </Moldura>
   );
 }
