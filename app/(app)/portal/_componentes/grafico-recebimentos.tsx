@@ -7,7 +7,6 @@ import {
   formatarData,
   formatarMoeda,
   formatarMoedaCurta,
-  formatarPercentual,
 } from "@/lib/portal/formato";
 import { marcasDoEixo, topoLimpo } from "./escala";
 
@@ -15,19 +14,21 @@ import { marcasDoEixo, topoLimpo } from "./escala";
  * Quanto caiu na conta em cada mes. Barras, e nao linha: cada credito é um
  * evento fechado no dia 17, nao um valor que evolui entre um mes e o outro.
  *
+ * Toda barra é um credito lancado no /admin — nao ha projecao aqui. Por isso
+ * sumiu o tom de "ciclo rateado": ele distinguia o que a formula tinha
+ * calculado, e nao ha mais formula em tela.
+ *
  * O mesmo par de leituras do grafico de saldo, para os dois conviverem na mesma
  * pilha sem parecer de familias diferentes.
  */
 const PALETA = {
   claro: {
     barra: "#012677", // marinho
-    barraQuebrada: "#005bc5", // azul — ciclo rateado
     grade: "#ededed",
     rotulo: "#737373",
   },
   escuro: {
     barra: "#ffffff",
-    barraQuebrada: "#17f9ff", // ciano
     grade: "rgba(255, 255, 255, 0.24)",
     rotulo: "rgba(255, 255, 255, 0.78)",
   },
@@ -42,35 +43,6 @@ const MARGEM = { topo: 22, direita: 4, base: 28, esquerda: 0 };
 
 /** `2025-09` -> `2025`. */
 const anoDe = (competencia: string) => competencia.slice(0, 4);
-
-/**
- * A participacao aplicada no ciclo. Com um trecho é so a taxa; com dois, cada
- * uma com os dias que lhe couberam — é o que explica um credito que nao é nem o
- * valor da taxa antiga nem o da nova.
- */
-function taxaDoCiclo(trechos: Recebimento["trechos"]): string {
-  if (trechos.length === 0) return "";
-  if (trechos.length === 1) return `${formatarPercentual(trechos[0].taxa)} ao mês`;
-  return trechos.map((t) => formatarPercentual(t.taxa)).join(" → ");
-}
-
-/**
- * Os dias que entraram na conta. Em taxa unica basta a fracao do ciclo; com
- * duas, cada uma com os seus dias.
- *
- * De proposito em taxa mensal, e nao na diaria: a diaria é `mensal / 30`, uma
- * dizima em dois dos tres casos (1,90/30 = 0,063333...%). Exibi-la arredondada
- * convidaria a multiplicar 0,0633% por 30 e chegar a um valor que nao é o
- * creditado.
- */
-function contaDoCiclo(trechos: Recebimento["trechos"]): string {
-  if (trechos.length === 1) {
-    return `${trechos[0].dias} de 30 dias do ciclo`;
-  }
-  return trechos
-    .map((t) => `${t.dias} dias a ${formatarPercentual(t.taxa)}`)
-    .join(" + ");
-}
 
 export function GraficoRecebimentos({
   pagamentos,
@@ -175,8 +147,8 @@ export function GraficoRecebimentos({
           pagamentos[0].competencia,
         )} a ${formatarCompetencia(
           ultimo.competencia,
-        )}. Ultimo credito de ${formatarMoeda(ultimo.valor)} a ${taxaDoCiclo(
-          ultimo.trechos,
+        )}. Ultimo credito de ${formatarMoeda(
+          ultimo.valor,
         )}. Use as setas para percorrer os meses.`}
         tabIndex={0}
         onPointerDown={(e) =>
@@ -226,17 +198,10 @@ export function GraficoRecebimentos({
             width={barra.largura}
             height={barra.altura}
             rx={2}
-            // O mes corrente vem primeiro, em ouro: ele diz onde a pessoa esta
-            // na linha do tempo, e isso vale mais que o aviso de rateio.
-            // Rateado sai em outro tom — é o que explica a barra baixa do
-            // primeiro mes e a de uma troca de participacao no meio do caminho.
-            fill={
-              barra.competencia === competenciaAtual
-                ? OURO
-                : barra.quebrado
-                  ? cor.barraQuebrada
-                  : cor.barra
-            }
+            // O mes corrente em ouro: ele diz onde a pessoa esta na linha do
+            // tempo. O resto é uma cor só — cada barra é um credito, e nao ha
+            // dois tipos de credito para distinguir.
+            fill={barra.competencia === competenciaAtual ? OURO : cor.barra}
             fillOpacity={destacado && destacado !== barras[i] ? 0.55 : 1}
           />
         ))}
@@ -272,29 +237,12 @@ export function GraficoRecebimentos({
             {formatarMoeda(destacado.valor)}
           </p>
 
-          {/* Lancado nao ganha explicacao de taxa: o valor veio da tabela, e
-              atribuir a ele uma conta que nao foi a dele seria inventar. */}
-          {destacado.origem === "lancado" ? (
-            <p className="mt-0.5 text-xs text-neutral-500">
-              {destacado.observacao ?? "Crédito lançado"}
-            </p>
-          ) : (
-            <>
-              <p className="mt-0.5 text-xs text-neutral-600 tabular-nums">
-                {taxaDoCiclo(destacado.trechos)}
-              </p>
-              <p className="text-xs text-neutral-500 tabular-nums">
-                {contaDoCiclo(destacado.trechos)}
-              </p>
-              {/* Rateio que a taxa nao explica: a taxa foi uma só, mas entrou
-                  dinheiro no meio do ciclo. */}
-              {destacado.quebrado && destacado.trechos.length === 1 && (
-                <p className="mt-0.5 text-xs text-neutral-500">
-                  Aporte no meio do ciclo
-                </p>
-              )}
-            </>
-          )}
+          {/* Sem conta de taxa aqui: o valor veio da tabela, e atribuir a ele
+              uma formula que pode nao ter sido a dele seria inventar. O que
+              explica o credito é a anotacao de quem o lancou. */}
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {destacado.observacao ?? "Crédito lançado"}
+          </p>
         </div>
       )}
     </div>

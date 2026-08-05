@@ -23,8 +23,8 @@ export type Posicao = {
   totalAportado: number;
   /**
    * Resultado retido no saldo — ou seja, so da modalidade `final`. O que é
-   * creditado todo mes vive em `montarRecebimentos`, que segue outro regime
-   * (base 30/360, credito no dia 17); somar os dois aqui misturaria as contas.
+   * creditado todo mes vive na tabela `recebimentos`, em outro regime (base
+   * 30/360, credito no dia 17); somar os dois aqui misturaria as contas.
    */
   rendimentoAcumulado: number;
   /** Resultado sobre o capital aportado, em decimal. */
@@ -78,8 +78,8 @@ function competenciaDe(ano: number, mes: number): string {
  * A modalidade decide o que entra aqui:
  * - `final`: o resultado acumula no saldo e é recebido de uma vez no resgate.
  * - `mensal`: entra so como capital. O resultado dele é creditado todo dia 17 e
- *   nao acumula, entao quem apura é `montarRecebimentos` — que usa base 30/360,
- *   e nao o calendario deste apurador.
+ *   nao acumula — ele é lancado no /admin e lido de `recebimentos`, em base
+ *   30/360, e nao no calendario deste apurador.
  *
  * Devolve `null` quando nao ha aporte nenhum — carteira vazia nao tem posicao a
  * apurar, e a tela mostra o estado vazio em vez de uma serie de zeros.

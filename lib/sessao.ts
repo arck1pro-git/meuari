@@ -17,7 +17,21 @@ import { cookies } from "next/headers";
 export const COOKIE_SESSAO = "sessao";
 const DURACAO_HORAS = 12;
 
-export type Sessao = { id: string; tipo: string; nome: string };
+/**
+ * O que vai dentro do cookie.
+ *
+ * `versao` é o contador de sessoes do usuario, copiado no momento em que ela
+ * nasce. Quem clica em "sair de todos os aparelhos" incrementa o contador no
+ * banco, e todo cookie emitido antes passa a nao valer — ver `exigirSessao`,
+ * que é quem compara. Aqui nao ha banco de proposito: este modulo é o mesmo
+ * que o `proxy.ts` importa.
+ */
+export type Sessao = {
+  id: string;
+  tipo: string;
+  nome: string;
+  versao: number;
+};
 
 function segredo(): string {
   const s = process.env.AUTH_SECRET;
@@ -70,7 +84,14 @@ export function conferirCookie(bruto: string | undefined): Sessao | null {
   try {
     const dados = JSON.parse(Buffer.from(corpo, "base64url").toString());
     if (typeof dados.exp !== "number" || dados.exp < Date.now()) return null;
-    return { id: dados.id, tipo: dados.tipo, nome: dados.nome };
+    return {
+      id: dados.id,
+      tipo: dados.tipo,
+      nome: dados.nome,
+      // Cookie emitido antes desta mudanca nao tem o campo; ele vale como
+      // versao 1, que é o padrao da coluna nova — ninguem é deslogado a toa.
+      versao: typeof dados.versao === "number" ? dados.versao : 1,
+    };
   } catch {
     return null;
   }

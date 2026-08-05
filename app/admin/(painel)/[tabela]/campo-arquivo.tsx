@@ -23,6 +23,7 @@ export function CampoArquivo({
   valorAtual,
   obrigatorio,
   aceita,
+  teto,
   ajuda,
 }: {
   slug: string;
@@ -31,6 +32,8 @@ export function CampoArquivo({
   valorAtual: string;
   obrigatorio?: boolean;
   aceita?: string;
+  /** Teto em bytes, do registro da tabela. Ver a nota em `lib/upload.ts`. */
+  teto?: number;
   ajuda?: string;
 }) {
   const [caminho, setCaminho] = useState(valorAtual);
@@ -39,6 +42,19 @@ export function CampoArquivo({
   const entrada = useRef<HTMLInputElement>(null);
 
   async function enviar(arquivo: File) {
+    /*
+     * O tamanho é conferido aqui porque o arquivo nao passa pelo servidor — ele
+     * vai do navegador direto ao bucket. Isto evita a viagem inutil de um
+     * arquivo grande demais; quem garante o limite de verdade é a configuracao
+     * do bucket no Supabase.
+     */
+    if (teto && arquivo.size > teto) {
+      setEstado("erro");
+      setErro(`o arquivo tem ${(arquivo.size / 1024 / 1024).toFixed(1)} MB e o limite é ${Math.round(teto / 1024 / 1024)} MB`);
+      if (entrada.current) entrada.current.value = "";
+      return;
+    }
+
     setEstado("enviando");
     setErro(null);
     try {

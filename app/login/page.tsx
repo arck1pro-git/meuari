@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { inicioDe, lerSessao } from "@/lib/auth";
+import { inicioDe, sessaoValida } from "@/lib/auth";
 import { FormularioLogin } from "./formulario";
 
 export const metadata: Metadata = {
@@ -86,8 +86,15 @@ export default async function LoginPage({
 }) {
   const { proximo, expirou } = await searchParams;
 
-  // Quem ja tem sessao nao precisa ver o formulario.
-  const sessao = await lerSessao();
+  /*
+   * Quem ja tem sessao nao precisa ver o formulario.
+   *
+   * `sessaoValida` e nao `lerSessao`: um cookie que passou por "sair de todos
+   * os aparelhos" continua com assinatura boa, e so o banco sabe que ele nao
+   * vale mais. Com `lerSessao` esta pagina mandaria a pessoa para o portal, o
+   * portal a mandaria de volta para ca, e os dois ficariam se empurrando.
+   */
+  const sessao = await sessaoValida();
   if (sessao) redirect(inicioDe(sessao.tipo));
 
   return (

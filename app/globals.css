@@ -18,6 +18,12 @@
      legivel é o `azul`. */
   --color-ciano: #17f9ff;
 
+  /* Verde. O valor do aporte, no historico. É o ciano puxado para o verde e
+     escurecido ate ler sobre branco: o `ciano` rende 1,3:1 ali, e este rende
+     3,9:1 — acima do minimo de 3:1 que vale para texto grande, que é o caso
+     (18px em negrito). */
+  --color-verde: #00916b;
+
   /* Ouro. Marca o "agora": o mes corrente no grafico, a aba aberta no rodape e
      o nome ARI no cartao de saldo. Como o ciano, é acento e nao cor de texto
      corrido — sobre branco rende 1,5:1, entao so funciona em peca curta, em
@@ -409,4 +415,50 @@ samp {
   border: 1px solid color-mix(in oklab, var(--color-tinta) 12%, transparent);
   padding: 0.5rem 0.75rem;
   text-align: left;
+}
+
+/**
+ * Barra de progresso que cresce ate a marca dela.
+ *
+ * A `--animate-preencher` do tema vai de 0 a `scaleX(1)` e serve para barra
+ * que enche por inteiro. Aqui cada etapa para num ponto diferente, e a
+ * animacao com `fill-mode: both` **vence o `transform` inline** — o resultado
+ * era toda barra cheia, com o numero certo ao lado.
+ *
+ * A largura final entra por variavel, e o quadro final da animacao aponta para
+ * ela. Quem usa passa `style={{ "--preenchimento": 0.625 }}`.
+ */
+@utility barra-ate {
+  transform: scaleX(var(--preenchimento, 0));
+  animation: preencher-ate 0.9s var(--ease-suave) both;
+}
+
+@keyframes preencher-ate {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(var(--preenchimento, 0));
+  }
+}
+
+/**
+ * Elevacao suave, para a ficha da obra.
+ *
+ * A `sombra-cartao` foi calibrada para cartao branco sobre fundo branco: ela
+ * precisa de peso para o cartao existir. Ali o fundo é um cinza levissimo, e o
+ * proprio contraste ja separa as camadas — sobra a sombra para dar profundidade,
+ * nao para desenhar contorno. Daí ser mais aberta e bem mais clara.
+ */
+@utility sombra-suave {
+  box-shadow:
+    0 1px 2px rgb(0 20 73 / 0.04),
+    0 10px 30px -12px rgb(0 20 73 / 0.1);
+}
+
+/** A mesma, um degrau acima, para o hover. */
+@utility sombra-suave-alta {
+  box-shadow:
+    0 2px 4px rgb(0 20 73 / 0.05),
+    0 16px 40px -14px rgb(0 20 73 / 0.16);
 }

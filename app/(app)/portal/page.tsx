@@ -69,8 +69,8 @@ export default async function PortalPage({
 
   const posicao = apurarPosicao(aportes, referencia);
   const historico = montarHistorico(aportes);
-  // Os lancados mandam no passado; o calculo assume da data de corte em diante.
-  const recebimentos = montarRecebimentos(aportes, referencia, lancados);
+  // So o que foi lancado no /admin: o portal nao projeta credito nenhum.
+  const recebimentos = montarRecebimentos(referencia, lancados);
 
   /*
    * O resultado da pessoa vem de dois regimes que nao se somam sozinhos: o que

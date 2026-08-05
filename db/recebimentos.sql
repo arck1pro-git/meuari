@@ -1,9 +1,9 @@
--- Meu ARI — creditos ja pagos, lancados a mao
+-- Meu ARI — creditos ja pagos
 --
--- O portal calcula a agenda de creditos a partir dos contratos, mas o passado
--- nem sempre seguiu a formula: houve creditos fora da conta. Esta tabela guarda
--- o que de fato caiu na conta ate a data de corte; dali em diante o portal
--- calcula (ver PRIMEIRO_CICLO_CALCULADO em lib/portal/recebimentos.ts).
+-- Esta tabela é a unica fonte do grafico de recebimentos: o portal nao calcula
+-- credito nenhum, e mes sem linha é mes sem credito. Quem alimenta é o
+-- /admin/lancamentos, que sugere o valor do ciclo pela conta do contrato (ver
+-- `estimarCiclo` em lib/portal/recebimentos.ts) e grava o que for confirmado.
 --
 -- Rodar uma vez:  psql "$DATABASE_URL" -f db/recebimentos.sql
 

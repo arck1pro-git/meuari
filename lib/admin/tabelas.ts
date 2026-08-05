@@ -170,9 +170,10 @@ export const TABELAS: Tabela[] = [
     ],
   },
   {
-    // O historico de creditos ate a data de corte. O portal mostra estes
-    // valores como estao, sem recalcular — é aqui que se corrige um credito que
-    // saiu diferente da formula.
+    // Os creditos que caíram na conta — a unica fonte do grafico do portal,
+    // que nao recalcula nada. O lancamento do mes é feito em
+    // `/admin/lancamentos`, com a estimativa pronta; esta tabela é onde se
+    // corrige, se apaga e se olha o historico inteiro.
     slug: "recebimentos",
     rotulo: "Recebimentos",
     tabela: "recebimentos",
@@ -205,7 +206,8 @@ export const TABELAS: Tabela[] = [
         nome: "observacao",
         rotulo: "Observacao",
         tipo: "texto",
-        ajuda: "Por que fugiu da formula, quando for o caso.",
+        ajuda:
+          "Aparece no toque da barra, no grafico do investidor. Use para o que fugiu da conta do ciclo.",
       },
     ],
   },
@@ -256,6 +258,50 @@ export const TABELAS: Tabela[] = [
         bucket: BUCKETS.documentos,
         obrigatorio: true,
       },
+    ],
+  },
+  {
+    slug: "etapas",
+    rotulo: "Etapas da obra",
+    tabela: "etapas",
+    rotuloRef: "nome",
+    colunas: ["nome", "empreendimento_id", "percentual", "concluida_em", "ordem"],
+    filtros: ["empreendimento_id"],
+    campos: [
+      {
+        nome: "empreendimento_id",
+        rotulo: "Empreendimento",
+        tipo: "referencia",
+        aponta: "empreendimentos",
+        obrigatorio: true,
+      },
+      {
+        nome: "nome",
+        rotulo: "Etapa",
+        tipo: "texto",
+        obrigatorio: true,
+        ajuda: 'Ex.: "Fundacao", "Estrutura", "Alvenaria".',
+      },
+      {
+        nome: "percentual",
+        rotulo: "Concluido (%)",
+        tipo: "numero",
+        obrigatorio: true,
+        ajuda: "De 0 a 100. Aceita casa decimal: 37,5.",
+      },
+      {
+        nome: "concluida_em",
+        rotulo: "Concluida em",
+        tipo: "data",
+        ajuda: "Deixe vazio enquanto a etapa estiver em andamento.",
+      },
+      {
+        nome: "ordem",
+        rotulo: "Ordem",
+        tipo: "numero",
+        ajuda: "A ordem da obra, nao a do cadastro. Menor aparece primeiro.",
+      },
+      { nome: "observacao", rotulo: "Observacao", tipo: "area" },
     ],
   },
   {

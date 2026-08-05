@@ -39,7 +39,18 @@ export function Moldura({
   children: React.ReactNode;
 }) {
   const rota = usePathname();
-  const ativo = SECOES.find((secao) => secao === rota) ?? null;
+
+  /*
+   * `/obras/<id>` conta como a secao Obras.
+   *
+   * A ficha da obra deixou de ter o link "Obras" no topo, e sem isto ela
+   * ficaria sem nenhuma saida visivel no celular — a barra do rodape só
+   * aparecia na lista. Com o prefixo, ela aparece tambem na ficha, com Obras
+   * marcada, e o toque leva de volta.
+   */
+  const ativo =
+    SECOES.find((secao) => rota === secao || rota.startsWith(`${secao}/`)) ??
+    null;
 
   /*
    * O simulador nunca teve cabecalho no mobile — é tela cheia com o proprio

@@ -1,4 +1,5 @@
 import "server-only";
+import { sanitizarHtml } from "@/lib/sanitizar";
 
 /*
  * Airticles: o blog que alimenta a secao de sugestoes do portal.
@@ -100,7 +101,15 @@ export function publicado(artigo: { status: string }): boolean {
 }
 
 export async function getArtigo(id: string): Promise<ArtigoCompleto> {
-  return buscar<ArtigoCompleto>(`/api/posts/${encodeURIComponent(id)}`);
+  const artigo = await buscar<ArtigoCompleto>(
+    `/api/posts/${encodeURIComponent(id)}`,
+  );
+
+  /*
+   * O corpo é limpo aqui, e nao na pagina: assim nao ha como uma tela nova
+   * esquecer de limpar. Quem chama recebe HTML ja seguro para injetar.
+   */
+  return { ...artigo, html: sanitizarHtml(artigo.html) };
 }
 
 /**

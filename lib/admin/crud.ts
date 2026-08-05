@@ -115,16 +115,23 @@ async function paresDoFormulario(t: Tabela, dados: FormData) {
   return { colunas, valores };
 }
 
-export async function criar(t: Tabela, dados: FormData): Promise<void> {
+/** Devolve o id e as colunas gravadas — é o que a auditoria registra. */
+export async function criar(
+  t: Tabela,
+  dados: FormData,
+): Promise<{ id: string; colunas: string[] }> {
   const { colunas, valores } = await paresDoFormulario(t, dados);
   if (colunas.length === 0) throw new Error("Nada para gravar");
 
-  const marcadores = valores.map((_, i) => `$${i + 1}`).join(", ");
-  await consultar(
+  const marcadores = valores.map((_, i) => `${i + 1}`).join(", ");
+  const [linha] = await consultar<{ id: string }>(
     `insert into ${ident(t.tabela)} (${colunas.map(ident).join(", ")})
-     values (${marcadores})`,
+     values (${marcadores})
+     returning id`,
     valores,
   );
+
+  return { id: String(linha?.id ?? ""), colunas };
 }
 
 export async function atualizar(
@@ -146,4 +153,13 @@ export async function atualizar(
 
 export async function excluir(t: Tabela, id: string): Promise<void> {
   await consultar(`delete from ${ident(t.tabela)} where id = $1`, [id]);
+}
+
+/** As colunas que um formulario alteraria — sem os valores. Para a auditoria. */
+export async function camposAlterados(
+  t: Tabela,
+  dados: FormData,
+): Promise<string[]> {
+  const { colunas } = await paresDoFormulario(t, dados);
+  return colunas;
 }

@@ -25,6 +25,19 @@ self.addEventListener("activate", (evento) =>
  */
 self.addEventListener("fetch", (evento) => {
   if (evento.request.method !== "GET") return;
+
+  /*
+   * Requisicao para fora do nosso dominio passa direto, sem o service worker
+   * encostar.
+   *
+   * Nao é so economia: o que o service worker refaz com `fetch()` deixa de ser
+   * pedido de imagem e vira pedido de rede, e passa a valer contra a
+   * `connect-src` da politica de conteudo em vez da `img-src`. Foi assim que as
+   * capas dos artigos, que vem da Airticles, morreram com `ERR_FAILED` no dia
+   * em que a politica entrou — a imagem estava liberada, o `fetch` dela nao.
+   */
+  if (new URL(evento.request.url).origin !== self.location.origin) return;
+
   evento.respondWith(fetch(evento.request));
 });
 

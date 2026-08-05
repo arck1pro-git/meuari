@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { IconeBaixar } from "@/app/(app)/portal/_componentes/icones";
 
 /**
  * O botao de instalar, que depende inteiramente do navegador de quem chega.
@@ -120,7 +121,7 @@ export function BotaoInstalar() {
         aria-expanded={mostrarPassos}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-marinho transition-all duration-200 hover:bg-ciano hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho active:scale-[0.98]"
       >
-        <IconeBaixar />
+        <IconeBaixar className="h-4 w-4 shrink-0" />
         Baixar Meu ARI
       </button>
 
@@ -161,22 +162,3 @@ export function BotaoInstalar() {
   );
 }
 
-/** Seta para baixo entrando numa base — o gesto de baixar. */
-function IconeBaixar() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className="h-4 w-4 shrink-0"
-    >
-      <path d="M12 4v11" />
-      <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
-      <path d="M5 19h14" />
-    </svg>
-  );
-}

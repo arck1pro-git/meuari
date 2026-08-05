@@ -93,3 +93,33 @@ export function IconeTransparencia({ className = "h-5 w-5" }) {
     </svg>
   );
 }
+
+/** Seta para baixo entrando numa base: baixar o arquivo. */
+export function IconeBaixar({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M12 4v11" />
+      <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+}
+
+/** Triangulo no circulo: o video. */
+export function IconeVideo({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M10.5 8.5v7l5.5-3.5z" />
+    </svg>
+  );
+}
+
+/** Confere: a etapa fechou. */
+export function IconeConfere({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  );
+}

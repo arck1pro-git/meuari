@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { sair } from "@/app/login/acoes";
+import { sair, sairDeTodos } from "@/app/login/acoes";
 import { exigirSessao } from "@/lib/auth";
 import { getPerfil } from "@/lib/portal/dados";
 import { formatarData } from "@/lib/portal/formato";
@@ -77,14 +77,28 @@ export default async function PerfilPage() {
              * de sessao é `httpOnly`, entao quem o apaga é o servidor. De
              * quebra, funciona antes de o JavaScript carregar.
              */}
-            <form action={sair} className="mt-8">
-              <button
-                type="submit"
-                className="w-full rounded-xl border border-tinta/12 px-4 py-2.5 text-sm font-semibold text-marinho transition-colors duration-200 hover:border-transparent hover:bg-marinho hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-              >
-                Sair
-              </button>
-            </form>
+            <div className="mt-8 space-y-3">
+              <form action={sair}>
+                <button
+                  type="submit"
+                  className="w-full rounded-xl border border-tinta/12 px-4 py-2.5 text-sm font-semibold text-marinho transition-colors duration-200 hover:border-transparent hover:bg-marinho hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+                >
+                  Sair
+                </button>
+              </form>
+
+              {/* Serve para aparelho perdido ou emprestado: encerra tambem as
+                  sessoes que nao estao aqui. Discreto de proposito — é o
+                  caminho de excecao, e o comum é o botao de cima. */}
+              <form action={sairDeTodos}>
+                <button
+                  type="submit"
+                  className="w-full rounded-xl px-4 py-2 text-xs font-medium text-neutral-500 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                >
+                  Sair de todos os aparelhos
+                </button>
+              </form>
+            </div>
           </Cartao>
         </div>
       </main>

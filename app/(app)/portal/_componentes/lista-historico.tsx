@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { ItemDoHistorico } from "@/lib/portal/calculo";
 import {
   formatarData,
@@ -31,9 +30,9 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
         <li key={aporte.id}>
           <Cartao>
             <div className="flex items-baseline justify-between gap-4">
-              {/* O valor sai no ouro da marca, o mesmo do ARI no cartao de
-                  saldo e do icone da secao aberta no rodape. */}
-              <p className="text-lg font-bold tabular-nums text-ouro">
+              {/* O verde da marca: o mesmo ciano do cartao de participacao,
+                  puxado para o verde e escurecido o bastante para ler. */}
+              <p className="text-lg font-bold tabular-nums text-verde">
                 {formatarMoeda(aporte.valor)}
               </p>
               {/* `dateTime` carrega o ISO: com a data em numeros, `10/03` é
@@ -102,15 +101,14 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
                   </a>
                 )}
 
-                {/* Enfeite: `alt` vazio para quem le por audio nao ouvir um
-                    "fogo" solto no meio da participacao. */}
-                <Image
-                  src="/icons/3dicons-fire-dynamic-color.png"
-                  alt=""
-                  width={64}
-                  height={64}
-                  className="h-8 w-8 shrink-0 drop-shadow-[0_4px_8px_rgba(0,20,73,0.2)]"
-                />
+                {/* Enfeite, na cor do valor. `aria-hidden` porque o cifrao ja
+                    esta escrito no proprio numero, logo acima. */}
+                <span
+                  aria-hidden
+                  className="flex h-8 w-8 shrink-0 items-center justify-center text-2xl font-bold text-verde"
+                >
+                  $
+                </span>
               </span>
             </div>
           </Cartao>

@@ -1,5 +1,6 @@
 import { opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
 import type { Campo, Tabela } from "@/lib/admin/tabelas";
+import { TETOS } from "@/lib/upload";
 import { acaoAtualizar, acaoCriar } from "../../acoes";
 import { CampoArquivo } from "./campo-arquivo";
 
@@ -58,6 +59,7 @@ async function CampoDoFormulario({
         valorAtual={valor}
         obrigatorio={campo.obrigatorio}
         aceita={campo.aceita}
+        teto={campo.aceita ? TETOS[campo.aceita] : undefined}
         ajuda={campo.ajuda}
       />
     );

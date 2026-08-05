@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { lerSessao } from "@/lib/auth";
+import { sessaoValida } from "@/lib/auth";
 import { TABELAS } from "@/lib/admin/tabelas";
 import { sair } from "../acoes";
 import { AbasAdmin } from "./abas-admin";
@@ -27,7 +27,10 @@ export default async function PainelLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const sessao = await lerSessao();
+  // `sessaoValida` e nao `lerSessao`: além da assinatura do cookie, ela
+  // confere no banco se aquela sessao ainda vale — é o que faz "sair de todos
+  // os aparelhos" alcançar tambem o painel.
+  const sessao = await sessaoValida();
   if (!sessao) redirect("/admin/login");
   if (sessao.tipo !== "administrador") redirect("/admin/login?erro=restrito");
 
@@ -69,8 +72,13 @@ export default async function PainelLayout({
             </div>
           </div>
 
+          {/* Lancamentos abre a fila, e nao é tabela: é a tarefa que se repete
+              todo mes, e as tabelas sao o que se usa quando algo foge dela. */}
           <AbasAdmin
-            tabelas={TABELAS.map(({ slug, rotulo }) => ({ slug, rotulo }))}
+            tabelas={[
+              { slug: "lancamentos", rotulo: "Lançamentos" },
+              ...TABELAS.map(({ slug, rotulo }) => ({ slug, rotulo })),
+            ]}
           />
         </div>
       </header>

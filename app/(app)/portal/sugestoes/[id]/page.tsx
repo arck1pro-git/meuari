@@ -81,9 +81,11 @@ export default async function ArtigoPage({
           )}
 
           {/*
-           * O corpo vem em HTML pronto da Airticles. E conteudo do proprio
-           * time, publicado pelo painel deles — nao ha entrada de terceiros
-           * aqui —, e a estilizacao mora na classe `article-body` do
+           * O corpo vem em HTML pronto da Airticles, e ja **sanitizado**: o
+           * `getArtigo` passa tudo por `lib/sanitizar.ts` antes de devolver.
+           * Sem isso, um `<script>` publicado la — de propria vontade ou por
+           * conta comprometida — rodaria neste dominio, com a sessao do
+           * investidor. A estilizacao mora na classe `article-body` do
            * `globals.css`, ja que as tags chegam sem classe nenhuma.
            */}
           <div

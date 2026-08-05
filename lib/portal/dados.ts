@@ -116,11 +116,12 @@ export async function getAportes(usuarioId: string): Promise<Aporte[]> {
 }
 
 /**
- * Creditos ja pagos, lancados a mao no /admin.
+ * Creditos ja pagos, lancados no /admin.
  *
- * O portal usa estes valores no lugar do calculo ate a data de corte — ver
- * `PRIMEIRO_CICLO_CALCULADO`. É o que permite o historico refletir o que de fato
- * caiu na conta, inclusive quando fugiu da formula.
+ * É a unica fonte do grafico de recebimentos: o portal nao calcula credito
+ * nenhum. A conta do contrato virou a estimativa do `/admin/lancamentos`, que
+ * sugere o valor do ciclo para quem lanca confirmar ou corrigir — e o que a
+ * pessoa ve é sempre o que passou por ali.
  */
 export async function getRecebimentosLancados(usuarioId: string): Promise<
   {
@@ -311,5 +312,94 @@ export async function getPerfil(usuarioId: string): Promise<Perfil | null> {
     desde: linha.desde,
     aportes: Number(linha.aportes),
     obras: Number(linha.obras),
+  };
+}
+
+/** Uma etapa da obra, com o quanto ela andou. */
+export type Etapa = {
+  id: string;
+  nome: string;
+  /** De 0 a 100. */
+  percentual: number;
+  /** `null` enquanto a etapa estiver em andamento. */
+  concluidaEm: DataISO | null;
+  observacao: string | null;
+};
+
+/** O empreendimento inteiro: ficha, fotos, etapas e documentos. */
+export type Obra = Empreendimento & { etapas: Etapa[] };
+
+/**
+ * Uma obra da pessoa, com tudo que a tela dela mostra.
+ *
+ * A checagem de acesso é a propria consulta: o `join` com `contratos` só
+ * devolve linha se aquele investidor aportou naquele empreendimento. Id de
+ * outro, ou inventado, volta vazio — e a pagina responde 404 sem consultar mais
+ * nada nem revelar que o empreendimento existe.
+ */
+export async function getObra(
+  usuarioId: string,
+  empreendimentoId: string,
+): Promise<Obra | null> {
+  const [base] = await consultar<{
+    id: string;
+    nome: string;
+    descricao: string | null;
+    previsaoInicioObras: DataISO | null;
+  }>(
+    `select distinct
+            e.id,
+            e.nome,
+            e.descricao,
+            to_char(e.previsao_inicio_obras, 'YYYY-MM-DD') as "previsaoInicioObras"
+       from empreendimentos e
+       join contratos c on c.empreendimento_id = e.id
+      where c.usuario_id = $1 and e.id = $2`,
+    [usuarioId, empreendimentoId],
+  );
+
+  if (!base) return null;
+
+  const [documentos, imagens, videos, etapas] = await Promise.all([
+    consultar<Arquivo>(
+      `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
+         from documentos where empreendimento_id = $1
+        order by criado_em desc, nome`,
+      [base.id, FUSO],
+    ),
+    consultar<Arquivo>(
+      `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
+         from imagens where empreendimento_id = $1
+        order by criado_em desc, nome`,
+      [base.id, FUSO],
+    ),
+    consultar<Arquivo>(
+      `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
+         from videos where empreendimento_id = $1
+        order by criado_em desc, nome`,
+      [base.id, FUSO],
+    ),
+    consultar<Etapa>(
+      `select id, nome, percentual::float8 as percentual,
+              to_char(concluida_em, 'YYYY-MM-DD') as "concluidaEm",
+              observacao
+         from etapas where empreendimento_id = $1
+        order by ordem, criado_em`,
+      [base.id],
+    ),
+  ]);
+
+  const [comDocumentos, comImagens, comVideos] = await Promise.all([
+    resolver(documentos, BUCKETS.documentos),
+    resolver(imagens, BUCKETS.imagens),
+    resolver(videos, BUCKETS.videos),
+  ]);
+
+  return {
+    ...base,
+    documentos: comDocumentos,
+    imagens: comImagens,
+    videos: comVideos,
+    etapas,
   };
 }
