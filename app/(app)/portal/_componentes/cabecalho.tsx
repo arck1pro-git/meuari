@@ -57,27 +57,37 @@ export function Cabecalho({
         <div className="absolute inset-y-0 left-0 w-1/4 animate-brilho bg-linear-to-r from-transparent via-white/25 to-transparent" />
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-5 py-4 sm:px-8 sm:py-5">
+      {/* Faixa mais baixa: `py-3` no lugar de `py-4`, o que devolve 8px de area
+          util em toda tela do app sem apertar o alvo de toque — o retrato tem
+          40px e continua acima do minimo. */}
+      <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
         {/* A foto e o nome sao um alvo só, e nao dois: quem toca no retrato
             espera o mesmo que quem toca no "Ver perfil" logo abaixo. */}
         <Link
           href="/perfil"
-          className="group flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho"
+          className="group flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho"
         >
           {/* A inicial de quem entrou. `aria-hidden` porque o nome vem escrito
               logo ao lado: para quem ouve a pagina, a letra seria repeticao. */}
           <span
             aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-marinho"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-base font-bold text-marinho"
           >
             {inicial}
           </span>
 
-          <span>
-            <span className="block text-sm font-semibold">
-              Olá, <span className="font-bold">{primeiroNome}</span>
+          {/*
+           * O nome ganhou o peso e o "Olá" perdeu: quem identifica a conta é o
+           * nome, e a saudacao é so a moldura dele. O "Ver perfil" desceu de
+           * tamanho e de opacidade para ler como link secundario, que é o que
+           * ele é — a acao principal do cabecalho nunca foi essa.
+           */}
+          <span className="min-w-0">
+            <span className="block truncate text-[0.9375rem] leading-tight font-bold">
+              <span className="font-normal text-white/70">Olá, </span>
+              {primeiroNome}
             </span>
-            <span className="block text-xs text-white/70 transition-colors duration-200 group-hover:text-white">
+            <span className="mt-0.5 block text-[0.6875rem] leading-tight font-medium text-white/60 underline-offset-2 transition-colors duration-200 group-hover:text-white/90 group-hover:underline">
               Ver perfil
             </span>
           </span>

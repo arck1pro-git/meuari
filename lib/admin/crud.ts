@@ -62,8 +62,15 @@ export async function opcoesDeReferencia(
   const alvo = campo.aponta ? acharTabela(campo.aponta) : undefined;
   if (!alvo) return [];
 
+  /*
+   * `rotuloSql` entra literal no texto da consulta. Ele vem do registro, como
+   * os nomes de tabela e de coluna, e nunca de requisicao — é a mesma regra que
+   * torna esta montagem segura.
+   */
+  const legenda = alvo.rotuloSql ?? `${ident(alvo.rotuloRef)}::text`;
+
   const linhas = await consultar<{ id: string; rotulo: string }>(
-    `select id, ${ident(alvo.rotuloRef)}::text as rotulo
+    `select id, ${legenda} as rotulo
        from ${ident(alvo.tabela)} order by rotulo limit 500`,
   );
   return linhas;

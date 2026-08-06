@@ -27,27 +27,6 @@ export default async function AdminPage() {
       </p>
 
       <ul className="escalonar mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Fora da lista de tabelas de proposito: é a tarefa do mes, e nao um
-            CRUD. Ela grava em `recebimentos`, que continua logo abaixo para
-            quando for preciso corrigir uma linha. */}
-        <li>
-          <Link
-            href="/admin/lancamentos"
-            className="sombra-cartao hover:sombra-cartao-alta group flex h-full items-center justify-between gap-4 rounded-2xl border border-marinho/25 bg-marinho/[0.04] p-5 transition-shadow duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-          >
-            <span>
-              <span className="block text-sm font-semibold text-marinho">
-                Lançamentos
-              </span>
-              <span className="mt-1 block text-xs text-neutral-500">
-                Crédito mensal, investidor a investidor
-              </span>
-            </span>
-
-            <IconeSetaDireita className="h-5 w-5 shrink-0 text-marinho transition-transform duration-200 group-hover:translate-x-0.5" />
-          </Link>
-        </li>
-
         {contagens.map((t) => (
           <li key={t.slug}>
             <Link

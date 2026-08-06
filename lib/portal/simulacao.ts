@@ -9,12 +9,14 @@ import type { Modalidade } from "./dados";
  * - **Juros simples.** O rendimento incide sempre sobre o capital, nunca sobre
  *   o rendimento ja acumulado. Um periodo nao é `(1+i)^n`, é `capital x taxa x
  *   n`.
- * - **Prazo e forma vem do contrato**, porque o aditivo entra nele e nao ao
- *   lado dele. A participacao sai da tabela do memorial na coluna daquela forma
- *   — mensal e final correm em escalas diferentes, e a taxa de uma nunca vale
- *   na outra.
- * - **O que ja esta assinado nao é renegociado.** O contrato antigo continua na
- *   participacao dele; o aporte novo entra na sua, e as duas se somam.
+ * - **Prazo, forma e participacao vem do contrato**, porque o aditivo entra
+ *   nele e nao ao lado dele. O aporte novo nunca cai na tabela de quem comeca
+ *   do zero: quem negociou 2,30% aporta a 2,30%, e nao volta para 1,80% por ter
+ *   aportado de novo.
+ * - **A soma pode subir a participacao, nunca baixar.** Quando capital do
+ *   contrato mais aporte alcancam uma faixa melhor, ela vale para o capital
+ *   inteiro — o dinheiro antigo sobe junto, e é dai que vem o pulo do
+ *   rendimento.
  * - **A soma pode subir a participacao.** Quando capital atual mais aporte
  *   alcancam uma faixa melhor, ela passa a valer para o **capital inteiro** —
  *   e nao so para o dinheiro que acabou de entrar. É a mesma regra que o portal
@@ -37,11 +39,13 @@ export type Prazo = (typeof PRAZOS)[number];
 /**
  * A tabela do memorial: participacao mensal por forma de retorno e prazo.
  *
- * É ela que da a taxa do aditivo. Prazo maior paga mais; receber no final paga
- * mais que receber todo mes, porque ai o capital fica inteiro na obra o periodo
- * todo. **As duas colunas vivem em escalas diferentes** — 1,80% no mensal de 36
- * meses é o par de 2,30% no final —, e por isso nenhum numero de uma serve na
- * outra.
+ * **Ela é a taxa de quem entra do zero, e por isso o simulador do aditivo nao a
+ * usa.** Quem ja tem contrato aporta na participacao que ja negociou — cair na
+ * tabela rebaixaria um investidor de 2,30% para 1,80% por ele ter aportado de
+ * novo, que é o contrario do que um aditivo deve fazer.
+ *
+ * Fica registrada aqui porque é o preco publico do produto, e é a referencia
+ * quando alguem for simular sem contrato nenhum.
  */
 export const TAXAS: Record<Forma, Record<Prazo, number>> = {
   mensal: { 18: 0.015, 24: 0.016, 36: 0.018 },
@@ -51,35 +55,79 @@ export const TAXAS: Record<Forma, Record<Prazo, number>> = {
 export type FaixaDeCapital = {
   /** Capital do contrato (o que ja tem + o aditivo) a partir do qual ela vale. */
   aPartirDe: number;
-  /** Participacao mensal em decimal: 0.019 = 1,9% ao mes. */
+  /** Participacao mensal em decimal: 0.021 = 2,1% ao mes. */
   taxa: number;
 };
 
 /**
- * A escada de participacao por capital, **uma por forma de retorno**.
+ * A escada de participacao: quanto o capital paga, por forma de retorno e por
+ * prazo.
  *
- * Separadas de proposito: mensal e final correm em escalas diferentes, e uma
- * escada só produzia o erro que apareceu em tela — um contrato mensal
- * simulando a 2,80%, taxa que so existe no mundo do final.
+ * Lida assim: no mensal de 36 meses, capital de 200 a 400 mil paga 2,3% ao mes;
+ * passou de 400 mil, paga 2,5%. O degrau de baixo de cada prazo é a taxa de
+ * entrada do produto — a mesma de `TAXAS`, que é onde comeca quem chega do
+ * zero.
  *
- * Cada degrau fixa a participacao, e nao é acrescimo sobre a taxa atual. Quem
- * ja tem taxa acima do degrau nao é rebaixado: a faixa é piso de oferta, e nao
- * teto do que ja foi assinado. A base é o capital **daquele contrato**, e nao a
- * carteira inteira.
+ * Tres coisas que a estrutura diz e que valem repetir:
  *
- * **Vazias ate os degraus reais chegarem.** Assim o aditivo entra na taxa do
- * memorial e a tela nao promete aumento nenhum — que é o certo para uma regra
- * que ninguem confirmou. Preencher é escrever as linhas, em ordem crescente:
+ * - **Cada prazo tem a propria escada.** 2,3% é o topo do 24 meses e o meio do
+ *   36 — o mesmo numero em dois lugares diferentes da tabela.
+ * - **Cada forma tambem.** Mensal e final correm em escalas diferentes, e
+ *   misturar as duas foi o que fez um contrato mensal aparecer a 2,80%.
+ * - **O degrau é piso, e nao teto.** Quem negociou acima dele nao é rebaixado
+ *   por aportar de novo.
  *
- *     mensal: [{ aPartirDe: 500_000, taxa: 0.019 }],
+ * A base é o capital **daquele contrato**, e nao a carteira inteira.
  */
-export const FAIXAS: Record<Forma, FaixaDeCapital[]> = {
-  mensal: [],
-  final: [],
+export const FAIXAS: Record<Forma, Record<number, FaixaDeCapital[]>> = {
+  mensal: {
+    18: [
+      { aPartirDe: 50_000, taxa: 0.015 },
+      { aPartirDe: 100_000, taxa: 0.018 },
+      { aPartirDe: 200_000, taxa: 0.02 },
+      { aPartirDe: 400_000, taxa: 0.022 },
+    ],
+    24: [
+      { aPartirDe: 50_000, taxa: 0.016 },
+      { aPartirDe: 100_000, taxa: 0.019 },
+      { aPartirDe: 200_000, taxa: 0.021 },
+      { aPartirDe: 400_000, taxa: 0.023 },
+    ],
+    36: [
+      { aPartirDe: 50_000, taxa: 0.018 },
+      { aPartirDe: 100_000, taxa: 0.021 },
+      { aPartirDe: 200_000, taxa: 0.023 },
+      { aPartirDe: 400_000, taxa: 0.025 },
+    ],
+  },
+  /*
+   * O final paga meio ponto a mais que o mensal em toda celula — o preco de
+   * deixar o capital inteiro na obra ate o fim. As doze linhas estao escritas
+   * uma a uma, e nao derivadas do mensal com um `+ 0.005`: no dia em que uma
+   * celula fugir da regra, a tabela continua verdadeira sozinha.
+   */
+  final: {
+    18: [
+      { aPartirDe: 50_000, taxa: 0.02 },
+      { aPartirDe: 100_000, taxa: 0.023 },
+      { aPartirDe: 200_000, taxa: 0.025 },
+      { aPartirDe: 400_000, taxa: 0.027 },
+    ],
+    24: [
+      { aPartirDe: 50_000, taxa: 0.021 },
+      { aPartirDe: 100_000, taxa: 0.024 },
+      { aPartirDe: 200_000, taxa: 0.026 },
+      { aPartirDe: 400_000, taxa: 0.028 },
+    ],
+    36: [
+      { aPartirDe: 50_000, taxa: 0.023 },
+      { aPartirDe: 100_000, taxa: 0.026 },
+      { aPartirDe: 200_000, taxa: 0.028 },
+      { aPartirDe: 400_000, taxa: 0.03 },
+    ],
+  },
 };
 
-const ehPrazoDaTabela = (meses: number): meses is Prazo =>
-  (PRAZOS as readonly number[]).includes(meses);
 
 /**
  * O prazo de quem nao tem prazo registrado.
@@ -96,8 +144,9 @@ export const APORTE_MAXIMO = 1_000_000;
 /** A forma de retorno é a mesma modalidade dos contratos, vista do outro lado. */
 export type Forma = Modalidade;
 
-/** Um contrato do investidor, agregado por empreendimento e modalidade. */
+/** Um contrato do investidor, com o capital ja somado aos aditivos. */
 export type ContratoParaSimular = {
+  id: string;
   empreendimentoId: string;
   empreendimento: string;
   modalidade: Modalidade;
@@ -180,23 +229,17 @@ export function simular({
   const capitalTotal = contrato.capital + limpo;
 
   /*
-   * A taxa base é a do memorial, na coluna da forma do contrato. Prazo fora da
-   * tabela — um contrato de 12 ou de 48 meses — cai na participacao do proprio
-   * contrato: inventar a celula que falta seria pior, ja que a tabela tem tres
-   * colunas porque sao tres os prazos oferecidos.
+   * A base é a participacao **do contrato**, e nunca a tabela de quem entra do
+   * zero: o dinheiro novo entra no que ja foi negociado. So a faixa pode mexer
+   * nela, e so para cima.
+   *
+   * Cada forma tem a propria escada — misturar as duas foi o que fez um
+   * contrato mensal aparecer a 2,80%, taxa que so existe no mundo do final.
    */
-  const daTabela = ehPrazoDaTabela(prazo)
-    ? TAXAS[forma][prazo]
-    : contrato.taxa;
-
-  /*
-   * A faixa nunca reduz o que ja foi oferecido: ela é piso, e nao teto. Cada
-   * forma tem a propria escada — misturar as duas foi o que fez um contrato
-   * mensal aparecer a 2,80%.
-   */
-  const alcancadas = FAIXAS[forma].filter((f) => capitalTotal >= f.aPartirDe);
+  const escada = FAIXAS[forma][prazo] ?? [];
+  const alcancadas = escada.filter((f) => capitalTotal >= f.aPartirDe);
   const taxa = Math.max(
-    daTabela,
+    contrato.taxa,
     ...alcancadas.map((f) => f.taxa),
     // O zero segura o `Math.max` quando nao ha faixa alcancada: sem ele,
     // `Math.max()` sobre lista vazia devolveria -Infinity.
@@ -208,7 +251,7 @@ export function simular({
    * do que a taxa vigente. "Mais barata" e nao "a maior": o que interessa a
    * quem simula é o degrau seguinte, e nao o ultimo da escada.
    */
-  const acima = FAIXAS[forma]
+  const acima = escada
     .filter((f) => f.aPartirDe > capitalTotal && f.taxa > taxa)
     .sort((a, b) => a.aPartirDe - b.aPartirDe);
 
@@ -220,30 +263,20 @@ export function simular({
     prazo,
     forma,
     taxa,
-    subiu: taxa > daTabela,
+    subiu: taxa > contrato.taxa,
     rendaMensal,
     retornoTotal,
     capitalMaisRetorno: limpo + retornoTotal,
     ganho: taxa * prazo,
     capitalTotal,
     /*
-     * O contrato segue na participacao dele — o aditivo nao renegocia o que ja
-     * foi assinado —, e o aporte novo entra na sua. As duas pontas se somam;
-     * uma taxa media entre elas seria um numero que nao existe em contrato
-     * nenhum.
-     *
-     * A excecao é a faixa: quando ela sobe, sobe para o capital inteiro, e ai
-     * as duas pontas passam a correr juntas na taxa nova.
+     * Uma taxa só para tudo: o aporte entra na participacao do contrato, entao
+     * capital velho e capital novo correm juntos. Quando a faixa sobe, sobe
+     * para os dois — e é dai que vem o pulo do rendimento.
      */
     mensalDoContrato:
       forma === "mensal" ? multiplicar(contrato.capital, contrato.taxa) : 0,
-    mensalTotal:
-      forma !== "mensal"
-        ? 0
-        : taxa > daTabela
-          ? multiplicar(capitalTotal, taxa)
-          : multiplicar(contrato.capital, contrato.taxa) +
-            multiplicar(limpo, taxa),
+    mensalTotal: forma === "mensal" ? multiplicar(capitalTotal, taxa) : 0,
     proxima: acima[0]
       ? { taxa: acima[0].taxa, falta: acima[0].aPartirDe - capitalTotal }
       : null,

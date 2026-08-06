@@ -174,7 +174,7 @@ const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/;
  * desde antes do lancamento.
  */
 export async function acaoLancarCredito(
-  alvo: { usuarioId: string; empreendimentoId: string; competencia: string },
+  alvo: { contratoId: string; competencia: string },
   dados: FormData,
 ) {
   await exigirAdmin();
@@ -184,9 +184,10 @@ export async function acaoLancarCredito(
   }
 
   const data = dataDoCredito(alvo.competencia);
-  const destino = `/admin/lancamentos?mes=${alvo.competencia}`;
+  // O painel de lancamento vive dentro da tela de Recebimentos.
+  const destino = `/admin/recebimentos?mes=${alvo.competencia}`;
 
-  if (await jaLancado(alvo.usuarioId, alvo.empreendimentoId, data)) {
+  if (await jaLancado(alvo.contratoId, data)) {
     redirect(`${destino}&aviso=duplicado`);
   }
 
@@ -196,7 +197,7 @@ export async function acaoLancarCredito(
 
   const valor =
     digitado === ""
-      ? (await estimativaDe(alvo.usuarioId, alvo.empreendimentoId, data)).valor
+      ? (await estimativaDe(alvo.contratoId, data)).valor
       : Number(digitado);
 
   if (!Number.isFinite(valor)) throw new Error("Valor invalido");
@@ -204,8 +205,7 @@ export async function acaoLancarCredito(
   const observacao = String(dados.get("observacao") ?? "").trim() || null;
 
   const id = await lancarCredito({
-    usuarioId: alvo.usuarioId,
-    empreendimentoId: alvo.empreendimentoId,
+    contratoId: alvo.contratoId,
     data,
     valor,
     observacao,
@@ -216,7 +216,7 @@ export async function acaoLancarCredito(
     alvoTabela: "recebimentos",
     alvoId: id,
     detalhe: {
-      campos: ["usuario_id", "empreendimento_id", "data", "valor", "observacao"],
+      campos: ["contrato_id", "data", "valor", "observacao"],
       // Se o valor saiu da formula ou da mao de quem lancou — é a pergunta que
       // se faz quando um credito é contestado.
       valorVeioDe: digitado === "" ? "estimativa" : "digitado",
@@ -224,16 +224,43 @@ export async function acaoLancarCredito(
     },
   });
 
-  revalidatePath("/admin/lancamentos");
   revalidatePath("/admin/recebimentos");
   redirect(`${destino}&ok=1`);
 }
+
+/**
+ * Os dois SQLSTATE de "tem gente apontando para esta linha".
+ *
+ * `23503` é a violacao de chave estrangeira comum; `23001` é a que o Postgres
+ * levanta especificamente no `ON DELETE RESTRICT` — mensagem diferente, codigo
+ * diferente. Medido no proprio banco, e nao deduzido: so o 23503 deixava o
+ * erro cru vazar para a tela.
+ */
+const VINCULO = new Set(["23503", "23001"]);
 
 export async function acaoExcluir(slug: string, id: string) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
 
-  await excluir(tabela, id);
+  try {
+    await excluir(tabela, id);
+  } catch (erro) {
+    /*
+     * Nao é falha do sistema: é o banco cumprindo o `ON DELETE RESTRICT`, que
+     * existe justamente para um clique em "Excluir" no usuario nao levar junto
+     * contratos e recebimentos dele. A tela precisa dizer isso em portugues, e
+     * nao mostrar a excecao do Postgres.
+     *
+     * O `redirect` mora aqui no `catch`, e nao dentro do `try`: ele funciona
+     * lancando, e la seria engolido por este mesmo bloco.
+     */
+    const codigo = (erro as { code?: string }).code;
+    if (!codigo || !VINCULO.has(codigo)) throw erro;
+
+    const onde = (erro as { table?: string }).table ?? "outra tabela";
+    redirect(`/admin/${slug}?erro=vinculo&onde=${encodeURIComponent(onde)}`);
+  }
+
   await registrar({ acao: "excluir", alvoTabela: tabela.tabela, alvoId: id });
 
   revalidatePath(`/admin/${slug}`);

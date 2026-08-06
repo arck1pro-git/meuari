@@ -57,11 +57,14 @@ export function BarraLateral({
             {inicial}
           </span>
 
+          {/* O mesmo peso do cabecalho do mobile: o nome carrega, a saudacao é
+              moldura, e "Ver perfil" le como link secundario. */}
           <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">
-              Olá, <span className="font-bold">{primeiroNome}</span>
+            <span className="block truncate text-[0.9375rem] leading-tight font-bold">
+              <span className="font-normal text-white/70">Olá, </span>
+              {primeiroNome}
             </span>
-            <span className="block text-xs text-white/70 transition-colors duration-200 group-hover:text-white">
+            <span className="mt-0.5 block text-[0.6875rem] leading-tight font-medium text-white/60 underline-offset-2 transition-colors duration-200 group-hover:text-white/90 group-hover:underline">
               Ver perfil
             </span>
           </span>

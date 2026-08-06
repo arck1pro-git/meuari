@@ -105,12 +105,52 @@ export function IconeBaixar({ className = "h-5 w-5" }) {
   );
 }
 
-/** Triangulo no circulo: o video. */
-export function IconeVideo({ className = "h-5 w-5" }) {
+/** Pessoa: quem tem conta. */
+export function IconePessoa({ className = "h-5 w-5" }) {
   return (
     <svg {...BASE} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M10.5 8.5v7l5.5-3.5z" />
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" />
+    </svg>
+  );
+}
+
+/** Pasta: o que foi publicado. */
+export function IconePasta({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h3.7l1.8 2h7.5A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z" />
+    </svg>
+  );
+}
+
+/** Sino: o aviso. */
+export function IconeSino({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M18 16H6l1.3-2.2V10a4.7 4.7 0 0 1 9.4 0v3.8z" />
+      <path d="M10.2 19a2 2 0 0 0 3.6 0" />
+    </svg>
+  );
+}
+
+/** Seta subindo sobre um degrau: o que cresce. */
+export function IconeSubindo({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M4 16.5 9.5 11l3.5 3.5L20 7.5" />
+      <path d="M15 7.5h5v5" />
+    </svg>
+  );
+}
+
+/** Porcentagem: a participacao. */
+export function IconePorcentagem({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="m6 18 12-12" />
+      <circle cx="7.5" cy="7.5" r="2.5" />
+      <circle cx="16.5" cy="16.5" r="2.5" />
     </svg>
   );
 }

@@ -37,15 +37,21 @@ export default async function SimuladorPage() {
   const contratos = await getContratosParaSimular(sessao.id);
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 bg-[#F7F8FA] px-5 pt-5 pb-28 sm:px-8 md:pt-8 md:pb-12">
+    <main className="mx-auto w-full max-w-5xl flex-1 bg-[#F7F8FA] px-5 pt-4 pb-28 sm:px-8 md:pt-6 md:pb-12">
       {/* Sem "Voltar": o simulador virou secao, entao a saida é a mesma das
           outras — a barra do rodape no celular, a coluna da esquerda no
           desktop. */}
-      {/* Centrado e sozinho: a tela tem uma pergunta só, e o titulo é a capa
-          dela — nao o comeco de um texto. */}
-      <h1 className="mb-5 animate-surgir text-center text-[1.75rem] leading-tight font-bold tracking-tight text-balance text-black">
-        Simulador ARI
-      </h1>
+      {/* Centrado: a tela tem uma pergunta só, e o titulo é a capa dela. A
+          linha de apoio explica o que a conta responde, em cinza e pequena —
+          quem ja sabe passa por cima dela sem esbarrar. */}
+      <div className="mb-4 animate-surgir text-center">
+        <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance text-black">
+          Simulador ARI
+        </h1>
+        <p className="mx-auto mt-1.5 max-w-xs text-[0.8125rem] leading-relaxed text-balance text-neutral-500">
+          Veja como um novo aporte impacta sua renda mensal.
+        </p>
+      </div>
 
       {contratos.length > 0 ? (
         <Simulador contratos={contratos} />

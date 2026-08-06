@@ -10,15 +10,13 @@ import { dataDoCredito, type TrechoDeTaxa } from "@/lib/portal/recebimentos";
 import { acaoLancarCredito } from "../../acoes";
 import { SeletorDeMes } from "./seletor-mes";
 
-export const dynamic = "force-dynamic";
-
 const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /**
  * O lancamento do credito mensal, mes a mes.
  *
- * O portal mostra `recebimentos` e mais nada — nao ha projecao em tela. Esta é
- * a pagina que preenche a tabela: para cada investidor com contrato `mensal`,
+ * O portal mostra `recebimentos` e mais nada — nao ha projecao em tela. Este é
+ * o bloco que preenche a tabela: para cada investidor com contrato `mensal`,
  * quanto o ciclo renderia pela conta do contrato, ja no campo, pronto para
  * confirmar ou corrigir.
  *
@@ -26,16 +24,21 @@ const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/;
  * vazio significa "vale a conta" e o servidor a refaz na hora de gravar. Assim
  * o caminho normal é um clique, e ninguem lanca por engano um numero que a tela
  * calculou e o navegador poderia ter mexido.
+ *
+ * Vive **dentro da tela de Recebimentos**, e nao numa rota propria: lancar é o
+ * jeito de criar uma linha ali, e as duas coisas separadas obrigavam a trocar
+ * de tela para conferir o que acabou de ser gravado.
  */
-export default async function LancamentosPage({
-  searchParams,
+export async function PainelDeLancamentos({
+  mes,
+  ok,
+  aviso,
 }: {
-  searchParams: Promise<{ mes?: string; ok?: string; aviso?: string }>;
+  mes?: string;
+  ok?: string;
+  aviso?: string;
 }) {
-  const [{ mes, ok, aviso }, hoje] = await Promise.all([
-    searchParams,
-    dataDeReferencia(),
-  ]);
+  const hoje = await dataDeReferencia();
 
   // Mes de fora da URL passa pelo mesmo crivo de sempre; o que nao for
   // `AAAA-MM` cai no mes corrente em vez de virar consulta.
@@ -47,12 +50,12 @@ export default async function LancamentosPage({
   const aLancar = pendentes.reduce((soma, l) => soma + l.estimativa.valor, 0);
 
   return (
-    <>
+    <section className="mb-10">
       <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-base font-bold tracking-tight text-black">
-            Lançamentos
-          </h1>
+          <h2 className="text-base font-bold tracking-tight text-black">
+            Lançar crédito do mês
+          </h2>
           <p className="mt-1 text-sm text-neutral-500">
             Crédito de {formatarData(data)}, ciclo fechado neste dia.
           </p>
@@ -95,13 +98,13 @@ export default async function LancamentosPage({
       ) : (
         <ul className="escalonar mt-6 grid gap-4 lg:grid-cols-2">
           {linhas.map((linha) => (
-            <li key={`${linha.usuarioId}|${linha.empreendimentoId}`}>
+            <li key={linha.contratoId}>
               <CartaoDeLancamento linha={linha} competencia={competencia} />
             </li>
           ))}
         </ul>
       )}
-    </>
+    </section>
   );
 }
 
@@ -206,12 +209,11 @@ function CartaoDeLancamento({
         </div>
       ) : (
         <form
-          // `bind` fixa investidor, obra e competencia no servidor: eles nao
+          // `bind` fixa o contrato e a competencia no servidor: eles nao
           // trafegam pelo formulario, e por isso nao ha como trocar de quem é o
           // credito reenviando a requisicao.
           action={acaoLancarCredito.bind(null, {
-            usuarioId: linha.usuarioId,
-            empreendimentoId: linha.empreendimentoId,
+            contratoId: linha.contratoId,
             competencia,
           })}
           className="mt-4 flex flex-1 flex-col justify-end gap-3"

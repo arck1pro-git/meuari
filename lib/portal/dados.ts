@@ -61,7 +61,6 @@ export type Empreendimento = {
   previsaoEntrega: DataISO | null;
   documentos: Arquivo[];
   imagens: Arquivo[];
-  videos: Arquivo[];
 };
 
 /** As colunas da ficha, no formato que a tela usa. Uma lista só, para as duas consultas. */
@@ -75,10 +74,7 @@ const COLUNAS_DA_FICHA = `e.id,
             to_char(e.previsao_entrega, 'YYYY-MM-DD')      as "previsaoEntrega"`;
 
 /** O que as duas consultas de empreendimento devolvem antes dos arquivos. */
-type FichaDoEmpreendimento = Omit<
-  Empreendimento,
-  "documentos" | "imagens" | "videos"
->;
+type FichaDoEmpreendimento = Omit<Empreendimento, "documentos" | "imagens">;
 
 /*
  * Datas e dinheiro sao convertidos no proprio SQL:
@@ -102,6 +98,17 @@ export async function dataDeReferencia(): Promise<DataISO> {
   return linha.hoje;
 }
 
+/**
+ * Todo dinheiro que a pessoa colocou: a entrada de cada contrato e cada aditivo
+ * feito depois.
+ *
+ * Os dois viram a mesma coisa aqui — um `Aporte` —, porque para o calculo eles
+ * sao a mesma coisa: capital que entrou numa data, sob uma participacao. O que
+ * muda é a origem, e é o contrato que carrega modalidade, obra e prazo.
+ *
+ * O aditivo sem participacao propria herda a do contrato (`coalesce`): em
+ * branco significa "segue como esta", e nao "sem taxa".
+ */
 export async function getAportes(usuarioId: string): Promise<Aporte[]> {
   const aportes = await consultar<Aporte>(
     `select c.id,
@@ -116,7 +123,24 @@ export async function getAportes(usuarioId: string): Promise<Aporte[]> {
        from contratos c
        join empreendimentos e on e.id = c.empreendimento_id
       where c.usuario_id = $1
-      order by c.data, c.criado_em`,
+
+      union all
+
+     select a.id,
+            to_char(a.data, 'YYYY-MM-DD') as data,
+            a.valor::float8 as valor,
+            coalesce(a.observacao, 'Aporte adicional') as tipo,
+            c.modalidade,
+            coalesce(a.taxa, c.taxa)::float8 as "taxaMensal",
+            a.documento,
+            e.id   as "empreendimentoId",
+            e.nome as "empreendimentoNome"
+       from aditivos a
+       join contratos c      on c.id = a.contrato_id
+       join empreendimentos e on e.id = c.empreendimento_id
+      where c.usuario_id = $1
+
+      order by data, id`,
     [usuarioId],
   );
 
@@ -152,34 +176,46 @@ export async function getRecebimentosLancados(usuarioId: string): Promise<
     data: DataISO;
     valor: number;
     observacao: string | null;
-    /** `null` = credito geral, sem empreendimento atribuido. */
-    empreendimentoId: string | null;
+    /** O empreendimento vem do contrato do credito, e nao de coluna propria. */
+    empreendimentoId: string;
   }[]
 > {
+  /*
+   * O vinculo é com o contrato, e a obra sai dele. Antes o credito guardava o
+   * empreendimento por conta propria e podia ficar sem nenhum — "credito
+   * geral" —, o que deixava a tela filtrada por obra sem saber onde encaixa-lo.
+   */
   return consultar(
-    `select to_char(data, 'YYYY-MM-DD') as data,
-            valor::float8 as valor,
-            observacao,
-            empreendimento_id as "empreendimentoId"
-       from recebimentos
-      where usuario_id = $1
-      order by data`,
+    `select to_char(r.data, 'YYYY-MM-DD') as data,
+            r.valor::float8 as valor,
+            r.observacao,
+            c.empreendimento_id as "empreendimentoId"
+       from recebimentos r
+       join contratos c on c.id = r.contrato_id
+      where c.usuario_id = $1
+      order by r.data`,
     [usuarioId],
   );
 }
 
 /**
- * Os contratos da pessoa como o simulador precisa deles: um por empreendimento
- * e modalidade, com o capital somado e a participacao vigente.
+ * Os contratos da pessoa como o simulador precisa deles.
  *
- * A agregacao acontece no SQL, e nao aqui, por um motivo de correcao: a taxa
- * vigente é a do aporte **mais recente** — a regra do contrato é que a ultima
- * participacao passa a valer para o capital inteiro —, e é isso que o
- * `array_agg ... order by data desc` pega. Somar os valores e pegar "alguma"
- * taxa daria um numero plausivel e errado.
+ * Agora é um por contrato de verdade — antes era um agrupamento por
+ * empreendimento e modalidade, porque cada aporte era uma linha de `contratos`
+ * e nao havia contrato a que se referir.
+ *
+ * Duas contas moram no SQL, e nao aqui, por correcao:
+ *
+ * - **capital** é a entrada mais todos os aditivos;
+ * - **taxa vigente** é a do aditivo mais recente que trouxe participacao
+ *   propria; sem nenhum, a do contrato. A regra é que a ultima participacao
+ *   passa a valer para o capital inteiro, entao pegar "alguma" delas daria um
+ *   numero plausivel e errado.
  */
 export async function getContratosParaSimular(usuarioId: string): Promise<
   {
+    id: string;
     empreendimentoId: string;
     empreendimento: string;
     modalidade: Modalidade;
@@ -189,23 +225,24 @@ export async function getContratosParaSimular(usuarioId: string): Promise<
   }[]
 > {
   return consultar(
-    `select e.id   as "empreendimentoId",
+    `select c.id,
+            e.id   as "empreendimentoId",
             e.nome as empreendimento,
             c.modalidade,
-            sum(c.valor)::float8 as capital,
-            (array_agg(c.taxa order by c.data desc, c.criado_em desc))[1]::float8
-              as taxa,
-            -- O prazo do aporte mais recente que tenha um. O filter existe
-            -- porque a coluna é opcional: sem ele, um aporte novo sem prazo
-            -- apagaria o prazo que os anteriores ja diziam.
-            (array_agg(c.prazo_meses order by c.data desc, c.criado_em desc)
-               filter (where c.prazo_meses is not null))[1]
-              as "prazoMeses"
+            (c.valor + coalesce(
+               (select sum(a.valor) from aditivos a where a.contrato_id = c.id),
+               0))::float8 as capital,
+            coalesce(
+              (select a.taxa from aditivos a
+                where a.contrato_id = c.id and a.taxa is not null
+                order by a.data desc, a.criado_em desc
+                limit 1),
+              c.taxa)::float8 as taxa,
+            c.prazo_meses as "prazoMeses"
        from contratos c
        join empreendimentos e on e.id = c.empreendimento_id
       where c.usuario_id = $1
-      group by e.id, e.nome, c.modalidade
-      order by e.nome, c.modalidade`,
+      order by e.nome, c.data`,
     [usuarioId],
   );
 }
@@ -237,8 +274,8 @@ export async function getEmpreendimentosBasicos(
  * nenhum outro. Um empreendimento sem aporte nao aparece no portal de ninguem —
  * o que é o comportamento certo, e nao um bug.
  *
- * Traz tudo: arquivos, fotos e videos, ja com URL assinada. Para quem so precisa
- * de id e nome, ha `getEmpreendimentosBasicos` — bem mais barata.
+ * Traz os arquivos e as fotos, ja com URL assinada. Para quem so precisa de id
+ * e nome, ha `getEmpreendimentosBasicos` — bem mais barata.
  */
 export async function getEmpreendimentos(
   usuarioId: string,
@@ -261,8 +298,8 @@ export async function getEmpreendimentos(
   // tudo de uma vez e o agrupamento acontece aqui. O nome da tabela sai da
   // lista literal abaixo — nunca de requisicao —, que é o que permite
   // interpola-lo no texto do SQL.
-  const [documentos, imagens, videos] = await Promise.all(
-    ["documentos", "imagens", "videos"].map((tabela) =>
+  const [documentos, imagens] = await Promise.all(
+    ["documentos", "imagens"].map((tabela) =>
       consultar<Arquivo & { empreendimentoId: string }>(
         `select id, nome, url,
                 to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data,
@@ -281,10 +318,9 @@ export async function getEmpreendimentos(
    * aconteceu na consulta acima (so entram empreendimentos onde esta pessoa
    * aportou).
    */
-  const [comDocumentos, comImagens, comVideos] = await Promise.all([
+  const [comDocumentos, comImagens] = await Promise.all([
     resolver(documentos, BUCKETS.documentos),
     resolver(imagens, BUCKETS.imagens),
-    resolver(videos, BUCKETS.videos),
   ]);
 
   const dos = <T extends { empreendimentoId: string }>(lista: T[], id: string) =>
@@ -294,7 +330,6 @@ export async function getEmpreendimentos(
     ...e,
     documentos: dos(comDocumentos, e.id),
     imagens: dos(comImagens, e.id),
-    videos: dos(comVideos, e.id),
   }));
 }
 
@@ -382,13 +417,6 @@ export type Etapa = {
   /** `null` enquanto a etapa estiver em andamento. */
   concluidaEm: DataISO | null;
   observacao: string | null;
-  /**
-   * A frente a que ela pertence: `Estrutura`, `Burocracia` ou `Outros`.
-   *
-   * `null` enquanto ninguem escolher no /admin — ai a tela agrupa pelo nome.
-   * Ver `grupoDaEtapa`.
-   */
-  grupo: string | null;
 };
 
 /** O empreendimento inteiro: ficha, fotos, etapas e documentos. */
@@ -427,7 +455,7 @@ export async function getObra(
 
   if (!base) return null;
 
-  const [documentos, imagens, videos, etapas, movimento] = await Promise.all([
+  const [documentos, imagens, etapas, movimento] = await Promise.all([
     consultar<Arquivo>(
       `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
          from documentos where empreendimento_id = $1
@@ -440,16 +468,10 @@ export async function getObra(
         order by criado_em desc, nome`,
       [base.id, FUSO],
     ),
-    consultar<Arquivo>(
-      `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
-         from videos where empreendimento_id = $1
-        order by criado_em desc, nome`,
-      [base.id, FUSO],
-    ),
     consultar<Etapa>(
       `select id, nome, percentual::float8 as percentual,
               to_char(concluida_em, 'YYYY-MM-DD') as "concluidaEm",
-              observacao, grupo
+              observacao
          from etapas where empreendimento_id = $1
         order by ordem, criado_em`,
       [base.id],
@@ -473,17 +495,15 @@ export async function getObra(
     ),
   ]);
 
-  const [comDocumentos, comImagens, comVideos] = await Promise.all([
+  const [comDocumentos, comImagens] = await Promise.all([
     resolver(documentos, BUCKETS.documentos),
     resolver(imagens, BUCKETS.imagens),
-    resolver(videos, BUCKETS.videos),
   ]);
 
   return {
     ...base,
     documentos: comDocumentos,
     imagens: comImagens,
-    videos: comVideos,
     etapas,
     atualizadoEm: movimento[0]?.atualizadoEm ?? null,
   };

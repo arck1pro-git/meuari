@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { listar, obter, opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
 import { acaoExcluir } from "../../acoes";
+import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
 
@@ -30,11 +31,22 @@ export default async function TabelaPage({
   searchParams,
 }: {
   params: Promise<{ tabela: string }>;
-  /** `f` é o valor do filtro declarado no registro da tabela. */
-  searchParams: Promise<{ editar?: string; f?: string }>;
+  /**
+   * `f` é o valor do filtro declarado no registro da tabela. `mes`, `ok` e
+   * `aviso` sao do painel de lancamento, que só aparece em Recebimentos.
+   */
+  searchParams: Promise<{
+    editar?: string;
+    f?: string;
+    mes?: string;
+    ok?: string;
+    aviso?: string;
+    erro?: string;
+    onde?: string;
+  }>;
 }) {
   const { tabela: slug } = await params;
-  const { editar, f } = await searchParams;
+  const { editar, f, mes, ok, aviso, erro, onde } = await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
@@ -57,6 +69,15 @@ export default async function TabelaPage({
 
   return (
     <>
+      {/*
+       * Recebimentos abre com o painel de lancamento do mes. Lancar é o jeito
+       * de criar uma linha nesta tabela — separado numa rota propria, obrigava
+       * a trocar de tela para conferir o que acabou de ser gravado.
+       */}
+      {tabela.slug === "recebimentos" && (
+        <PainelDeLancamentos mes={mes} ok={ok} aviso={aviso} />
+      )}
+
       <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
         <h1 className="text-base font-bold tracking-tight text-black">
           {tabela.rotulo}
@@ -80,6 +101,22 @@ export default async function TabelaPage({
           </span>
         </div>
       </div>
+
+      {/*
+       * Exclusao barrada por vinculo. Nao é erro de sistema: é o
+       * `ON DELETE RESTRICT` das tabelas de dinheiro fazendo o trabalho dele —
+       * apagar um investidor nao pode levar junto os contratos e os creditos
+       * dele. A tela diz onde estao os registros que seguram, porque é de la
+       * que a pessoa precisa comecar.
+       */}
+      {erro === "vinculo" && (
+        <p className="mt-4 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+          <span className="font-semibold">Não foi possível excluir.</span> Há
+          registros em <span className="font-semibold">{onde ?? "outra tabela"}</span>{" "}
+          apontando para este — o banco recusa a exclusão para não levar essas
+          linhas junto. Apague ou reatribua esses registros primeiro.
+        </p>
+      )}
 
       <div className="mt-6">
         <Formulario tabela={tabela} linha={emEdicao} />

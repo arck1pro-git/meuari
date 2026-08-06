@@ -47,6 +47,15 @@ export type Tabela = {
   tabela: string;
   /** Coluna usada como legenda quando outra tabela aponta para esta. */
   rotuloRef: string;
+  /**
+   * Legenda montada, para quando uma coluna só nao identifica a linha — o caso
+   * do contrato, que precisa dizer de quem é e de qual obra.
+   *
+   * Vai **literal** para o texto do SQL, e por isso mora aqui e em lugar
+   * nenhum mais: é o mesmo cuidado dos nomes de tabela e de coluna. Nada que
+   * venha de requisicao entra nesta string.
+   */
+  rotuloSql?: string;
   campos: Campo[];
   /** Colunas mostradas na listagem. */
   colunas: string[];
@@ -130,15 +139,21 @@ export const TABELAS: Tabela[] = [
   },
   {
     /*
-     * Uma linha aqui é um aporte *e* o contrato que o formaliza — as duas coisas
-     * viraram uma tabela só. É daqui que o portal deriva capital, saldo,
-     * historico e a agenda de creditos.
+     * Uma linha aqui é **um contrato**: o vinculo do investidor com a obra, com
+     * o valor de entrada, a participacao, o prazo e o instrumento assinado. Os
+     * aportes seguintes sao aditivos, na tabela abaixo.
      */
     slug: "contratos",
-    rotulo: "Aportes e contratos",
+    rotulo: "Contratos",
     tabela: "contratos",
     rotuloRef: "data",
-    colunas: ["usuario_id", "data", "valor", "taxa", "modalidade", "tipo"],
+    // A legenda de um contrato precisa dizer de quem é e de qual obra: uma
+    // lista de datas soltas nao identifica nada no seletor do aditivo.
+    rotuloSql: `(select u.nome from usuarios u where u.id = contratos.usuario_id)
+                || ' · ' ||
+                (select e.nome from empreendimentos e where e.id = contratos.empreendimento_id)
+                || ' · ' || to_char(contratos.data, 'DD/MM/YYYY')`,
+    colunas: ["usuario_id", "empreendimento_id", "data", "valor", "taxa", "modalidade"],
     // Um investidor tem varios aportes, e a pergunta de sempre é "o que fulano
     // tem". Sem filtro, a lista é a mistura de todo mundo em ordem de criacao.
     filtros: ["usuario_id"],
@@ -159,18 +174,24 @@ export const TABELAS: Tabela[] = [
       },
       {
         nome: "data",
-        rotulo: "Data do aporte",
+        rotulo: "Data de assinatura",
         tipo: "data",
         obrigatorio: true,
       },
-      { nome: "valor", rotulo: "Valor", tipo: "dinheiro", obrigatorio: true },
+      {
+        nome: "valor",
+        rotulo: "Valor de entrada",
+        tipo: "dinheiro",
+        obrigatorio: true,
+        ajuda: "O aporte que abre o contrato. Os seguintes sao aditivos.",
+      },
       {
         nome: "taxa",
         rotulo: "Participacao mensal",
         tipo: "numero",
         obrigatorio: true,
         ajuda:
-          "Em decimal: 0.026 = 2,6% ao mes. Passa a valer para o capital inteiro a partir desta data; repita a vigente quando nao houver troca.",
+          "Em decimal: 0.026 = 2,6% ao mes. Um aditivo pode troca-la; enquanto nao trocar, vale esta.",
       },
       {
         nome: "modalidade",
@@ -184,7 +205,7 @@ export const TABELAS: Tabela[] = [
         rotulo: "Tipo",
         tipo: "texto",
         obrigatorio: true,
-        ajuda: 'Aparece no cartao do historico. Ex.: "Aporte adicional".',
+        ajuda: 'Aparece no cartao do historico. Ex.: "Aporte inicial".',
       },
       {
         nome: "documento",
@@ -193,35 +214,83 @@ export const TABELAS: Tabela[] = [
         bucket: BUCKETS.contratos,
         aceita: "application/pdf",
       },
-      { nome: "prazo_meses", rotulo: "Prazo (meses)", tipo: "numero" },
+      {
+        nome: "prazo_meses",
+        rotulo: "Prazo (meses)",
+        tipo: "numero",
+        ajuda: "18, 24 ou 36. É ele que decide a faixa no simulador.",
+      },
+      { nome: "observacao", rotulo: "Observacao", tipo: "texto" },
+    ],
+  },
+  {
+    /*
+     * Cada aporte feito depois da assinatura. Ele entra **dentro** do contrato
+     * — nao é um contrato novo —, e por isso o unico vinculo que tem é com ele.
+     */
+    slug: "aditivos",
+    rotulo: "Aditivos",
+    tabela: "aditivos",
+    rotuloRef: "data",
+    colunas: ["contrato_id", "data", "valor", "taxa", "observacao"],
+    filtros: ["contrato_id"],
+    campos: [
+      {
+        nome: "contrato_id",
+        rotulo: "Contrato",
+        tipo: "referencia",
+        aponta: "contratos",
+        obrigatorio: true,
+      },
+      {
+        nome: "data",
+        rotulo: "Data do aporte",
+        tipo: "data",
+        obrigatorio: true,
+      },
+      { nome: "valor", rotulo: "Valor", tipo: "dinheiro", obrigatorio: true },
+      {
+        nome: "taxa",
+        rotulo: "Nova participacao",
+        tipo: "numero",
+        ajuda:
+          "Em branco = segue a do contrato. Preenchida, passa a valer para o capital inteiro a partir desta data.",
+      },
+      {
+        nome: "documento",
+        rotulo: "Aditivo assinado",
+        tipo: "arquivo",
+        bucket: BUCKETS.contratos,
+        aceita: "application/pdf",
+      },
       { nome: "observacao", rotulo: "Observacao", tipo: "texto" },
     ],
   },
   {
     // Os creditos que caíram na conta — a unica fonte do grafico do portal,
-    // que nao recalcula nada. O lancamento do mes é feito em
-    // `/admin/lancamentos`, com a estimativa pronta; esta tabela é onde se
-    // corrige, se apaga e se olha o historico inteiro.
+    // que nao recalcula nada. O lancamento do mes é feito no painel do topo
+    // desta mesma tela; a tabela é onde se corrige, se apaga e se olha o
+    // historico inteiro.
     slug: "recebimentos",
     rotulo: "Recebimentos",
     tabela: "recebimentos",
     rotuloRef: "data",
-    colunas: ["usuario_id", "empreendimento_id", "data", "valor", "observacao"],
+    colunas: ["contrato_id", "data", "valor", "observacao"],
+    filtros: ["contrato_id"],
     campos: [
+      /*
+       * Só o contrato. Investidor e empreendimento saiam daqui como colunas
+       * proprias, e o credito podia ficar sem obra — "credito geral" —, o que
+       * deixava a tela filtrada por empreendimento sem saber onde encaixa-lo.
+       * O contrato responde as duas coisas, e ainda diz a participacao e o
+       * prazo que geraram aquele valor.
+       */
       {
-        nome: "usuario_id",
-        rotulo: "Investidor",
+        nome: "contrato_id",
+        rotulo: "Contrato",
         tipo: "referencia",
-        aponta: "usuarios",
+        aponta: "contratos",
         obrigatorio: true,
-      },
-      {
-        nome: "empreendimento_id",
-        rotulo: "Empreendimento",
-        tipo: "referencia",
-        aponta: "empreendimentos",
-        ajuda:
-          "Em branco = credito geral: entra no consolidado, mas nao aparece quando o investidor filtra por um empreendimento.",
       },
       {
         nome: "data",
@@ -293,7 +362,7 @@ export const TABELAS: Tabela[] = [
     rotulo: "Etapas da obra",
     tabela: "etapas",
     rotuloRef: "nome",
-    colunas: ["nome", "empreendimento_id", "grupo", "percentual", "concluida_em"],
+    colunas: ["nome", "empreendimento_id", "percentual", "concluida_em", "ordem"],
     filtros: ["empreendimento_id"],
     campos: [
       {
@@ -317,16 +386,12 @@ export const TABELAS: Tabela[] = [
         obrigatorio: true,
         ajuda: "De 0 a 100. Aceita casa decimal: 37,5.",
       },
-      {
-        nome: "grupo",
-        rotulo: "Frente",
-        tipo: "escolha",
-        // A mesma lista do CHECK em `db/etapas-frentes.sql` e de `GRUPOS`, em
-        // app/(app)/obras/_componentes/grupos.ts.
-        opcoes: ["Projeto", "Aprovações", "Marketing"],
-        ajuda:
-          "O quadro em que a etapa aparece. Em branco, o portal adivinha pelo nome.",
-      },
+      /*
+       * A "Frente" saiu daqui: os quadros da obra passaram a se dividir por
+       * estagio — aprovado ou em aprovacao —, e nao por departamento. A coluna
+       * `etapas.grupo` continua no banco, vazia e dormente, para o caso de a
+       * divisao por frente voltar.
+       */
       {
         nome: "concluida_em",
         rotulo: "Concluida em",
@@ -367,52 +432,17 @@ export const TABELAS: Tabela[] = [
       },
     ],
   },
-  {
-    slug: "videos",
-    rotulo: "Videos",
-    tabela: "videos",
-    rotuloRef: "nome",
-    colunas: ["nome", "empreendimento_id", "criado_em"],
-    campos: [
-      {
-        nome: "empreendimento_id",
-        rotulo: "Empreendimento",
-        tipo: "referencia",
-        aponta: "empreendimentos",
-        obrigatorio: true,
-      },
-      { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
-      {
-        nome: "url",
-        rotulo: "Video",
-        tipo: "arquivo",
-        bucket: BUCKETS.videos,
-        aceita: "video/*",
-        obrigatorio: true,
-        ajuda:
-          "Bucket publico: quem tiver o link assiste. Para video fechado, use outro bucket.",
-      },
-    ],
-  },
-  {
-    slug: "push-inscricoes",
-    rotulo: "Inscricoes de push",
-    tabela: "push_inscricoes",
-    rotuloRef: "endpoint",
-    colunas: ["usuario_id", "endpoint", "criado_em"],
-    campos: [
-      {
-        nome: "usuario_id",
-        rotulo: "Usuario",
-        tipo: "referencia",
-        aponta: "usuarios",
-        obrigatorio: true,
-      },
-      { nome: "endpoint", rotulo: "Endpoint", tipo: "texto", obrigatorio: true },
-      { nome: "p256dh", rotulo: "Chave p256dh", tipo: "texto", obrigatorio: true },
-      { nome: "auth", rotulo: "Chave auth", tipo: "texto", obrigatorio: true },
-    ],
-  },
+  /*
+   * "Videos" saiu do painel e da tela da obra. A tabela `videos` continua no
+   * banco, vazia — nunca teve linha —, e o bucket segue declarado em
+   * `lib/storage.ts`. Nada foi apagado: o que sumiu foi a porta.
+   */
+  /*
+   * "Inscricoes de push" saiu do painel. A tabela `push_inscricoes` continua
+   * viva e é escrita pelo proprio app — quem liga o aviso no sino grava a
+   * inscricao do aparelho —, mas ela nao é cadastro: sao endpoint e chaves
+   * criptograficas que ninguem digita, edita ou confere a olho.
+   */
 ];
 
 export function acharTabela(slug: string): Tabela | undefined {

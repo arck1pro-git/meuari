@@ -61,8 +61,8 @@ export function TelaDaObra({
       </div>
 
       {/* Fora do `escalonar`: ele é fixo na tela, e nao um degrau da pilha. */}
-      <BotaoDocumentos quantos={obra.documentos.length + obra.videos.length}>
-        <Documentos documentos={obra.documentos} videos={obra.videos} />
+      <BotaoDocumentos quantos={obra.documentos.length}>
+        <Documentos documentos={obra.documentos} />
       </BotaoDocumentos>
     </main>
   );
