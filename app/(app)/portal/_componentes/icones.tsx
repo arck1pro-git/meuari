@@ -115,6 +115,60 @@ export function IconeVideo({ className = "h-5 w-5" }) {
   );
 }
 
+/** Alfinete: onde a obra fica. */
+export function IconeLocal({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+/** Predio: o estagio do empreendimento. */
+export function IconeObra({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M4 21V6.5L12 3v18" />
+      <path d="M12 9h8v12" />
+      <path d="M7.5 9v0M7.5 13v0M7.5 17v0" />
+      <path d="M16 13v0M16 17v0" />
+    </svg>
+  );
+}
+
+/** Relogio: quando isto mudou pela ultima vez. */
+export function IconeRelogio({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5.2l3.2 2" />
+    </svg>
+  );
+}
+
+/** Setas para os cantos: ver a foto em tela cheia. */
+export function IconeExpandir({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M9 4H4v5" />
+      <path d="M15 4h5v5" />
+      <path d="M15 20h5v-5" />
+      <path d="M9 20H4v-5" />
+    </svg>
+  );
+}
+
+/** X: fecha o que estiver aberto por cima. */
+export function IconeFechar({ className = "h-5 w-5" }) {
+  return (
+    <svg {...BASE} className={className}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </svg>
+  );
+}
+
 /** Confere: a etapa fechou. */
 export function IconeConfere({ className = "h-5 w-5" }) {
   return (

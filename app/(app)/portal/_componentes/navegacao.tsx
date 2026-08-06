@@ -19,7 +19,11 @@ const SECOES = [
   { href: "/obras", rotulo: "Obras", Icone: IconeTransparencia },
 ] as const;
 
-export function Navegacao({ ativo }: { ativo: "/portal" | "/obras" }) {
+export function Navegacao({
+  ativo,
+}: {
+  ativo: "/portal" | "/obras" | "/simulador";
+}) {
   return (
     /* Barra rente as bordas. A margem de seguranca do aparelho entra como
        padding, e nao margem — o branco deve ir ate o fim da tela e é o conteudo
@@ -89,7 +93,12 @@ export function Navegacao({ ativo }: { ativo: "/portal" | "/obras" }) {
          * negativo conta a partir da borda de cima da barra, entao `-top-8`
          * significa literalmente 32px acima dela — sobram 24px dentro.
          */}
-        <BotaoSimulador className="absolute -top-8 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-white text-tinta shadow-[0_6px_16px_-4px_rgba(0,20,73,0.35)] transition-transform duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2" />
+        <BotaoSimulador
+          // Ele tambem é uma secao: aberta, o botao precisa dizer isso, senao é
+          // a unica peca da barra que nao responde a onde a pessoa esta.
+          ativo={ativo === "/simulador"}
+          className="absolute -top-8 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-white text-tinta shadow-[0_6px_16px_-4px_rgba(0,20,73,0.35)] transition-transform duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+        />
     </nav>
   );
 }

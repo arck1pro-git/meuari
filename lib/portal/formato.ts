@@ -73,6 +73,18 @@ export function formatarDataExtensa(iso: DataISO): string {
   return `${dia} de ${MESES[mes - 1]} de ${ano}`;
 }
 
+/**
+ * `2027-12-12` -> `12 dez 2027`.
+ *
+ * Para valor de destaque: a barra da data em `12/12/2027` puxa o olho para o
+ * separador, e por extenso a linha nao cabe. Mes em minuscula porque é o certo
+ * em portugues — "Dez" seria ingles com roupa nossa.
+ */
+export function formatarDataCurta(iso: DataISO): string {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return `${dia} ${MESES_CURTOS[mes - 1]} ${ano}`;
+}
+
 /** `2025-03` -> `marco de 2025`. */
 export function formatarCompetencia(competencia: string): string {
   const [ano, mes] = competencia.split("-").map(Number);

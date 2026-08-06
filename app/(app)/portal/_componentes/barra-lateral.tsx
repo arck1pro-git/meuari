@@ -28,7 +28,7 @@ export function BarraLateral({
   nome: string;
   notificacoes: Notificacao[];
   /** Secao aberta. `null` nas telas que nao sao secao — perfil, artigo. */
-  ativo: "/portal" | "/obras" | null;
+  ativo: "/portal" | "/obras" | "/simulador" | null;
 }) {
   const primeiroNome = nome.split(" ")[0];
   const inicial = (Array.from(primeiroNome)[0] ?? "?").toUpperCase();
@@ -101,9 +101,19 @@ export function BarraLateral({
             ancorar. */}
         <Link
           href="/simulador"
-          className="flex items-center justify-center gap-2 rounded-xl bg-ciano/25 px-3 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-ciano/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          aria-current={ativo === "/simulador" ? "page" : undefined}
+          className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            ativo === "/simulador"
+              ? "bg-ciano/45"
+              : "bg-ciano/25 hover:bg-ciano/40"
+          }`}
         >
-          <IconeSimulador className="h-5 w-5 shrink-0" />
+          {/* Ouro na secao aberta, como nas duas de cima. */}
+          <IconeSimulador
+            className={`h-5 w-5 shrink-0 ${
+              ativo === "/simulador" ? "text-ouro" : ""
+            }`}
+          />
           Simulador ARI
         </Link>
 

@@ -1,18 +1,17 @@
 /**
  * O cartao da ficha da obra.
  *
- * Existe separado do `Cartao` do portal por causa do fundo: aqui a tela é um
- * cinza levissimo, e o cartao branco ja se separa dele sozinho. A sombra pode
- * entao ser mais aberta e clara, o canto um pouco maior e o respiro interno
- * maior — o desenho de um app financeiro, em que o cartao é uma superficie e
- * nao uma caixa.
+ * Mesma elevacao dos cartoes de aporte do `/portal` — `sombra-cartao` —, e nao
+ * uma mais clara: o fundo cinza desta tela pedia menos peso na teoria, mas na
+ * pratica o app inteiro passou a ter duas profundidades diferentes para a mesma
+ * coisa, e as telas nao pareciam do mesmo produto.
  *
- * Mudar o `Cartao` comum daria isto de graca aqui e estragaria as outras telas,
- * onde o fundo é branco e o cartao precisa do peso que ele tem hoje.
+ * O que continua proprio daqui é a forma: canto de 20px e respiro interno
+ * maior, porque este cartao carrega texto corrido e nao uma linha de numeros.
  */
 export function CartaoObra({ children }: { children: React.ReactNode }) {
   return (
-    <section className="sombra-suave hover:sombra-suave-alta rounded-[20px] bg-white p-6 transition-shadow duration-300 sm:p-7">
+    <section className="sombra-cartao hover:sombra-cartao-alta rounded-[20px] bg-white p-6 transition-shadow duration-300 sm:p-7">
       {children}
     </section>
   );

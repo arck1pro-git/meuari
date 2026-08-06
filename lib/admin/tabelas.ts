@@ -89,14 +89,42 @@ export const TABELAS: Tabela[] = [
     rotulo: "Empreendimentos",
     tabela: "empreendimentos",
     rotuloRef: "nome",
-    colunas: ["nome", "previsao_inicio_obras", "criado_em"],
+    colunas: ["nome", "cidade", "uf", "status", "previsao_entrega"],
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
-      { nome: "descricao", rotulo: "Descricao", tipo: "area" },
+      {
+        nome: "descricao",
+        rotulo: "Chamada",
+        tipo: "area",
+        ajuda:
+          'Uma frase, no topo da tela da obra. Ex.: "O futuro da moradia em Itapema."',
+      },
+      { nome: "cidade", rotulo: "Cidade", tipo: "texto" },
+      {
+        nome: "uf",
+        rotulo: "Estado",
+        tipo: "texto",
+        ajuda: "Sigla de duas letras, maiuscula: SC, SP, PR.",
+      },
+      {
+        nome: "status",
+        rotulo: "Status",
+        tipo: "escolha",
+        // A mesma lista do CHECK em `db/empreendimento-ficha.sql`. Mexer aqui
+        // sem mexer la faz o banco recusar o registro na hora de salvar.
+        opcoes: ["Lançamento", "Em obras", "Em construção", "Entregue"],
+        ajuda: "Aparece como selo sobre a foto, na tela do investidor.",
+      },
       {
         nome: "previsao_inicio_obras",
         rotulo: "Previsao de inicio das obras",
         tipo: "data",
+      },
+      {
+        nome: "previsao_entrega",
+        rotulo: "Previsao de entrega",
+        tipo: "data",
+        ajuda: "A entrega das chaves — nao é o inicio das obras.",
       },
     ],
   },
@@ -265,7 +293,7 @@ export const TABELAS: Tabela[] = [
     rotulo: "Etapas da obra",
     tabela: "etapas",
     rotuloRef: "nome",
-    colunas: ["nome", "empreendimento_id", "percentual", "concluida_em", "ordem"],
+    colunas: ["nome", "empreendimento_id", "grupo", "percentual", "concluida_em"],
     filtros: ["empreendimento_id"],
     campos: [
       {
@@ -288,6 +316,16 @@ export const TABELAS: Tabela[] = [
         tipo: "numero",
         obrigatorio: true,
         ajuda: "De 0 a 100. Aceita casa decimal: 37,5.",
+      },
+      {
+        nome: "grupo",
+        rotulo: "Frente",
+        tipo: "escolha",
+        // A mesma lista do CHECK em `db/etapas-frentes.sql` e de `GRUPOS`, em
+        // app/(app)/obras/_componentes/grupos.ts.
+        opcoes: ["Projeto", "Aprovações", "Marketing"],
+        ajuda:
+          "O quadro em que a etapa aparece. Em branco, o portal adivinha pelo nome.",
       },
       {
         nome: "concluida_em",

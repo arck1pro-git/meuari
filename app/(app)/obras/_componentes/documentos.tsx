@@ -5,17 +5,17 @@ import {
   IconeTransparencia,
   IconeVideo,
 } from "../../portal/_componentes/icones";
-import { CartaoObra } from "./cartao-obra";
 
 /**
  * Os papeis do empreendimento: o que se baixa e o que se assiste.
  *
- * Duas listas no mesmo cartao, e nao dois cartoes: sao a mesma coisa para quem
- * procura — material publicado sobre a obra —, e a diferenca esta no verbo do
- * fim da linha.
+ * Duas listas juntas, e nao duas secoes: sao a mesma coisa para quem procura —
+ * material publicado sobre a obra —, e a diferenca esta no verbo do fim da
+ * linha.
  *
- * Veio da ficha que existia dentro do `/obras`; o que mudou é que agora ela é a
- * pagina da obra, e nao um segundo nivel escondido em estado de cliente.
+ * Sem cartao proprio: hoje quem abre isto é a folha que sobe do botao
+ * flutuante, e ela ja é a superficie branca. Cartao dentro de cartao é caixa
+ * dentro de caixa.
  */
 export function Documentos({
   documentos,
@@ -26,24 +26,20 @@ export function Documentos({
 }) {
   if (documentos.length === 0 && videos.length === 0) {
     return (
-      <CartaoObra>
-        <p className="text-sm text-neutral-500">
-          Nada publicado ainda para esta obra.
-        </p>
-      </CartaoObra>
+      <p className="py-6 text-center text-sm text-neutral-500">
+        Nada publicado ainda para esta obra.
+      </p>
     );
   }
 
   return (
-    <CartaoObra>
-      <div className="space-y-8">
-        {/* Sem subtitulo na primeira lista: o cartao inteiro ja se chama
-            Documentos, e repetir a palavra logo abaixo do titulo nao separava
-            nada. Os videos mantem o deles, que ai sim divide duas coisas. */}
-        <Lista arquivos={documentos} acao="Baixar" />
-        <Lista titulo="Vídeos" arquivos={videos} acao="Assistir" />
-      </div>
-    </CartaoObra>
+    <div className="space-y-8">
+      {/* Sem subtitulo na primeira lista: a folha inteira ja se chama
+          Documentos, e repetir a palavra logo abaixo do titulo nao separava
+          nada. Os videos mantem o deles, que ai sim divide duas coisas. */}
+      <Lista arquivos={documentos} acao="Baixar" />
+      <Lista titulo="Vídeos" arquivos={videos} acao="Assistir" />
+    </div>
   );
 }
 
@@ -95,14 +91,20 @@ function Lista({
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-tinta transition-colors duration-200 group-hover:text-marinho">
+                <span className="block text-sm font-medium text-tinta">
                   {arquivo.nome}
                 </span>
                 <span className="mt-0.5 block text-[0.6875rem] text-neutral-400 tabular-nums">
                   {formatarData(arquivo.data)}
                 </span>
               </span>
-              <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-neutral-400 transition-colors duration-200 group-hover:text-azul">
+              {/*
+               * O verbo virou botao. Ele era um cinza claro no fim da linha, do
+               * tamanho da data — a acao principal da folha parecia legenda. Um
+               * botao de verdade nao muda o que a linha faz (o alvo continua
+               * sendo a linha inteira), muda o que ela promete.
+               */}
+              <span className="flex shrink-0 items-center gap-1.5 rounded-xl bg-marinho px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 group-hover:bg-azul">
                 {acao}
                 {baixar ? (
                   <IconeBaixar className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-y-0.5" />

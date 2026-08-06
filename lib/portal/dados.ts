@@ -51,10 +51,34 @@ export type Empreendimento = {
   nome: string;
   descricao: string | null;
   previsaoInicioObras: DataISO | null;
+  /** Onde a obra fica. `null` enquanto ninguem preencher no /admin. */
+  cidade: string | null;
+  /** Sigla de duas letras, maiuscula — o banco recusa outra coisa. */
+  uf: string | null;
+  /** Em que pé ela esta: `Lançamento`, `Em obras`, `Em construção`, `Entregue`. */
+  status: string | null;
+  /** A entrega — que nao é o inicio das obras. */
+  previsaoEntrega: DataISO | null;
   documentos: Arquivo[];
   imagens: Arquivo[];
   videos: Arquivo[];
 };
+
+/** As colunas da ficha, no formato que a tela usa. Uma lista só, para as duas consultas. */
+const COLUNAS_DA_FICHA = `e.id,
+            e.nome,
+            e.descricao,
+            e.cidade,
+            e.uf,
+            e.status,
+            to_char(e.previsao_inicio_obras, 'YYYY-MM-DD') as "previsaoInicioObras",
+            to_char(e.previsao_entrega, 'YYYY-MM-DD')      as "previsaoEntrega"`;
+
+/** O que as duas consultas de empreendimento devolvem antes dos arquivos. */
+type FichaDoEmpreendimento = Omit<
+  Empreendimento,
+  "documentos" | "imagens" | "videos"
+>;
 
 /*
  * Datas e dinheiro sao convertidos no proprio SQL:
@@ -145,6 +169,48 @@ export async function getRecebimentosLancados(usuarioId: string): Promise<
 }
 
 /**
+ * Os contratos da pessoa como o simulador precisa deles: um por empreendimento
+ * e modalidade, com o capital somado e a participacao vigente.
+ *
+ * A agregacao acontece no SQL, e nao aqui, por um motivo de correcao: a taxa
+ * vigente é a do aporte **mais recente** — a regra do contrato é que a ultima
+ * participacao passa a valer para o capital inteiro —, e é isso que o
+ * `array_agg ... order by data desc` pega. Somar os valores e pegar "alguma"
+ * taxa daria um numero plausivel e errado.
+ */
+export async function getContratosParaSimular(usuarioId: string): Promise<
+  {
+    empreendimentoId: string;
+    empreendimento: string;
+    modalidade: Modalidade;
+    capital: number;
+    taxa: number;
+    prazoMeses: number | null;
+  }[]
+> {
+  return consultar(
+    `select e.id   as "empreendimentoId",
+            e.nome as empreendimento,
+            c.modalidade,
+            sum(c.valor)::float8 as capital,
+            (array_agg(c.taxa order by c.data desc, c.criado_em desc))[1]::float8
+              as taxa,
+            -- O prazo do aporte mais recente que tenha um. O filter existe
+            -- porque a coluna é opcional: sem ele, um aporte novo sem prazo
+            -- apagaria o prazo que os anteriores ja diziam.
+            (array_agg(c.prazo_meses order by c.data desc, c.criado_em desc)
+               filter (where c.prazo_meses is not null))[1]
+              as "prazoMeses"
+       from contratos c
+       join empreendimentos e on e.id = c.empreendimento_id
+      where c.usuario_id = $1
+      group by e.id, e.nome, c.modalidade
+      order by e.nome, c.modalidade`,
+    [usuarioId],
+  );
+}
+
+/**
  * So o id e o nome dos empreendimentos da pessoa.
  *
  * O `/portal` precisava disto — validar o `?e=` da URL e montar o seletor —
@@ -177,17 +243,9 @@ export async function getEmpreendimentosBasicos(
 export async function getEmpreendimentos(
   usuarioId: string,
 ): Promise<Empreendimento[]> {
-  const empreendimentos = await consultar<{
-    id: string;
-    nome: string;
-    descricao: string | null;
-    previsaoInicioObras: DataISO | null;
-  }>(
+  const empreendimentos = await consultar<FichaDoEmpreendimento>(
     `select distinct
-            e.id,
-            e.nome,
-            e.descricao,
-            to_char(e.previsao_inicio_obras, 'YYYY-MM-DD') as "previsaoInicioObras"
+            ${COLUNAS_DA_FICHA}
        from empreendimentos e
        join contratos c on c.empreendimento_id = e.id
       where c.usuario_id = $1
@@ -324,10 +382,27 @@ export type Etapa = {
   /** `null` enquanto a etapa estiver em andamento. */
   concluidaEm: DataISO | null;
   observacao: string | null;
+  /**
+   * A frente a que ela pertence: `Estrutura`, `Burocracia` ou `Outros`.
+   *
+   * `null` enquanto ninguem escolher no /admin — ai a tela agrupa pelo nome.
+   * Ver `grupoDaEtapa`.
+   */
+  grupo: string | null;
 };
 
 /** O empreendimento inteiro: ficha, fotos, etapas e documentos. */
-export type Obra = Empreendimento & { etapas: Etapa[] };
+export type Obra = Empreendimento & {
+  etapas: Etapa[];
+  /**
+   * Quando a obra mudou pela ultima vez — a mais recente entre a ficha, as
+   * etapas, as fotos e os documentos.
+   *
+   * Nao é um campo digitado: é a data do proprio movimento. Um "atualizado em"
+   * que alguem precisa lembrar de mexer é o primeiro dado a ficar velho.
+   */
+  atualizadoEm: DataISO | null;
+};
 
 /**
  * Uma obra da pessoa, com tudo que a tela dela mostra.
@@ -341,17 +416,9 @@ export async function getObra(
   usuarioId: string,
   empreendimentoId: string,
 ): Promise<Obra | null> {
-  const [base] = await consultar<{
-    id: string;
-    nome: string;
-    descricao: string | null;
-    previsaoInicioObras: DataISO | null;
-  }>(
+  const [base] = await consultar<FichaDoEmpreendimento>(
     `select distinct
-            e.id,
-            e.nome,
-            e.descricao,
-            to_char(e.previsao_inicio_obras, 'YYYY-MM-DD') as "previsaoInicioObras"
+            ${COLUNAS_DA_FICHA}
        from empreendimentos e
        join contratos c on c.empreendimento_id = e.id
       where c.usuario_id = $1 and e.id = $2`,
@@ -360,7 +427,7 @@ export async function getObra(
 
   if (!base) return null;
 
-  const [documentos, imagens, videos, etapas] = await Promise.all([
+  const [documentos, imagens, videos, etapas, movimento] = await Promise.all([
     consultar<Arquivo>(
       `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
          from documentos where empreendimento_id = $1
@@ -382,10 +449,27 @@ export async function getObra(
     consultar<Etapa>(
       `select id, nome, percentual::float8 as percentual,
               to_char(concluida_em, 'YYYY-MM-DD') as "concluidaEm",
-              observacao
+              observacao, grupo
          from etapas where empreendimento_id = $1
         order by ordem, criado_em`,
       [base.id],
+    ),
+    /*
+     * A data do ultimo movimento. `greatest` ignora nulo — obra sem etapa nem
+     * foto cai na propria ficha, e so devolve vazio se nada disso existir.
+     */
+    consultar<{ atualizadoEm: DataISO | null }>(
+      `select to_char(
+                greatest(
+                  e.atualizado_em,
+                  (select max(atualizado_em) from etapas     where empreendimento_id = e.id),
+                  (select max(criado_em)     from imagens    where empreendimento_id = e.id),
+                  (select max(criado_em)     from documentos where empreendimento_id = e.id)
+                ) at time zone $2,
+                'YYYY-MM-DD'
+              ) as "atualizadoEm"
+         from empreendimentos e where e.id = $1`,
+      [base.id, FUSO],
     ),
   ]);
 
@@ -401,5 +485,6 @@ export async function getObra(
     imagens: comImagens,
     videos: comVideos,
     etapas,
+    atualizadoEm: movimento[0]?.atualizadoEm ?? null,
   };
 }

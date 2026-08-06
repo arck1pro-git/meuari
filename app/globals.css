@@ -60,6 +60,22 @@
     }
   }
 
+  /* A folha que sobe pela base — os documentos da obra. Curta de proposito:
+     ela responde a um toque, e acima de ~350ms uma folha modal deixa de
+     parecer resposta e passa a parecer espera. */
+  --animate-subir-folha: subir-folha 0.34s var(--ease-suave) both;
+
+  @keyframes subir-folha {
+    from {
+      opacity: 0;
+      transform: translateY(2.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* Barras de progresso. scaleX em vez de width porque so transform e opacity
      rodam fora da thread principal — width forcaria layout a cada quadro. */
   --animate-preencher: preencher 0.9s var(--ease-suave) both;
@@ -301,6 +317,35 @@ body {
   );
 }
 
+/**
+ * O fundo escuro da folha de documentos, entrando junto com ela.
+ *
+ * `::backdrop` é pseudo-elemento do navegador: nenhum utilitario do Tailwind o
+ * alcanca, e sem esta regra o preto apareceria de uma vez enquanto a folha
+ * ainda estava subindo. Vive aqui, e nao num `style` solto, pelo mesmo motivo
+ * dos degrades — CSS desta casa mora no CSS desta casa.
+ */
+.folha-documentos::backdrop {
+  animation: aparecer 0.34s var(--ease-suave) both;
+}
+
+/**
+ * A barra de andamento da obra.
+ *
+ * Marinho para azul, a mesma passagem do cartao de saldo — é o que faz a barra
+ * ler como parte da marca, e nao como um verde de painel de sistema. Em rgb
+ * literal, como os outros degrades daqui: cor resolvida em CSS proprio, nunca
+ * `color-mix` ou opacidade de utilitario, que ja quebraram esta tela antes.
+ */
+.barra-progresso {
+  background-image: linear-gradient(
+    to right,
+    rgb(0, 20, 73) 0%,
+    rgb(1, 38, 119) 55%,
+    rgb(0, 91, 197) 100%
+  );
+}
+
 .degrade-cartao {
   /* 0.8 é o `/80` que era feito com opacidade no utilitario: mesma cor, so
      que ja resolvida contra o branco da pagina. No ponto mais claro, o canto
@@ -442,23 +487,11 @@ samp {
   }
 }
 
-/**
- * Elevacao suave, para a ficha da obra.
+/*
+ * Havia aqui uma `sombra-suave`, mais clara, so para a tela da obra: o fundo
+ * cinza dela ja separa as camadas, e a elevacao cheia parecia demais. Na tela
+ * inteira era o contrario — o app passou a ter duas profundidades para a mesma
+ * coisa, e os cartoes da obra nao pareciam os mesmos do `/portal`.
  *
- * A `sombra-cartao` foi calibrada para cartao branco sobre fundo branco: ela
- * precisa de peso para o cartao existir. Ali o fundo é um cinza levissimo, e o
- * proprio contraste ja separa as camadas — sobra a sombra para dar profundidade,
- * nao para desenhar contorno. Daí ser mais aberta e bem mais clara.
+ * A obra usa `sombra-cartao`, como todo o resto. Uma elevacao só no app.
  */
-@utility sombra-suave {
-  box-shadow:
-    0 1px 2px rgb(0 20 73 / 0.04),
-    0 10px 30px -12px rgb(0 20 73 / 0.1);
-}
-
-/** A mesma, um degrau acima, para o hover. */
-@utility sombra-suave-alta {
-  box-shadow:
-    0 2px 4px rgb(0 20 73 / 0.05),
-    0 16px 40px -14px rgb(0 20 73 / 0.16);
-}

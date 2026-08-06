@@ -26,8 +26,18 @@ import { RegistrarSW } from "./registrar-sw";
  * layout a ser refeito a cada navegacao, que é o que se quer evitar.
  */
 
-/** Rotas que sao secao: só nelas o rodape do mobile aparece. */
-const SECOES = ["/portal", "/obras"] as const;
+/**
+ * Rotas que sao secao: só nelas o rodape do mobile aparece.
+ *
+ * O simulador entrou aqui. Ele era tela cheia, sem cabecalho e sem rodape, com
+ * um "Voltar" proprio — e o botao do meio da barra levava para fora do app. Sem
+ * motivo: ele é uma secao como as outras, e trocar para ele deve ser igual a
+ * trocar do portal para as obras, com a moldura parada e só o miolo mudando.
+ */
+const SECOES = ["/portal", "/obras", "/simulador"] as const;
+
+/** A secao aberta, ou `null` nas telas que nao sao secao — perfil, artigo. */
+export type Secao = (typeof SECOES)[number] | null;
 
 export function Moldura({
   nome,
@@ -52,17 +62,13 @@ export function Moldura({
     SECOES.find((secao) => rota === secao || rota.startsWith(`${secao}/`)) ??
     null;
 
-  /*
-   * O simulador nunca teve cabecalho no mobile — é tela cheia com o proprio
-   * "Voltar". No desktop isso nao muda nada: la o cabecalho nao existe em tela
-   * nenhuma, e quem navega é a coluna da esquerda.
-   */
-  const comCabecalho = rota !== "/simulador";
-
   return (
     <div className="flex flex-1 flex-col">
       <RegistrarSW />
-      {comCabecalho && <Cabecalho nome={nome} notificacoes={notificacoes} />}
+      {/* O cabecalho vale para todas as telas de dentro, inclusive o simulador
+          — que ja foi tela cheia sem ele. Trocar de secao nao deve trocar a
+          moldura. */}
+      <Cabecalho nome={nome} notificacoes={notificacoes} />
       <BarraLateral nome={nome} notificacoes={notificacoes} ativo={ativo} />
 
       {/* `md:pl-60` abre o espaco da coluna fixa. O `pb-28` de cada pagina
