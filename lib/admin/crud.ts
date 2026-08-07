@@ -130,7 +130,14 @@ export async function criar(
   const { colunas, valores } = await paresDoFormulario(t, dados);
   if (colunas.length === 0) throw new Error("Nada para gravar");
 
-  const marcadores = valores.map((_, i) => `${i + 1}`).join(", ");
+  /*
+   * `$1, $2, …` — os marcadores de parametro. Sem o cifrao isto vira
+   * `values (1, 2, 3)`, numeros literais, e o Postgres recusa com "column
+   * usuario_id is of type uuid but expression is of type integer". Era o que
+   * quebrava toda criacao pelo painel; o `update` logo abaixo sempre teve o
+   * seu, e por isso editar funcionava e criar nao.
+   */
+  const marcadores = valores.map((_, i) => `$${i + 1}`).join(", ");
   const [linha] = await consultar<{ id: string }>(
     `insert into ${ident(t.tabela)} (${colunas.map(ident).join(", ")})
      values (${marcadores})

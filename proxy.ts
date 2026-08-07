@@ -26,10 +26,24 @@ import { COOKIE_SESSAO, conferirCookie } from "@/lib/sessao";
  */
 const PUBLICAS = ["/login", "/admin/login", "/download"];
 
+/**
+ * Rotas de maquina: elas nao tem sessao porque nao ha pessoa do outro lado.
+ *
+ * Quem chama é o n8n, no horario do agendamento, e a guarda dela é uma chave
+ * combinada no cabecalho — conferida dentro da propria rota, com comparacao de
+ * tempo constante. Mandar isso para o /login daria um redirecionamento que o
+ * n8n leria como sucesso, e o aviso nunca sairia.
+ */
+const DE_MAQUINA = ["/api/"];
+
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (PUBLICAS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  if (DE_MAQUINA.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 

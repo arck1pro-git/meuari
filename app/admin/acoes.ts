@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { autenticar, abrirSessao, fecharSessao, sessaoValida } from "@/lib/auth";
+import { agendar, removerAgendamento } from "@/lib/admin/agendamentos";
 import { atualizar, camposAlterados, criar, excluir } from "@/lib/admin/crud";
 import {
   estimativaDe,
@@ -10,6 +11,7 @@ import {
   lancarCredito,
 } from "@/lib/admin/lancamentos";
 import { registrar } from "@/lib/auditoria";
+import { enviarAviso } from "@/lib/notificacoes-envio";
 import { acharTabela } from "@/lib/admin/tabelas";
 import { dataDoCredito } from "@/lib/portal/recebimentos";
 import { emMinutos, limparTentativas, podeTentar } from "@/lib/limite";
@@ -226,6 +228,148 @@ export async function acaoLancarCredito(
 
   revalidatePath("/admin/recebimentos");
   redirect(`${destino}&ok=1`);
+}
+
+/* ------------------------------------------------------ notificacoes -- */
+
+/**
+ * Envia um aviso na hora: cria a linha na caixinha e manda o push.
+ *
+ * Sem n8n no caminho — ele só entra quando o envio tem de se repetir sozinho.
+ * Aqui a pessoa apertou o botao, e o efeito é imediato.
+ */
+export async function acaoEnviarNotificacao(dados: FormData) {
+  await exigirAdmin();
+
+  const texto = (campo: string) => String(dados.get(campo) ?? "").trim();
+
+  const titulo = texto("titulo");
+  if (!titulo) throw new Error("Titulo é obrigatorio");
+
+  const entrega = await enviarAviso({
+    // Em branco = aviso geral, para todos.
+    usuarioId: texto("usuario_id") || null,
+    titulo,
+    corpo: texto("corpo") || null,
+    url: texto("url") || null,
+  });
+
+  await registrar({
+    acao: "criar",
+    alvoTabela: "notificacoes",
+    alvoId: entrega.id,
+    detalhe: {
+      envio: "imediato",
+      entregues: entrega.entregues,
+      inscricoes: entrega.inscricoes,
+    },
+  });
+
+  revalidatePath("/admin/notificacoes");
+
+  /*
+   * O numero de entregas volta na URL porque é a unica resposta que importa:
+   * "mandei" sem dizer para quantos aparelhos nao diz nada quando ninguem
+   * recebeu.
+   */
+  redirect(
+    `/admin/notificacoes?ok=enviado&entregues=${entrega.entregues}&aparelhos=${entrega.inscricoes}`,
+  );
+}
+
+/* --------------------------------------------------- envio automatico -- */
+
+/** `HH:MM` das 00:00 as 23:59. */
+const HORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Cria o agendamento e a automacao que o dispara.
+ *
+ * A validacao é a de sempre nesta casa: a mao, campo a campo, do lado do
+ * servidor. O formulario é o que ajuda a acertar; ele nao é o que garante.
+ */
+export async function acaoAgendarNotificacao(dados: FormData) {
+  await exigirAdmin();
+
+  const texto = (campo: string) => String(dados.get(campo) ?? "").trim();
+
+  const titulo = texto("titulo");
+  if (!titulo) throw new Error("Titulo é obrigatorio");
+
+  const recorrencia = texto("recorrencia");
+  if (!["diaria", "semanal", "mensal"].includes(recorrencia)) {
+    throw new Error("Recorrencia invalida");
+  }
+
+  /*
+   * Horarios chegam como campos repetidos e saem daqui unicos e em ordem: dois
+   * "09:00" na mesma regra fariam o n8n disparar duas vezes no mesmo minuto.
+   */
+  const horarios = [...new Set(dados.getAll("horario").map(String))]
+    .map((h) => h.trim())
+    .filter((h) => HORARIO.test(h))
+    .sort();
+
+  if (horarios.length === 0) throw new Error("Informe ao menos um horario");
+
+  const diasSemana = [...new Set(dados.getAll("dia_semana").map(Number))]
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+    .sort();
+
+  if (recorrencia === "semanal" && diasSemana.length === 0) {
+    throw new Error("Escolha ao menos um dia da semana");
+  }
+
+  const diaMes = Number(texto("dia_mes"));
+  if (recorrencia === "mensal" && !(diaMes >= 1 && diaMes <= 31)) {
+    throw new Error("Dia do mes invalido");
+  }
+
+  const { id, erroDoN8n } = await agendar({
+    // Em branco = aviso geral, como em `notificacoes`.
+    usuarioId: texto("usuario_id") || null,
+    titulo,
+    corpo: texto("corpo") || null,
+    url: texto("url") || null,
+    recorrencia: recorrencia as "diaria" | "semanal" | "mensal",
+    diasSemana,
+    diaMes: recorrencia === "mensal" ? diaMes : null,
+    horarios,
+  });
+
+  await registrar({
+    acao: "criar",
+    alvoTabela: "notificacoes_agendadas",
+    alvoId: id,
+    detalhe: {
+      recorrencia,
+      horarios,
+      automacao: erroDoN8n ? "falhou" : "criada",
+    },
+  });
+
+  revalidatePath("/admin/notificacoes");
+
+  /*
+   * O n8n fora do ar nao pode virar tela de erro: o agendamento ficou gravado,
+   * so nao ficou ligado. A tela diz isso, e a exclusao continua a um clique.
+   */
+  redirect(
+    erroDoN8n ? "/admin/notificacoes?aviso=n8n" : "/admin/notificacoes?ok=agendado",
+  );
+}
+
+export async function acaoRemoverAgendamento(id: string) {
+  await exigirAdmin();
+
+  await removerAgendamento(id);
+  await registrar({
+    acao: "excluir",
+    alvoTabela: "notificacoes_agendadas",
+    alvoId: id,
+  });
+
+  revalidatePath("/admin/notificacoes");
 }
 
 /**

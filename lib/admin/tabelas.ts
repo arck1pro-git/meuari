@@ -60,6 +60,14 @@ export type Tabela = {
   /** Colunas mostradas na listagem. */
   colunas: string[];
   /**
+   * Tabela que é registro do que aconteceu, e nao cadastro: a listagem some com
+   * o formulario de criar e com o "Editar", e sobra o "Excluir".
+   *
+   * O caso é `notificacoes`. Criar uma linha ali a mao encheria o sino sem
+   * mandar push nenhum — o envio de verdade tem botao proprio na mesma tela.
+   */
+  semFormulario?: boolean;
+  /**
    * Campos de `referencia` que viram filtro no topo da listagem.
    *
    * Sai daqui, e nunca da URL: o nome da coluna entra no texto do SQL, e é o
@@ -309,12 +317,18 @@ export const TABELAS: Tabela[] = [
     ],
   },
   {
-    // O que aparece na caixa do sino, no portal.
+    /*
+     * O historico do que ja foi enviado — uma linha por aparicao na caixa do
+     * sino. Nao se cria linha aqui: quem envia sao os dois campos no topo da
+     * tela, "Enviar agora" e "Envio automatico". Um insert cru encheria o sino
+     * sem push nenhum, que é a pior das duas metades.
+     */
     slug: "notificacoes",
     rotulo: "Notificacoes",
     tabela: "notificacoes",
     rotuloRef: "titulo",
     colunas: ["titulo", "usuario_id", "criado_em"],
+    semFormulario: true,
     campos: [
       {
         nome: "usuario_id",

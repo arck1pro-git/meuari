@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { listar, obter, opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
 import { acaoExcluir } from "../../acoes";
+import { PainelDeAgendamentos } from "../_componentes/agendamentos";
+import { EnviarAgora } from "../_componentes/enviar-agora";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
@@ -43,10 +45,13 @@ export default async function TabelaPage({
     aviso?: string;
     erro?: string;
     onde?: string;
+    entregues?: string;
+    aparelhos?: string;
   }>;
 }) {
   const { tabela: slug } = await params;
-  const { editar, f, mes, ok, aviso, erro, onde } = await searchParams;
+  const { editar, f, mes, ok, aviso, erro, onde, entregues, aparelhos } =
+    await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
@@ -76,6 +81,18 @@ export default async function TabelaPage({
        */}
       {tabela.slug === "recebimentos" && (
         <PainelDeLancamentos mes={mes} ok={ok} aviso={aviso} />
+      )}
+
+      {/*
+       * Notificacoes abre com os dois jeitos de mandar — na hora e por
+       * repeticao —, nesta ordem. A tabela de baixo é o historico do que saiu
+       * por qualquer um dos dois.
+       */}
+      {tabela.slug === "notificacoes" && (
+        <>
+          <EnviarAgora ok={ok} entregues={entregues} aparelhos={aparelhos} />
+          <PainelDeAgendamentos ok={ok} aviso={aviso} />
+        </>
       )}
 
       <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
@@ -118,9 +135,13 @@ export default async function TabelaPage({
         </p>
       )}
 
-      <div className="mt-6">
-        <Formulario tabela={tabela} linha={emEdicao} />
-      </div>
+      {/* Tabela de registro nao tem formulario: ver `semFormulario` no
+          registro das tabelas. */}
+      {!tabela.semFormulario && (
+        <div className="mt-6">
+          <Formulario tabela={tabela} linha={emEdicao} />
+        </div>
+      )}
 
       {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
           dentro do cartao em vez de empurrar a pagina inteira de lado. */}
@@ -162,12 +183,14 @@ export default async function TabelaPage({
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <Link
-                    href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
-                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-                  >
-                    Editar
-                  </Link>
+                  {!tabela.semFormulario && (
+                    <Link
+                      href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                    >
+                      Editar
+                    </Link>
+                  )}
                   {/* Formulario proprio: excluir muda o servidor, entao precisa
                       ser POST, e nao um link que qualquer prefetch dispararia. */}
                   <form
