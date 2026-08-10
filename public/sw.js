@@ -50,11 +50,24 @@ self.addEventListener("push", (evento) => {
     if (evento.data) dados.corpo = evento.data.text();
   }
 
+  /*
+   * Sem `badge`.
+   *
+   * Ele nao é um segundo icone: é a silhueta monocromatica que o sistema
+   * encolhe para um disco de ~24px — na barra de status do Android, e no canto
+   * do balao no Windows. Passar ali o logo colorido de 192px dava um circulo
+   * borrado ao lado do icone de verdade, que era o que sujava o aviso. Sem a
+   * propriedade, o navegador usa a marca dele e sobra so o nosso icone.
+   *
+   * `lang` e `dir` porque o texto é em portugues: eles orientam a leitura por
+   * voz e a direcao do balao.
+   */
   evento.waitUntil(
     self.registration.showNotification(dados.titulo, {
       body: dados.corpo,
       icon: "/icons/app-192.png",
-      badge: "/icons/app-192.png",
+      lang: "pt-BR",
+      dir: "ltr",
       data: { url: dados.url },
     }),
   );

@@ -24,14 +24,17 @@ export function BotaoSimulador({
     >
       {/* O tom do ciano vai numa camada sobre branco, e nao direto no botao: a
           parte de cima passa sobre o conteudo da pagina, e sem a base branca o
-          que estiver atras apareceria atraves dos 30%.
+          que estiver atras apareceria atraves da transparencia.
           Aberto, o circulo enche de marinho — as duas secoes ao lado marcam o
           estado pelo ouro no icone, e aqui o icone é pequeno demais para
-          carregar isso sozinho. */}
+          carregar isso sozinho.
+          O preenchimento é quase agua, e quem desenha o botao é o anel em ciano
+          cheio: contorno firme com miolo claro le como botao, e a mancha
+          chapada lia como adesivo. */}
       <span
         aria-hidden
-        className={`absolute inset-0 rounded-full transition-colors duration-200 ${
-          ativo ? "bg-marinho" : "bg-ciano/30"
+        className={`absolute inset-0 rounded-full ring-1 ring-ciano transition-colors duration-200 ${
+          ativo ? "bg-marinho" : "bg-ciano/15"
         }`}
       />
       <IconeSimulador

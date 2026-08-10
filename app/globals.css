@@ -113,6 +113,22 @@
     }
   }
 
+  /* As pastilhas em volta da foto do app. É a `boiar` com mais curso e uma
+     inclinacao de menos de um grau: icone 3D balancando no lugar le como
+     objeto flutuando, mas uma pilula de texto so ganha peso de coisa solta
+     quando tambem tomba um pouco. Animacao propria, e nao `boiar` alterada,
+     porque aquela embala os icones 3D de outras tres telas. */
+  --animate-flutuar: flutuar 3s ease-in-out infinite alternate;
+
+  @keyframes flutuar {
+    from {
+      transform: translate3d(0, -10px, 0) rotate(-1deg);
+    }
+    to {
+      transform: translate3d(0, 10px, 0) rotate(1deg);
+    }
+  }
+
   @keyframes brilho {
     from {
       transform: translateX(-160%) skewX(-18deg);
@@ -210,8 +226,15 @@ body {
  * container que carrega o conteudo, que sumiria junto nas bordas.
  */
 @utility pontilhado {
+  /* A cor do ponto entra por variavel: sobre branco vale o marinho a 24%, e
+     quem usa sobre fundo escuro passa a sua — ver a tela de login, que pinta
+     os pontos de ciano. */
   background-image: radial-gradient(
-    color-mix(in oklab, var(--color-marinho) 24%, transparent) 1px,
+    var(
+        --cor-do-ponto,
+        color-mix(in oklab, var(--color-marinho) 24%, transparent)
+      )
+      1px,
     transparent 1px
   );
   background-size: 22px 22px;
@@ -254,7 +277,7 @@ body {
     45% 140% at 25% 15%,
     /* 18%, e nao 38%: com o degrade escuro por baixo, era este brilho que
        devolvia a claridade que se queria tirar da faixa. */
-    rgba(23, 249, 255, 0.18),
+      rgba(23, 249, 255, 0.18),
     transparent 72%
   );
 }
@@ -318,15 +341,69 @@ body {
 }
 
 /**
- * O fundo escuro da folha de documentos, entrando junto com ela.
+ * O fundo escuro das folhas modais, entrando junto com elas: a de documentos da
+ * obra e a de entrada, no login.
  *
  * `::backdrop` é pseudo-elemento do navegador: nenhum utilitario do Tailwind o
  * alcanca, e sem esta regra o preto apareceria de uma vez enquanto a folha
  * ainda estava subindo. Vive aqui, e nao num `style` solto, pelo mesmo motivo
  * dos degrades — CSS desta casa mora no CSS desta casa.
  */
-.folha-documentos::backdrop {
+.folha-documentos::backdrop,
+.dialogo-entrar::backdrop {
   animation: aparecer 0.34s var(--ease-suave) both;
+}
+
+/**
+ * A luz que entra pelo canto superior esquerdo e morre no meio da tela.
+ *
+ * É a iluminacao da tela de login: sobre o fundo `tinta`, uma clareira em
+ * marinho e azul que da profundidade ao azul chapado sem virar um degrade de
+ * ponta a ponta.
+ *
+ * Em rgba literal, e nao `color-mix` nem utilitario de degrade: é a mesma
+ * decisao dos outros degrades daqui — cor resolvida em CSS proprio é a que nao
+ * some quando o navegador nao entende a funcao do meio.
+ *
+ * O teto do primeiro alfa é o texto, e nao o gosto: no ponto mais claro correm
+ * o branco da hero e o `ouro` das duas palavras destacadas. A 0,90 o fundo cai
+ * em #0054b9, onde o branco le 7,09:1 e o ouro 4,10:1 — folga confortavel sobre
+ * o minimo de 3:1 que vale para texto grande, que é o caso das duas palavras.
+ * A 1,0 o ouro cairia para 3,68:1, e passar disso (indo para o `ceu`, por
+ * exemplo) so com tirar o ouro de cima da clareira.
+ */
+.luz-canto {
+  background-image: radial-gradient(
+    165% 125% at -5% -18%,
+    rgba(0, 91, 197, 0.9) 0%,
+    rgba(1, 38, 119, 0.68) 36%,
+    rgba(0, 20, 73, 0) 85%
+  );
+}
+
+/**
+ * A luz azul que sobe do pé da secao de entrada.
+ *
+ * É a contraparte clara da `luz-canto`: ali a luz entra por cima num fundo
+ * escuro, aqui ela sobe de baixo num fundo branco. Serve de assinatura de cor
+ * na unica tela do site que é toda clara — sem ela o branco encosta no azul da
+ * capa sem transicao nenhuma.
+ *
+ * Elipse, e nao degrade reto: a faixa reta pinta o rodape inteiro na mesma
+ * intensidade e vira tarja. A elipse concentra no meio, embaixo do cartao, e se
+ * apaga nas quinas.
+ *
+ * Em rgba literal pelo mesmo motivo dos outros degrades daqui — cor resolvida
+ * em CSS proprio é a que nao some quando o navegador nao entende a funcao do
+ * meio.
+ */
+.luz-base {
+  background-image: radial-gradient(
+    ellipse 120% 100% at 50% 128%,
+    rgba(0, 91, 197, 0.42) 0%,
+    rgba(0, 91, 197, 0.16) 42%,
+    rgba(0, 91, 197, 0) 74%
+  );
 }
 
 /**

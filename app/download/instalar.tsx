@@ -17,6 +17,11 @@ import { IconeBaixar } from "@/app/(app)/portal/_componentes/icones";
  *
  * O botao é sempre um só, e sempre com o mesmo rotulo: quem chega quer baixar,
  * e a diferenca entre os aparelhos é problema nosso, nao dela.
+ *
+ * Ele aparece em duas telas, e o `tom` é o que muda entre elas: na `/download`
+ * baixar é o unico assunto da pagina, e o botao é solido; na capa do login ele
+ * divide o espaco com "Acessar conta", que é a acao principal — la ele vira
+ * contorno, para convidar sem disputar.
  */
 
 /** O evento nao esta no lib.dom padrao — é uma extensao dos navegadores Chromium. */
@@ -57,7 +62,22 @@ function lerPlataforma(): Plataforma {
   return ehIOS ? "ios" : "comum";
 }
 
-export function BotaoInstalar() {
+/*
+ * Os dois toms, escritos por extenso.
+ *
+ * Cada um é a classe inteira, e nao uma base com remendo por cima: `bg-white` e
+ * `bg-white/10` sao a mesma propriedade, e quem vence entre elas é a ordem do
+ * CSS gerado, nao a ordem em que aparecem na string. Duplicar o que é igual sai
+ * mais barato que descobrir isso num botao invisivel.
+ */
+const TONS = {
+  solido:
+    "flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-marinho transition-all duration-200 hover:bg-ciano hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho active:scale-[0.98]",
+  contorno:
+    "flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ease-[var(--ease-suave)] hover:scale-[1.03] hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-tinta active:scale-[0.98] active:brightness-90 lg:w-auto",
+} as const;
+
+export function BotaoInstalar({ tom = "solido" }: { tom?: keyof typeof TONS }) {
   const plataforma = useSyncExternalStore(
     assinar,
     lerPlataforma,
@@ -119,7 +139,7 @@ export function BotaoInstalar() {
         type="button"
         onClick={baixar}
         aria-expanded={mostrarPassos}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-marinho transition-all duration-200 hover:bg-ciano hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-marinho active:scale-[0.98]"
+        className={TONS[tom]}
       >
         <IconeBaixar className="h-4 w-4 shrink-0" />
         Baixar Meu ARI
@@ -136,7 +156,10 @@ export function BotaoInstalar() {
               </li>
               <li>
                 Escolha{" "}
-                <span className="font-semibold">Adicionar à Tela de Início</span>.
+                <span className="font-semibold">
+                  Adicionar à Tela de Início
+                </span>
+                .
               </li>
               <li>
                 Confirme em <span className="font-semibold">Adicionar</span>.
@@ -161,4 +184,3 @@ export function BotaoInstalar() {
     </div>
   );
 }
-

@@ -79,7 +79,14 @@ export const config = {
    * chegava a se inscrever. Nao ha o que proteger neles: um diz o nome e as
    * cores do app, o outro é o mesmo arquivo publico para todo mundo.
    */
+  /*
+   * `mao2.png` entrou aqui pelo mesmo motivo do `logo.png`: ele aparece na tela
+   * de login, que é publica. E ha uma sutileza que custou um diagnostico — o
+   * otimizador de imagem do Next busca o arquivo original no *nosso proprio
+   * servidor*, entao a guarda o desviava para o login e o `/_next/image`
+   * respondia "isn't a valid image", com 400, para uma foto que existia.
+   */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|ARI.png|logo.png|icons/|manifest.webmanifest|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|ARI.png|logo.png|mao2.png|icons/|manifest.webmanifest|sw.js).*)",
   ],
 };

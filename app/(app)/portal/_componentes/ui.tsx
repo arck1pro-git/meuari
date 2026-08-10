@@ -34,9 +34,13 @@ export function Cartao({
       // para em `azul`, e nao em `ceu`, porque o `ceu` a 70% sobre branco
       // virava um azul-claro lavado, onde o texto e as barras brancas caiam
       // para 1,86:1 de contraste. Assim o pior ponto fica em 4,25:1.
+      // No tom escuro a borda é o `marinho` cheio — a mesma cor que o degrade
+      // por dentro serve a 80%. É o desenho do botao do simulador: miolo
+      // rebaixado, contorno na cor original, e o cartao ganha um limite firme
+      // em vez de se dissolver no branco da pagina.
       className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
         escuro
-          ? "degrade-cartao border-transparent text-white"
+          ? "degrade-cartao border-marinho text-white"
           : "border-tinta/12 bg-white"
       }`}
     >
