@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BotaoInstalar } from "@/app/download/instalar";
+import { BotaoInstalar } from "./instalar";
 import { inicioDe, sessaoValida } from "@/lib/auth";
 import { BotaoEntrar, DialogoEntrar } from "./dialogo-entrar";
 
@@ -318,7 +318,7 @@ export default async function LoginPage({
                * coluna no desktop e viraria uma faixa de texto.
                */}
               <div className="mx-auto mt-4 max-w-sm lg:mx-0 lg:mt-6">
-                <BotaoInstalar tom="contorno" />
+                <BotaoInstalar />
               </div>
             </div>
           </div>

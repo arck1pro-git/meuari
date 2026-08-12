@@ -5,7 +5,6 @@ import type { Notificacao } from "@/lib/portal/notificacoes";
 import { BarraLateral } from "./barra-lateral";
 import { Cabecalho } from "./cabecalho";
 import { Navegacao } from "./navegacao";
-import { RegistrarSW } from "./registrar-sw";
 
 /**
  * A moldura das telas de quem entrou: navegacao em volta, conteudo no meio.
@@ -64,7 +63,6 @@ export function Moldura({
 
   return (
     <div className="flex flex-1 flex-col">
-      <RegistrarSW />
       {/* O cabecalho vale para todas as telas de dentro, inclusive o simulador
           — que ja foi tela cheia sem ele. Trocar de secao nao deve trocar a
           moldura. */}

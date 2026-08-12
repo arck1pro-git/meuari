@@ -16,15 +16,8 @@ import { COOKIE_SESSAO, conferirCookie } from "@/lib/sessao";
  * mudaria, de tabela, quais acoes o proxy cobre.
  */
 
-/**
- * Rotas que precisam ficar de fora, senao ninguem consegue entrar.
- *
- * `/download` entra aqui por outro motivo: ela é feita para ser mandada por
- * mensagem a quem ainda nao instalou nada. Exigir sessao seria pedir que a
- * pessoa entre justamente no que ela ainda vai instalar — e nao ha dado de
- * ninguem ali, só o convite e as instrucoes.
- */
-const PUBLICAS = ["/login", "/admin/login", "/download"];
+/** Rotas que precisam ficar de fora, senao ninguem consegue entrar. */
+const PUBLICAS = ["/login", "/admin/login"];
 
 /**
  * Rotas de maquina: elas nao tem sessao porque nao ha pessoa do outro lado.
