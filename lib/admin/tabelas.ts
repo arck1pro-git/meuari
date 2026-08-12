@@ -79,7 +79,7 @@ export type Tabela = {
 export const TABELAS: Tabela[] = [
   {
     slug: "usuarios",
-    rotulo: "Usuarios",
+    rotulo: "Usuários",
     tabela: "usuarios",
     rotuloRef: "nome",
     colunas: ["nome", "email", "tipo", "criado_em"],
@@ -324,7 +324,7 @@ export const TABELAS: Tabela[] = [
      * sem push nenhum, que é a pior das duas metades.
      */
     slug: "notificacoes",
-    rotulo: "Notificacoes",
+    rotulo: "Notificações",
     tabela: "notificacoes",
     rotuloRef: "titulo",
     colunas: ["titulo", "usuario_id", "criado_em"],

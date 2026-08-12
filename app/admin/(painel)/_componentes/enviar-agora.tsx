@@ -29,7 +29,7 @@ export async function EnviarAgora({
   );
 
   return (
-    <section className="mb-10">
+    <section className="mt-10">
       <h2 className="animate-surgir text-base font-bold tracking-tight text-black">
         Enviar agora
       </h2>

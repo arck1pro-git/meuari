@@ -51,7 +51,7 @@ export async function PainelDeAgendamentos({
   const naoConfigurado = !process.env.N8N_BASE_URL || !process.env.N8N_API_KEY;
 
   return (
-    <section className="mb-10">
+    <section className="mt-10">
       <h2 className="animate-surgir text-base font-bold tracking-tight text-black">
         Envio automático
       </h2>

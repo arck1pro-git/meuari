@@ -50,7 +50,7 @@ export async function PainelDeLancamentos({
   const aLancar = pendentes.reduce((soma, l) => soma + l.estimativa.valor, 0);
 
   return (
-    <section className="mb-10">
+    <section className="mt-10">
       <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold tracking-tight text-black">

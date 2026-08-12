@@ -1,15 +1,41 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { listar, obter, opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
+import {
+  listar,
+  obter,
+  opcoesDeReferencia,
+  type Linha,
+} from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
 import { acaoExcluir } from "../../acoes";
 import { PainelDeAgendamentos } from "../_componentes/agendamentos";
+import { CabecalhoDaSecao, Contagem } from "../_componentes/cabecalho";
 import { EnviarAgora } from "../_componentes/enviar-agora";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
+import { BotaoExcluir } from "./botao-excluir";
 import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Uma linha dizendo o que cada tabela guarda.
+ *
+ * Fica aqui, e nao no registro de `lib/admin/tabelas.ts`: aquele arquivo define
+ * o que vira SQL — colunas, tipos, referencias —, e frase de tela nao é
+ * estrutura de dado. Tabela sem frase simplesmente nao mostra nenhuma.
+ */
+const APOIOS: Record<string, string> = {
+  usuarios: "Quem entra no portal: investidores e administradores.",
+  empreendimentos: "Os projetos da incorporadora, com status e previsões.",
+  contratos: "O contrato de cada investidor, com valor de entrada e taxa.",
+  aditivos: "Aportes acrescentados a um contrato que já existe.",
+  recebimentos: "O crédito que cai na conta do investidor, mês a mês.",
+  notificacoes: "Tudo que já foi enviado — na hora ou por automação.",
+  documentos: "Papéis do empreendimento, disponíveis para baixar no portal.",
+  etapas: "O andamento de cada disciplina, por empreendimento.",
+  imagens: "Fotos da obra, na ordem em que aparecem no carrossel.",
+};
 
 /** Legenda das chaves estrangeiras: id cru nao diz nada em tela. */
 async function mapaDeRotulos(tabela: Tabela) {
@@ -63,7 +89,8 @@ export default async function TabelaPage({
    */
   const campoDoFiltro = tabela.filtros?.[0];
   const campoReferencia = tabela.campos.find((c) => c.nome === campoDoFiltro);
-  const filtro = campoDoFiltro && f ? { campo: campoDoFiltro, valor: f } : undefined;
+  const filtro =
+    campoDoFiltro && f ? { campo: campoDoFiltro, valor: f } : undefined;
 
   const [linhas, rotulos, emEdicao, opcoesDoFiltro] = await Promise.all([
     listar(tabela, filtro),
@@ -74,6 +101,30 @@ export default async function TabelaPage({
 
   return (
     <>
+      {/*
+       * O titulo da secao vem primeiro, sempre — mesmo nas telas que abrem com
+       * um painel de trabalho. Ele estava depois deles em Recebimentos e
+       * Notificacoes, e a pagina comecava por um `<h2>`.
+       */}
+      <CabecalhoDaSecao
+        titulo={tabela.rotulo}
+        apoio={APOIOS[tabela.slug]}
+        acessorio={
+          <>
+            {campoReferencia && (
+              <FiltroDaListagem
+                rotulo={campoReferencia.rotulo}
+                parametro="f"
+                opcoes={opcoesDoFiltro}
+                selecionado={f ?? ""}
+                destino={`/admin/${tabela.slug}`}
+              />
+            )}
+            <Contagem total={linhas.length} />
+          </>
+        }
+      />
+
       {/*
        * Recebimentos abre com o painel de lancamento do mes. Lancar é o jeito
        * de criar uma linha nesta tabela — separado numa rota propria, obrigava
@@ -95,30 +146,6 @@ export default async function TabelaPage({
         </>
       )}
 
-      <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
-        <h1 className="text-base font-bold tracking-tight text-black">
-          {tabela.rotulo}
-        </h1>
-        <div className="flex shrink-0 items-center gap-4">
-          {campoReferencia && (
-            <FiltroDaListagem
-              rotulo={campoReferencia.rotulo}
-              parametro="f"
-              opcoes={opcoesDoFiltro}
-              selecionado={f ?? ""}
-              destino={`/admin/${tabela.slug}`}
-            />
-          )}
-
-          <span className="text-xs text-neutral-500">
-            <span className="font-bold tabular-nums text-ouro">
-              {linhas.length}
-            </span>{" "}
-            {linhas.length === 1 ? "registro" : "registros"}
-          </span>
-        </div>
-      </div>
-
       {/*
        * Exclusao barrada por vinculo. Nao é erro de sistema: é o
        * `ON DELETE RESTRICT` das tabelas de dinheiro fazendo o trabalho dele —
@@ -127,9 +154,10 @@ export default async function TabelaPage({
        * que a pessoa precisa comecar.
        */}
       {erro === "vinculo" && (
-        <p className="mt-4 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+        <p className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
           <span className="font-semibold">Não foi possível excluir.</span> Há
-          registros em <span className="font-semibold">{onde ?? "outra tabela"}</span>{" "}
+          registros em{" "}
+          <span className="font-semibold">{onde ?? "outra tabela"}</span>{" "}
           apontando para este — o banco recusa a exclusão para não levar essas
           linhas junto. Apague ou reatribua esses registros primeiro.
         </p>
@@ -152,22 +180,46 @@ export default async function TabelaPage({
               {tabela.colunas.map((c) => (
                 <th
                   key={c}
-                  className="px-4 py-3 font-medium tracking-wide whitespace-nowrap uppercase"
+                  className="px-4 py-3 font-semibold tracking-wider whitespace-nowrap uppercase"
                 >
                   {c}
                 </th>
               ))}
-              <th className="px-4 py-3" />
+              {/* A coluna das acoes nao tem nome, mas tem funcao: sem o
+                  `sr-only` ela é uma celula vazia no cabecalho. */}
+              <th className="px-4 py-3 text-right">
+                <span className="sr-only">Ações</span>
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-tinta/[0.06]">
             {linhas.length === 0 && (
               <tr>
                 <td
                   colSpan={tabela.colunas.length + 1}
-                  className="px-4 py-10 text-center text-sm text-neutral-500"
+                  className="px-4 py-14 text-center"
                 >
-                  Nenhum registro ainda.
+                  {/* Vazio com motivo: filtrado e vazio é outra situacao de
+                      "ainda nao ha nada", e a saida de cada uma é diferente. */}
+                  <span className="block text-sm font-medium text-tinta">
+                    {filtro
+                      ? "Nada com esse filtro."
+                      : "Nenhum registro ainda."}
+                  </span>
+                  <span className="mt-1 block text-sm text-neutral-500">
+                    {filtro ? (
+                      <Link
+                        href={`/admin/${tabela.slug}`}
+                        className="font-semibold text-marinho underline-offset-2 hover:underline"
+                      >
+                        Limpar o filtro
+                      </Link>
+                    ) : tabela.semFormulario ? (
+                      "As linhas aparecem aqui conforme forem sendo criadas."
+                    ) : (
+                      "Use o formulário acima para criar o primeiro."
+                    )}
+                  </span>
                 </td>
               </tr>
             )}
@@ -175,7 +227,11 @@ export default async function TabelaPage({
             {linhas.map((linha: Linha) => (
               <tr
                 key={String(linha.id)}
-                className="transition-colors duration-200 hover:bg-azul/[0.04]"
+                /* `group` para as acoes: elas ficam apagadas ate o ponteiro
+                   entrar na linha, o que tira 20 botoes vermelhos da vista sem
+                   escondê-los de quem navega por teclado — o `focus-within`
+                   traz os dois de volta. */
+                className="group transition-colors duration-200 hover:bg-azul/[0.04]"
               >
                 {tabela.colunas.map((c) => (
                   <td key={c} className="px-4 py-3 whitespace-nowrap">
@@ -183,31 +239,31 @@ export default async function TabelaPage({
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {!tabela.semFormulario && (
-                    <Link
-                      href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
-                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-                    >
-                      Editar
-                    </Link>
-                  )}
-                  {/* Formulario proprio: excluir muda o servidor, entao precisa
-                      ser POST, e nao um link que qualquer prefetch dispararia. */}
-                  <form
-                    action={acaoExcluir.bind(
-                      null,
-                      tabela.slug,
-                      String(linha.id),
+                  <span className="inline-flex items-center gap-1 opacity-45 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+                    {!tabela.semFormulario && (
+                      <Link
+                        href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                      >
+                        Editar
+                      </Link>
                     )}
-                    className="ml-1 inline"
-                  >
-                    <button
-                      type="submit"
-                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-red-600 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    {/* Formulario proprio: excluir muda o servidor, entao
+                        precisa ser POST, e nao um link que qualquer prefetch
+                        dispararia. */}
+                    <form
+                      action={acaoExcluir.bind(
+                        null,
+                        tabela.slug,
+                        String(linha.id),
+                      )}
+                      className="inline"
                     >
-                      Excluir
-                    </button>
-                  </form>
+                      <BotaoExcluir
+                        oQue={`este registro de ${tabela.rotulo.toLowerCase()}`}
+                      />
+                    </form>
+                  </span>
                 </td>
               </tr>
             ))}

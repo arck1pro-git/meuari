@@ -155,50 +155,94 @@ export async function Formulario({
     : acaoCriar.bind(null, tabela.slug);
 
   return (
-    <form
-      /*
-       * A `key` amarra o formulario ao registro. Sem ela, ir da lista para
-       * "Editar" é navegacao de cliente: o React reaproveita os mesmos nos do
-       * formulario de criar, e `defaultValue` so vale na montagem. Os inputs
-       * ainda acompanham, porque o React reescreve o atributo `value`; os
-       * `<select>` nao — ficam no vazio do formulario anterior. Como sao
-       * obrigatorios, o navegador barra o envio e o registro nao salva.
-       */
-      key={editando ? String(linha!.id) : "novo"}
-      action={acao}
-      className="sombra-cartao animate-surgir rounded-2xl border border-tinta/12 bg-white p-5 sm:p-8 [animation-delay:60ms]"
+    /*
+     * Recolhido para criar, aberto para editar.
+     *
+     * Ele ficava sempre escancarado acima da tabela, e em Contratos sao doze
+     * campos: para ver os dados era preciso rolar por um formulario vazio toda
+     * vez. `<details>` resolve isso sem estado nem cliente — quem chega para
+     * consultar ve a tabela, e quem chega para cadastrar abre.
+     *
+     * Editar abre sozinho, porque ai o formulario *é* o assunto: veio um id na
+     * URL justamente para mexer nele.
+     */
+    <details
+      open={editando}
+      className="sombra-cartao group animate-surgir rounded-2xl border border-tinta/12 bg-white [animation-delay:60ms]"
     >
-      <h2 className="text-sm font-bold tracking-tight text-black">
-        {editando ? "Editar registro" : `Novo em ${tabela.rotulo}`}
-      </h2>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-colors duration-200 hover:bg-tinta/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-azul sm:px-8 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="block text-sm font-bold tracking-tight text-tinta">
+            {editando ? "Editar registro" : `Novo em ${tabela.rotulo}`}
+          </span>
+          <span className="mt-0.5 block text-xs text-neutral-500">
+            {editando
+              ? "As alterações valem ao salvar."
+              : "Abrir o formulário de cadastro."}
+          </span>
+        </span>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {tabela.campos.map((campo) => (
-          <CampoDoFormulario
-            key={campo.nome}
-            campo={campo}
-            linha={linha}
-            slug={tabela.slug}
-          />
-        ))}
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="submit"
-          className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+        {/* A cruz vira "menos" quando abre — a mesma peca dizendo os dois
+            estados, sem trocar de icone. */}
+        <span
+          aria-hidden
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-marinho/[0.07] text-marinho transition-transform duration-300 ease-[var(--ease-suave)] group-open:rotate-45"
         >
-          {editando ? "Salvar" : "Criar"}
-        </button>
-        {editando && (
-          <a
-            href={`/admin/${tabela.slug}`}
-            className="rounded-xl border border-tinta/12 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            className="h-4 w-4"
           >
-            Cancelar
-          </a>
-        )}
-      </div>
-    </form>
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+        </span>
+      </summary>
+
+      <form
+        /*
+         * A `key` amarra o formulario ao registro. Sem ela, ir da lista para
+         * "Editar" é navegacao de cliente: o React reaproveita os mesmos nos do
+         * formulario de criar, e `defaultValue` so vale na montagem. Os inputs
+         * ainda acompanham, porque o React reescreve o atributo `value`; os
+         * `<select>` nao — ficam no vazio do formulario anterior. Como sao
+         * obrigatorios, o navegador barra o envio e o registro nao salva.
+         */
+        key={editando ? String(linha!.id) : "novo"}
+        action={acao}
+        className="border-t border-tinta/[0.08] px-5 py-6 sm:px-8"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          {tabela.campos.map((campo) => (
+            <CampoDoFormulario
+              key={campo.nome}
+              campo={campo}
+              linha={linha}
+              slug={tabela.slug}
+            />
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="submit"
+            className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+          >
+            {editando ? "Salvar" : "Criar"}
+          </button>
+          {editando && (
+            <a
+              href={`/admin/${tabela.slug}`}
+              className="rounded-xl border border-tinta/12 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+            >
+              Cancelar
+            </a>
+          )}
+        </div>
+      </form>
+    </details>
   );
 }
