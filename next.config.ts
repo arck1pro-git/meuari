@@ -124,6 +124,33 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+
+      /*
+       * Tela com dado de investidor nao se guarda em lugar nenhum.
+       *
+       * Todas estas rotas ja sao `force-dynamic`, o que impede o cache da CDN da
+       * Vercel — este cabecalho é a outra metade: ele fala com o *navegador* e
+       * com qualquer proxy no meio do caminho. Sem ele, o botao "voltar" pode
+       * remontar a carteira a partir do cache do proprio navegador depois de a
+       * pessoa sair, e um proxy corporativo pode guardar a pagina em disco.
+       *
+       * Uma entrada por raiz, e nao um grupo `(portal|obras|…)` numa linha: com o
+       * grupo, se `/portal` sem sufixo casa ou nao depende de como o
+       * path-to-regexp trata o `/` antes do parametro repetido, e "depende" nao
+       * serve para cabecalho de seguranca. `:resto*` cobre a raiz e o que vier
+       * abaixo dela.
+       *
+       * `/arquivo` fica de fora de proposito: aquela rota define o proprio
+       * `no-store` na resposta, e declarar aqui tambem sairia duplicado.
+       */
+      ...["/portal", "/obras", "/perfil", "/simulador", "/galeria", "/admin"].map(
+        (raiz) => ({
+          source: `${raiz}/:resto*`,
+          headers: [
+            { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+          ],
+        }),
+      ),
     ];
   },
 };

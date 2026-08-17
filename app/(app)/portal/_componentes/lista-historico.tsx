@@ -57,9 +57,15 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
             <div className="mt-4 flex min-h-8 items-center justify-between gap-3">
               {/* A participacao e a troca de taxa sao a mesma lista: uma diz
                   quanto vale hoje, a outra de onde veio. Separadas, a segunda
-                  parecia comentario solto no pé do cartao. */}
-              <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-600 marker:text-marinho">
-                <li>
+                  parecia comentario solto no pé do cartao.
+
+                  Cada item em pilula, e nao mais em bullet de disco. Em cinza
+                  claro, e nao no ciano da Etiqueta do cartao de saldo: aqui sao
+                  varios cartoes numa pilha, e a cor de destaque repetida em
+                  todos eles deixava de destacar qualquer coisa. O fundo e a
+                  borda saem da `tinta`, como as bordas dos cartoes. */}
+              <ul className="flex flex-wrap items-center gap-1.5">
+                <li className="rounded-xl border border-tinta/12 bg-tinta/[0.04] px-2.5 py-1 text-xs text-neutral-600">
                   Participacao{" "}
                   <span className="font-semibold tabular-nums text-black">
                     {formatarPercentual(aporte.taxaMensal)} ao mês
@@ -67,7 +73,7 @@ export function ListaHistorico({ itens }: { itens: ItemDoHistorico[] }) {
                 </li>
 
                 {taxaAnterior !== undefined && (
-                  <li>
+                  <li className="rounded-xl border border-tinta/12 bg-tinta/[0.04] px-2.5 py-1 text-xs text-neutral-600">
                     <span className="tabular-nums">
                       {formatarPercentual(taxaAnterior)}
                     </span>

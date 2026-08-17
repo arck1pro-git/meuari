@@ -38,7 +38,7 @@ export function FiltroDaListagem({
           // um estado a mais dizendo a mesma coisa que "sem filtro".
           router.push(valor ? `${destino}?${parametro}=${valor}` : destino);
         }}
-        className="rounded-xl border border-tinta/12 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+        className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
       >
         <option value="">Todos</option>
         {opcoes.map((o) => (

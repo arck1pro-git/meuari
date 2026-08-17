@@ -62,8 +62,15 @@ export const config = {
   /*
    * Roda em tudo, menos nos arquivos que a tela de login precisa carregar e nos
    * internos do Next. Sem esta excecao a guarda barraria o proprio CSS e o logo
-   * do login. Note que `public/documentos` NAO esta na lista: os contratos ficam
-   * atras da sessao, como o resto.
+   * do login.
+   *
+   * Havia aqui uma nota dizendo que `public/documentos` de proposito NAO estava
+   * na lista, para os contratos ficarem atras da sessao. Aquela pasta nao existe
+   * mais: eram oito PDFs versionados no repositorio, de antes do Storage, e
+   * nenhuma linha do banco apontava para eles. Documento privado hoje passa por
+   * `/arquivo/[escopo]/[id]`, que confere a posse, registra o acesso e assina por
+   * 60 segundos — proteger arquivo estatico pelo `matcher` era a defesa mais
+   * fraca das duas.
    *
    * `manifest.webmanifest` e `sw.js` tambem ficam de fora, e nao por descuido:
    * o navegador busca os dois *sem* as credenciais da pagina — o service worker

@@ -145,21 +145,21 @@ export async function getAportes(usuarioId: string): Promise<Aporte[]> {
   );
 
   /*
-   * A assinatura acontece *depois* da consulta, e é ela que faz o controle de
-   * acesso: o `where usuario_id = $1` acima é a prova de que o contrato é desta
-   * pessoa. Sem isso, um caminho de bucket vazado viraria download para
-   * qualquer um — o bucket é privado justamente para nao aceitar pedido cru.
+   * O documento nao é assinado aqui: ele aponta para `/arquivo/aporte/{id}`, que
+   * confere a posse de novo, **registra o acesso** e assina por 60 segundos.
+   *
+   * Antes a URL assinada era gerada nesta consulta e ia pronta para o `href`.
+   * Funcionava e era segura no momento da emissao — o `where usuario_id = $1`
+   * acima é a prova de posse —, mas tinha dois furos que só a rota fecha: nao
+   * havia registro de quem abriu contrato de quem, e o link valia uma hora fora
+   * da sessao, para qualquer um que o copiasse.
+   *
+   * De brinde, sai uma ida de rede ao Supabase a cada render da carteira: antes
+   * cada aporte com documento era assinado mesmo quando ninguem clicava.
    */
-  const assinadas = await assinarVarias(
-    BUCKETS.contratos,
-    aportes.map((a) => a.documento).filter((d): d is string => Boolean(d)),
-  );
-
   return aportes.map((aporte) => ({
     ...aporte,
-    documento: aporte.documento
-      ? (assinadas.get(aporte.documento) ?? null)
-      : null,
+    documento: aporte.documento ? `/arquivo/aporte/${aporte.id}` : null,
   }));
 }
 
@@ -318,10 +318,9 @@ export async function getEmpreendimentos(
    * aconteceu na consulta acima (so entram empreendimentos onde esta pessoa
    * aportou).
    */
-  const [comDocumentos, comImagens] = await Promise.all([
-    resolver(documentos, BUCKETS.documentos),
-    resolver(imagens, BUCKETS.imagens),
-  ]);
+  // Documento vai pela rota auditada; foto continua assinada aqui.
+  const comDocumentos = pelaRota(documentos);
+  const comImagens = await resolver(imagens, BUCKETS.imagens);
 
   const dos = <T extends { empreendimentoId: string }>(lista: T[], id: string) =>
     lista.filter((item) => item.empreendimentoId === id);
@@ -331,6 +330,26 @@ export async function getEmpreendimentos(
     documentos: dos(comDocumentos, e.id),
     imagens: dos(comImagens, e.id),
   }));
+}
+
+/**
+ * Documento de obra apontando para `/arquivo/obra/{id}`, em vez de URL assinada.
+ *
+ * O mesmo motivo de `getAportes`: a rota confere a posse outra vez, registra
+ * quem abriu e assina por 60 segundos. Aqui nao ha o filtro que `resolver` faz —
+ * sem assinar, nao ha como saber de antemao se o arquivo ainda esta no bucket. É
+ * troca consciente: um item que sumiu do Storage aparece na lista e dá 404 no
+ * clique, em vez de desaparecer em silencio. Some com o nome na tela é pior,
+ * porque o investidor viu aquele documento na semana passada.
+ *
+ * **Foto continua assinada direto** (`resolver`, abaixo): uma galeria com
+ * dezenas de imagens passando por redirecionamento seria uma ida a mais por
+ * foto, e foto de obra nao tem o peso de um contrato.
+ */
+function pelaRota<T extends Arquivo>(lista: T[]): T[] {
+  return lista
+    .filter((item) => Boolean(item.url))
+    .map((item) => ({ ...item, url: `/arquivo/obra/${item.id}` }));
 }
 
 /**
@@ -495,10 +514,9 @@ export async function getObra(
     ),
   ]);
 
-  const [comDocumentos, comImagens] = await Promise.all([
-    resolver(documentos, BUCKETS.documentos),
-    resolver(imagens, BUCKETS.imagens),
-  ]);
+  // Documento vai pela rota auditada; foto continua assinada aqui.
+  const comDocumentos = pelaRota(documentos);
+  const comImagens = await resolver(imagens, BUCKETS.imagens);
 
   return {
     ...base,

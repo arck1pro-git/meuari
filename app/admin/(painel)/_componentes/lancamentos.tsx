@@ -53,7 +53,7 @@ export async function PainelDeLancamentos({
     <section className="mt-10">
       <div className="flex animate-surgir flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold tracking-tight text-black">
+          <h2 className="text-base font-bold tracking-tight text-tinta">
             Lançar crédito do mês
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
@@ -64,7 +64,7 @@ export async function PainelDeLancamentos({
       </div>
 
       {ok && (
-        <p className="mt-4 animate-surgir rounded-xl border border-verde/30 bg-verde/[0.07] px-4 py-3 text-sm font-medium text-verde">
+        <p className="mt-4 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-verde">
           Crédito lançado.
         </p>
       )}
@@ -77,7 +77,7 @@ export async function PainelDeLancamentos({
 
       {/* O resumo do mes: quanto falta lancar, e quanto isso soma. É o que
           responde "acabei?" sem contar cartao por cartao. */}
-      <div className="sombra-cartao mt-6 flex animate-surgir flex-wrap items-center gap-x-10 gap-y-3 rounded-2xl border border-tinta/12 bg-white px-5 py-4 [animation-delay:60ms]">
+      <div className="sombra-cartao mt-6 flex animate-surgir flex-wrap items-center gap-x-10 gap-y-3 rounded-2xl border border-zinc-200 bg-white px-5 py-4 [animation-delay:60ms]">
         <Resumo
           rotulo="A lançar"
           valor={`${pendentes.length} de ${linhas.length}`}
@@ -92,7 +92,7 @@ export async function PainelDeLancamentos({
       </div>
 
       {linhas.length === 0 ? (
-        <p className="sombra-cartao mt-6 rounded-2xl border border-tinta/12 bg-white px-5 py-10 text-center text-sm text-neutral-500">
+        <p className="sombra-cartao mt-6 rounded-2xl border border-zinc-200 bg-white px-5 py-10 text-center text-sm text-neutral-500">
           Nenhum investidor com contrato mensal.
         </p>
       ) : (
@@ -143,7 +143,7 @@ function CartaoDeLancamento({
   const { estimativa, lancado } = linha;
 
   return (
-    <div className="sombra-cartao flex h-full flex-col rounded-2xl border border-tinta/12 bg-white p-5">
+    <div className="sombra-cartao flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-tinta">
@@ -158,13 +158,13 @@ function CartaoDeLancamento({
         {/* O rateio precisa aparecer antes do lancamento, e nao depois: é ele
             que explica um valor menor que o do mes passado. */}
         {estimativa.quebrado && (
-          <span className="shrink-0 rounded-full bg-azul/10 px-2.5 py-1 text-[0.625rem] font-semibold tracking-wide text-azul uppercase">
+          <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-1 text-[0.625rem] font-semibold tracking-wide text-azul uppercase">
             Ciclo rateado
           </span>
         )}
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-tinta/[0.06] py-4 text-sm">
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-zinc-200 py-4 text-sm">
         <Dado rotulo="Capital" valor={formatarMoeda(estimativa.capital)} />
         <Dado
           rotulo="Participação"
@@ -202,7 +202,7 @@ function CartaoDeLancamento({
               pagina lanca, e nao é um segundo CRUD de recebimentos. */}
           <Link
             href={`/admin/recebimentos?editar=${lancado.id}`}
-            className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+            className="rounded-lg px-2.5 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
           >
             Editar
           </Link>
@@ -232,7 +232,7 @@ function CartaoDeLancamento({
                 // vale a conta, e o servidor a refaz na hora de gravar.
                 placeholder={estimativa.valor.toFixed(2)}
                 aria-label={`Valor do crédito de ${linha.investidor} em ${linha.empreendimento}`}
-                className="mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta tabular-nums transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+                className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta tabular-nums transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
               />
             </label>
 
@@ -244,7 +244,7 @@ function CartaoDeLancamento({
                 name="observacao"
                 type="text"
                 placeholder="Opcional"
-                className="mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+                className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
               />
             </label>
           </div>

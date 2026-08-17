@@ -52,7 +52,7 @@ export async function PainelDeAgendamentos({
 
   return (
     <section className="mt-10">
-      <h2 className="animate-surgir text-base font-bold tracking-tight text-black">
+      <h2 className="animate-surgir text-base font-bold tracking-tight text-tinta">
         Envio automático
       </h2>
       <p className="mt-1 animate-surgir text-sm text-neutral-500">
@@ -61,7 +61,7 @@ export async function PainelDeAgendamentos({
       </p>
 
       {ok === "agendado" && (
-        <p className="mt-4 animate-surgir rounded-xl border border-verde/30 bg-verde/[0.07] px-4 py-3 text-sm font-medium text-verde">
+        <p className="mt-4 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-verde">
           Agendado, e a automação foi criada e ligada no n8n.
         </p>
       )}
@@ -95,7 +95,7 @@ export async function PainelDeAgendamentos({
           {agendamentos.map((a) => (
             <li
               key={a.id}
-              className="sombra-cartao flex items-start justify-between gap-4 rounded-2xl border border-tinta/12 bg-white p-4"
+              className="sombra-cartao flex items-start justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4"
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-sm font-bold text-tinta">

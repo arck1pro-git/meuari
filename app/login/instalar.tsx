@@ -59,7 +59,7 @@ function lerPlataforma(): Plataforma {
 }
 
 const CLASSE_BOTAO =
-  "flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ease-[var(--ease-suave)] hover:scale-[1.03] hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-tinta active:scale-[0.98] active:brightness-90 lg:w-auto";
+  "flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ease-[var(--ease-suave)] hover:scale-[1.03] hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-tinta active:scale-[0.98] active:brightness-90 disabled:pointer-events-none disabled:opacity-60 lg:w-auto";
 
 export function BotaoInstalar() {
   const plataforma = useSyncExternalStore(
@@ -71,6 +71,14 @@ export function BotaoInstalar() {
   const [convite, setConvite] = useState<EventoDeInstalacao | null>(null);
   /** Os passos manuais só aparecem depois do toque no botao. */
   const [mostrarPassos, setMostrarPassos] = useState(false);
+  /** Enquanto a caixa nativa esta aberta, aguardando a escolha da pessoa. */
+  const [instalando, setInstalando] = useState(false);
+  /*
+   * `appinstalled` chega antes de o `matchMedia` do `display-mode` reagir em
+   * alguns Chromium — sem isto o botao "Baixar" ainda pisca na tela por um
+   * instante depois da pessoa confirmar a instalacao.
+   */
+  const [instaladoAgora, setInstaladoAgora] = useState(false);
 
   useEffect(() => {
     /*
@@ -83,8 +91,18 @@ export function BotaoInstalar() {
       setConvite(evento as EventoDeInstalacao);
     }
 
+    function aoInstalar() {
+      setConvite(null);
+      setMostrarPassos(false);
+      setInstaladoAgora(true);
+    }
+
     window.addEventListener("beforeinstallprompt", aoConvidar);
-    return () => window.removeEventListener("beforeinstallprompt", aoConvidar);
+    window.addEventListener("appinstalled", aoInstalar);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", aoConvidar);
+      window.removeEventListener("appinstalled", aoInstalar);
+    };
   }, []);
 
   /**
@@ -95,12 +113,17 @@ export function BotaoInstalar() {
   async function baixar() {
     if (!convite) return setMostrarPassos(true);
 
-    await convite.prompt();
-    const { outcome } = await convite.userChoice;
-    // O evento vale uma vez só: usado, ele nao pode ser disparado de novo.
-    setConvite(null);
-    // Recusou a caixa? O caminho manual continua valendo.
-    if (outcome === "dismissed") setMostrarPassos(true);
+    setInstalando(true);
+    try {
+      await convite.prompt();
+      const { outcome } = await convite.userChoice;
+      // O evento vale uma vez só: usado, ele nao pode ser disparado de novo.
+      setConvite(null);
+      // Recusou a caixa? O caminho manual continua valendo.
+      if (outcome === "dismissed") setMostrarPassos(true);
+    } finally {
+      setInstalando(false);
+    }
   }
 
   if (plataforma === "servidor") {
@@ -109,7 +132,7 @@ export function BotaoInstalar() {
     return <p className="h-12" aria-hidden />;
   }
 
-  if (plataforma === "instalado") {
+  if (plataforma === "instalado" || instaladoAgora) {
     return (
       <p className="rounded-xl bg-white/15 px-4 py-3 text-center text-sm font-medium text-white ring-1 ring-white/25">
         Você já está com o app instalado neste aparelho.
@@ -122,11 +145,13 @@ export function BotaoInstalar() {
       <button
         type="button"
         onClick={baixar}
+        disabled={instalando}
         aria-expanded={mostrarPassos}
+        aria-busy={instalando}
         className={CLASSE_BOTAO}
       >
         <IconeBaixar className="h-4 w-4 shrink-0" />
-        Baixar Meu ARI
+        {instalando ? "Instalando…" : "Baixar Meu ARI"}
       </button>
 
       {mostrarPassos &&

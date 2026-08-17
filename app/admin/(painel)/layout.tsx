@@ -34,7 +34,11 @@ export default async function PainelLayout({
   if (sessao.tipo !== "administrador") redirect("/admin/login?erro=restrito");
 
   return (
-    <div className="min-h-dvh bg-white text-tinta">
+    // `tema-painel` troca os tokens de cor para toda a arvore abaixo — é o que
+    // faz o painel nao ter a paleta do portal. Ver o bloco em `globals.css`.
+    // Precisa ficar aqui, no ancestral de tudo: a coluna da esquerda e cada
+    // bloco leem as variaveis por heranca.
+    <div className="tema-painel min-h-dvh bg-fundo-painel text-tinta">
       {/* Só as tabelas. "Lancamentos" era uma secao a parte e virou o topo da
           tela de Recebimentos: lancar é criar uma linha ali. */}
       <BarraAdmin
@@ -44,10 +48,23 @@ export default async function PainelLayout({
       />
 
       {/* O padding abre o espaco da coluna fixa — 64px do trilho de icones,
-          240px quando ela expande. O `max-w` centra dentro do que sobrou, e
-          nao na tela: senao o conteudo nasceria torto para a direita. */}
-      <div className="pl-16 md:pl-60">
-        <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8">
+          208px quando ela expande. Os dois numeros sao os da `BarraAdmin`, que
+          é `fixed` e por isso nao empurra nada: se um sair do lugar sem o
+          outro, ou o conteudo passa por baixo da coluna ou abre um vao ao lado
+          dela. O `max-w` centra dentro do que sobrou, e nao na tela: senao o
+          conteudo nasceria torto para a direita.
+
+          O teto era `max-w-6xl` (1152px), largura de texto corrido. Numa tela
+          de 1920 isso deixava mais de 500px de branco nas laterais, e o que
+          vive aqui nao é texto: é tabela de seis colunas, grafico e listagem de
+          registro, tudo coisa que se le comparando de um lado ao outro. Agora o
+          conteudo ocupa o que houver.
+
+          O teto continua existindo, alto, so para tela ultralarga: sem nenhum,
+          as seis colunas da tabela se espalhariam por 3000px e o numero ficaria
+          longe do rotulo que o nomeia. */}
+      <div className="pl-16 md:pl-52">
+        <main className="mx-auto w-full max-w-[110rem] px-5 py-8 sm:px-8">
           {children}
         </main>
       </div>

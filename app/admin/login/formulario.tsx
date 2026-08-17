@@ -24,7 +24,7 @@ export function FormularioLogin() {
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          className="mt-1.5 w-full rounded-xl border border-tinta/12 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+          className="mt-1.5 w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
         />
       </label>
 
@@ -35,7 +35,7 @@ export function FormularioLogin() {
           type="password"
           required
           autoComplete="current-password"
-          className="mt-1.5 w-full rounded-xl border border-tinta/12 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+          className="mt-1.5 w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
         />
       </label>
 

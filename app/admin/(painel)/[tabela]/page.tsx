@@ -18,24 +18,12 @@ import { Formulario } from "./formulario";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Uma linha dizendo o que cada tabela guarda.
- *
- * Fica aqui, e nao no registro de `lib/admin/tabelas.ts`: aquele arquivo define
- * o que vira SQL — colunas, tipos, referencias —, e frase de tela nao é
- * estrutura de dado. Tabela sem frase simplesmente nao mostra nenhuma.
+/*
+ * Aqui morava um `APOIOS`: uma frase por tabela, embaixo do titulo, dizendo o
+ * que ela guarda. Saiu porque para quem administra ela nao dizia nada — "Fotos
+ * da obra" abaixo de um titulo "Imagens" é o mesmo nome duas vezes, e ocupava a
+ * primeira linha de toda tela do painel. O titulo basta.
  */
-const APOIOS: Record<string, string> = {
-  usuarios: "Quem entra no portal: investidores e administradores.",
-  empreendimentos: "Os projetos da incorporadora, com status e previsões.",
-  contratos: "O contrato de cada investidor, com valor de entrada e taxa.",
-  aditivos: "Aportes acrescentados a um contrato que já existe.",
-  recebimentos: "O crédito que cai na conta do investidor, mês a mês.",
-  notificacoes: "Tudo que já foi enviado — na hora ou por automação.",
-  documentos: "Papéis do empreendimento, disponíveis para baixar no portal.",
-  etapas: "O andamento de cada disciplina, por empreendimento.",
-  imagens: "Fotos da obra, na ordem em que aparecem no carrossel.",
-};
 
 /** Legenda das chaves estrangeiras: id cru nao diz nada em tela. */
 async function mapaDeRotulos(tabela: Tabela) {
@@ -108,7 +96,6 @@ export default async function TabelaPage({
        */}
       <CabecalhoDaSecao
         titulo={tabela.rotulo}
-        apoio={APOIOS[tabela.slug]}
         acessorio={
           <>
             {campoReferencia && (
@@ -173,9 +160,9 @@ export default async function TabelaPage({
 
       {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
           dentro do cartao em vez de empurrar a pagina inteira de lado. */}
-      <div className="sombra-cartao mt-6 overflow-x-auto rounded-2xl border border-tinta/12 bg-white">
+      <div className="sombra-cartao mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-tinta/10 bg-tinta/[0.03] text-xs text-neutral-500">
+          <thead className="border-b border-zinc-200 bg-zinc-50 text-xs text-neutral-500">
             <tr>
               {tabela.colunas.map((c) => (
                 <th
@@ -192,7 +179,7 @@ export default async function TabelaPage({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-tinta/[0.06]">
+          <tbody className="divide-y divide-zinc-200">
             {linhas.length === 0 && (
               <tr>
                 <td
@@ -231,7 +218,7 @@ export default async function TabelaPage({
                    entrar na linha, o que tira 20 botoes vermelhos da vista sem
                    escondê-los de quem navega por teclado — o `focus-within`
                    traz os dois de volta. */
-                className="group transition-colors duration-200 hover:bg-azul/[0.04]"
+                className="group transition-colors duration-200 hover:bg-indigo-50"
               >
                 {tabela.colunas.map((c) => (
                   <td key={c} className="px-4 py-3 whitespace-nowrap">
@@ -243,7 +230,7 @@ export default async function TabelaPage({
                     {!tabela.semFormulario && (
                       <Link
                         href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-marinho/10 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
                       >
                         Editar
                       </Link>

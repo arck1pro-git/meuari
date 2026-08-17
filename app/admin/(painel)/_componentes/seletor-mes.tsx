@@ -25,7 +25,7 @@ export function SeletorDeMes({ competencia }: { competencia: string }) {
           const valor = evento.target.value;
           if (valor) router.push(`/admin/recebimentos?mes=${valor}`);
         }}
-        className="rounded-xl border border-tinta/12 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+        className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
       />
     </label>
   );

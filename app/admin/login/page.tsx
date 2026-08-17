@@ -15,12 +15,15 @@ export default async function LoginPage({
 
   return (
     // O mesmo fundo pontilhado da entrada do investidor, com a mesma mascara
-    // que apaga os pontos nas bordas.
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-white px-5">
+    // que apaga os pontos nas bordas — e, com `tema-painel`, nas cores do
+    // painel. A entrada do admin é a porta dele: chegar aqui e ver a cor do
+    // portal, para ela trocar depois de entrar, era a troca no lugar errado. O
+    // pontilhado acompanha sozinho, porque ele ja lia o `marinho`.
+    <div className="tema-painel relative flex min-h-dvh items-center justify-center overflow-hidden bg-fundo-painel px-5">
       <div aria-hidden className="pontilhado absolute inset-0" />
 
-      <div className="sombra-cartao-alta relative w-full max-w-sm animate-surgir rounded-2xl border border-tinta/12 bg-white p-8">
-        <h1 className="text-lg font-bold tracking-tight text-black">
+      <div className="sombra-cartao-alta relative w-full max-w-sm animate-surgir rounded-2xl border border-zinc-200 bg-white p-8">
+        <h1 className="text-lg font-bold tracking-tight text-tinta">
           Administração
         </h1>
         <p className="mt-1 text-sm text-neutral-500">

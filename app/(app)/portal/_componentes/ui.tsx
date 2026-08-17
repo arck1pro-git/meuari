@@ -29,18 +29,13 @@ export function Cartao({
       // A mesma elevacao do cartao de saldo, nos dois toms — foi decisao de
       // desenho que todo cartao caia com o mesmo peso.
       //
-      // A cor do tom escuro vem da classe `degrade-cartao`, escrita em CSS puro
-      // no `globals.css`: `tinta → marinho → azul`, os tres a 80%. O degrade
-      // para em `azul`, e nao em `ceu`, porque o `ceu` a 70% sobre branco
-      // virava um azul-claro lavado, onde o texto e as barras brancas caiam
-      // para 1,86:1 de contraste. Assim o pior ponto fica em 4,25:1.
-      // No tom escuro a borda é o `marinho` cheio — a mesma cor que o degrade
-      // por dentro serve a 80%. É o desenho do botao do simulador: miolo
-      // rebaixado, contorno na cor original, e o cartao ganha um limite firme
-      // em vez de se dissolver no branco da pagina.
+      // O tom escuro era o degrade `tinta → marinho → azul` (`degrade-cartao`,
+      // em `globals.css`); virou `azul` puro e cheio. A borda continua o
+      // `marinho` cheio — o mesmo contorno de sempre, so que agora sobre um
+      // miolo de uma cor so.
       className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
         escuro
-          ? "degrade-cartao border-marinho text-white"
+          ? "border-marinho bg-azul text-white"
           : "border-tinta/12 bg-white"
       }`}
     >
@@ -87,13 +82,12 @@ export function Etiqueta({
     // nunca quebra. O `destaque` carrega frase, e ai flex atrapalha — cada
     // trecho solto viraria um item anonimo, quebrando a frase em caixas que nao
     // fluem entre si. `inline-block` deixa o texto correr e quebrar de verdade.
-    // A borda saiu da base e ficou so no `suave`. Ela existia para os dois toms
-    // terem a mesma altura, o que deixou de importar quando eles passaram a ter
-    // formas e respiros diferentes.
+    // A borda do `destaque` volta a existir aqui: mesma proporcao do `suave`,
+    // tres vezes a opacidade do fundo, so que na cor do proprio acento.
     <span
       className={`text-xs ${
         tom === "destaque"
-          ? "inline-block rounded-xl bg-ciano/15 px-3 py-1.5 leading-snug font-normal text-pretty text-black"
+          ? "inline-block rounded-xl border border-ciano/40 bg-ciano/15 px-3 py-1.5 leading-snug font-normal text-pretty text-black"
           : "inline-flex items-center rounded-full border border-marinho/15 bg-marinho/5 px-2.5 py-0.5 font-medium text-marinho"
       }`}
     >

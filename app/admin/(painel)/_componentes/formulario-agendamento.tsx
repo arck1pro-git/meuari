@@ -18,7 +18,7 @@ import { acaoAgendarNotificacao } from "../../acoes";
  */
 
 const CLASSE_CAMPO =
-  "mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
+  "mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
 
 type Recorrencia = "diaria" | "semanal" | "mensal";
 
@@ -50,7 +50,7 @@ export function FormularioDeAgendamento({
   return (
     <form
       action={acaoAgendarNotificacao}
-      className="sombra-cartao animate-surgir rounded-2xl border border-tinta/12 bg-white p-5 sm:p-7"
+      className="sombra-cartao animate-surgir rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
@@ -95,7 +95,7 @@ export function FormularioDeAgendamento({
         </label>
       </div>
 
-      <fieldset className="mt-6 border-t border-tinta/[0.08] pt-5">
+      <fieldset className="mt-6 border-t border-zinc-200 pt-5">
         <legend className="sr-only">Recorrência</legend>
         <p className="text-xs font-semibold text-neutral-600">
           Com que frequência
@@ -109,8 +109,8 @@ export function FormularioDeAgendamento({
                 key={opcao.valor}
                 className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors duration-200 ${
                   ativa
-                    ? "border-marinho bg-marinho/[0.04]"
-                    : "border-tinta/12 hover:bg-tinta/[0.02]"
+                    ? "border-marinho bg-indigo-50"
+                    : "border-zinc-200 hover:bg-zinc-50"
                 }`}
               >
                 <input
@@ -148,7 +148,7 @@ export function FormularioDeAgendamento({
                     className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 ${
                       marcado
                         ? "border-marinho bg-marinho text-white"
-                        : "border-tinta/12 text-neutral-600 hover:bg-tinta/[0.03]"
+                        : "border-zinc-200 text-neutral-600 hover:bg-zinc-50"
                     }`}
                   >
                     <input
@@ -206,7 +206,7 @@ export function FormularioDeAgendamento({
                       ),
                     )
                   }
-                  className="rounded-xl border border-tinta/12 bg-white px-3 py-2 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
                 />
                 {horarios.length > 1 && (
                   <button
@@ -226,7 +226,7 @@ export function FormularioDeAgendamento({
             <button
               type="button"
               onClick={() => setHorarios((atuais) => [...atuais, "18:00"])}
-              className="rounded-full bg-tinta/[0.05] px-3.5 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-200 hover:bg-tinta/10 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+              className="rounded-full bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-200 hover:bg-zinc-200 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
             >
               + horário
             </button>

@@ -23,6 +23,32 @@ function coluna(campo: Campo): string {
   return campo.tipo === "senha" ? "senha_hash" : campo.nome;
 }
 
+/**
+ * As colunas que a tela usa — `id`, as da listagem e as dos campos do
+ * formulario. Nada mais.
+ *
+ * Era `select *`, e o `*` de `usuarios` inclui `senha_hash`. Nada vazava: o
+ * formulario é Server Component e `valorInicial` procura `linha["senha"]`, que
+ * nao existe (a coluna se chama `senha_hash`). Mas o hash viajava do banco para
+ * a arvore de render sem que ninguem o pedisse, e bastava um dia alguem passar a
+ * linha inteira para um componente de cliente. O que nao sai do banco nao vaza.
+ *
+ * `senha_hash` é o unico campo excluido de proposito: ele nao tem uso em tela
+ * nenhuma — a senha em branco significa "manter a atual", e o hash nao tem
+ * volta.
+ */
+function colunasVisiveis(t: Tabela): string {
+  const nomes = new Set<string>(["id"]);
+  for (const c of t.colunas) nomes.add(c);
+  for (const campo of t.campos) {
+    if (campo.tipo === "senha") continue;
+    nomes.add(coluna(campo));
+  }
+  // Tudo passa por `ident()`: os nomes vem do registro, e esta é a mesma trava
+  // do resto do arquivo.
+  return [...nomes].map(ident).join(", ");
+}
+
 export async function listar(
   t: Tabela,
   filtro?: { campo: string; valor: string },
@@ -33,14 +59,17 @@ export async function listar(
    * é so essa: o que nao esta declarado como filtro nao filtra nada.
    */
   const permitido = filtro && t.filtros?.includes(filtro.campo);
+  // `criado_em` no `order by` sem estar no `select`: o Postgres aceita, e nao ha
+  // tabela que mostre essa coluna em todas as telas.
   if (!permitido) {
     return consultar(
-      `select * from ${ident(t.tabela)} order by criado_em desc limit 200`,
+      `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
+        order by criado_em desc limit 200`,
     );
   }
 
   return consultar(
-    `select * from ${ident(t.tabela)}
+    `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
       where ${ident(filtro.campo)} = $1
       order by criado_em desc limit 200`,
     [filtro.valor],
@@ -49,7 +78,7 @@ export async function listar(
 
 export async function obter(t: Tabela, id: string): Promise<Linha | undefined> {
   const [linha] = await consultar(
-    `select * from ${ident(t.tabela)} where id = $1`,
+    `select ${colunasVisiveis(t)} from ${ident(t.tabela)} where id = $1`,
     [id],
   );
   return linha;

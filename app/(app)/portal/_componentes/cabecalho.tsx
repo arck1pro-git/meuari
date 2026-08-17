@@ -57,10 +57,11 @@ export function Cabecalho({
         <div className="absolute inset-y-0 left-0 w-1/4 animate-brilho bg-linear-to-r from-transparent via-white/25 to-transparent" />
       </div>
 
-      {/* Faixa mais baixa: `py-3` no lugar de `py-4`, o que devolve 8px de area
-          util em toda tela do app sem apertar o alvo de toque — o retrato tem
-          40px e continua acima do minimo. */}
-      <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
+      {/* Faixa mais baixa, de novo: o respiro vertical caiu para `py-2`, e o
+          retrato de 40px passou a 36px. A faixa fica em 52px no lugar de 64px,
+          e o alvo de toque continua de sobra — quem recebe o toque é o link
+          inteiro, retrato e nome juntos, e nao o circulo sozinho. */}
+      <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2 sm:px-8 sm:py-3">
         {/* A foto e o nome sao um alvo só, e nao dois: quem toca no retrato
             espera o mesmo que quem toca no "Ver perfil" logo abaixo. */}
         <Link
@@ -71,7 +72,7 @@ export function Cabecalho({
               logo ao lado: para quem ouve a pagina, a letra seria repeticao. */}
           <span
             aria-hidden
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-base font-bold text-marinho"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-marinho"
           >
             {inicial}
           </span>

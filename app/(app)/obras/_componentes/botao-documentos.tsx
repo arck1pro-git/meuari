@@ -1,8 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useRef } from "react";
-import { IconeFechar } from "../../portal/_componentes/icones";
+import {
+  IconeFechar,
+  IconeTransparencia,
+} from "../../portal/_componentes/icones";
 
 /**
  * O botao flutuante dos documentos, e a folha que ele abre.
@@ -43,21 +45,20 @@ export function BotaoDocumentos({
        * `title` — é o que o leitor de tela anuncia e o que aparece com o mouse
        * parado. O ouro é a unica peca dessa cor na tela, e é o que faz o botao
        * existir sobre foto, cartao branco ou fundo cinza sem depender de sombra.
+       *
+       * O icone é o mesmo `IconeTransparencia` que marca documento no resto do
+       * app — traco em `currentColor`, e nao o PNG 3D que estava aqui: ele era
+       * a unica peca ilustrada num app inteiro de traco, e ainda pesava uma
+       * requisicao de imagem por um desenho de 28px.
        */}
       <button
         type="button"
         onClick={() => folha.current?.showModal()}
         aria-label={`Documentos da obra (${quantos})`}
         title="Documentos"
-        className="fixed right-5 bottom-24 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-ouro shadow-[0_12px_28px_-6px_rgba(247,188,5,0.55)] transition-all duration-200 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ouro focus-visible:ring-offset-2 active:scale-95 sm:right-8 md:bottom-6"
+        className="fixed right-5 bottom-24 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-ouro text-tinta shadow-[0_12px_28px_-6px_rgba(247,188,5,0.55)] transition-all duration-200 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ouro focus-visible:ring-offset-2 active:scale-95 sm:right-8 md:bottom-6"
       >
-        <Image
-          src="/icons/3dicons-file-text-dynamic-color.png"
-          alt=""
-          width={96}
-          height={96}
-          className="h-7 w-7 drop-shadow-[0_2px_4px_rgba(0,20,73,0.25)]"
-        />
+        <IconeTransparencia className="h-6 w-6" />
       </button>
 
       <dialog

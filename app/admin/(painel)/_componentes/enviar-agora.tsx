@@ -13,7 +13,7 @@ import { acaoEnviarNotificacao } from "../../acoes";
  */
 
 const CLASSE_CAMPO =
-  "mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
+  "mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
 
 export async function EnviarAgora({
   ok,
@@ -30,7 +30,7 @@ export async function EnviarAgora({
 
   return (
     <section className="mt-10">
-      <h2 className="animate-surgir text-base font-bold tracking-tight text-black">
+      <h2 className="animate-surgir text-base font-bold tracking-tight text-tinta">
         Enviar agora
       </h2>
       <p className="mt-1 animate-surgir text-sm text-neutral-500">
@@ -39,7 +39,7 @@ export async function EnviarAgora({
       </p>
 
       {ok === "enviado" && (
-        <p className="mt-4 animate-surgir rounded-xl border border-verde/30 bg-verde/[0.07] px-4 py-3 text-sm font-medium text-verde">
+        <p className="mt-4 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-verde">
           Aviso enviado.{" "}
           {Number(aparelhos ?? 0) === 0
             ? "Nenhum aparelho está inscrito para push — ele aparece no sino quando o investidor abrir o app."
@@ -51,7 +51,7 @@ export async function EnviarAgora({
 
       <form
         action={acaoEnviarNotificacao}
-        className="sombra-cartao mt-5 animate-surgir rounded-2xl border border-tinta/12 bg-white p-5 sm:p-7 [animation-delay:60ms]"
+        className="sombra-cartao mt-5 animate-surgir rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7 [animation-delay:60ms]"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">

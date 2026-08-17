@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BotaoSimulador } from "./botao-simulador";
-import { IconeInvestimento, IconeTransparencia } from "./icones";
+import { IconeInvestimento, IconeObra } from "./icones";
 
 /**
  * A barra de secoes do rodape — só no mobile.
@@ -16,7 +16,9 @@ import { IconeInvestimento, IconeTransparencia } from "./icones";
  */
 const SECOES = [
   { href: "/portal", rotulo: "Meus aportes", Icone: IconeInvestimento },
-  { href: "/obras", rotulo: "Obras", Icone: IconeTransparencia },
+  // Predio, e nao o documento que estava aqui: a secao é a obra em si — fotos,
+  // etapas, ficha —, e o papel é so uma parte dela, atras do botao flutuante.
+  { href: "/obras", rotulo: "Obras", Icone: IconeObra },
 ] as const;
 
 export function Navegacao({

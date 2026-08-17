@@ -30,6 +30,19 @@
      icone ou em area cheia. */
   --color-ouro: #f7bc05;
 
+  /* O chao da area de conteudo do painel de administracao.
+   *
+   * Mora aqui, e nao no `.tema-painel` la embaixo com as outras cores do painel,
+   * porque precisa gerar o utilitario `bg-fundo-painel`: o Tailwind cria classe
+   * a partir do que esta em `@theme`, e variavel solta numa classe comum nao
+   * vira classe nenhuma.
+   *
+   * Cinza de um grau, e nao branco: os blocos do painel sao brancos e nao tem
+   * sombra, entao com o chao tambem branco o filete de 1px seria a unica coisa
+   * separando um do outro. Um tom abaixo e é o proprio branco do bloco que
+   * separa; a borda passa a ser acabamento. */
+  --color-fundo-painel: #f4f5f8;
+
   /* Curva de saida rapida ("ease-out expo"): o elemento chega quase inteiro no
      primeiro terco do tempo, o que da a sensacao de resposta imediata. */
   --ease-suave: cubic-bezier(0.16, 1, 0.3, 1);
@@ -182,6 +195,64 @@ body {
   background: #ffffff;
   color: var(--color-tinta);
 }
+
+/**
+ * A paleta do painel de administracao.
+ *
+ * O admin nao é o portal, e nao precisa da cor dele. O navy com ouro é a marca
+ * falando com o investidor — vale numa tela que ele abre para ver o dinheiro
+ * dele. Quem administra passa o dia aqui, olhando tabela e grafico, e para isso
+ * o certo é o contrario: chao cinza-frio, uma cor de acento só, e o resto
+ * quieto. Ver a cor trocar tambem diz onde a pessoa esta, sem ler o cabecalho.
+ *
+ * **Por que é um bloco de variaveis, e nao 192 classes trocadas.** Os
+ * utilitarios do Tailwind v4 compilam para `var(--color-x)` — `bg-tinta` sai
+ * como `background-color: var(--color-tinta)`, e `border-tinta/10` como um
+ * `color-mix` sobre a mesma variavel. Redefinir a variavel num ancestral
+ * recolore tudo que esta dentro, sem tocar em nenhum componente. O portal fica
+ * intacto porque a redefinicao mora nesta classe, e nao no `:root`.
+ *
+ * Os nomes continuam sendo os da marca — `tinta`, `marinho`, `ouro` — porque é
+ * o papel deles que importa em cada classe: tinta é o texto e a superficie
+ * escura, marinho é a acao, ouro marca o "agora". O valor é que mudou. Renomear
+ * daria as mesmas 192 edicoes que este bloco existe para evitar.
+ *
+ * Quem quiser outra cor de acento troca `marinho` e `azul` aqui, e a tela
+ * inteira acompanha — inclusive o pontilhado do login, que ja lia o `marinho`.
+ */
+.tema-painel {
+  /* Grafite frio: o texto e o chao da coluna da esquerda. Serve aos dois porque
+     é escuro o bastante para o branco em cima e neutro o bastante para nao
+     tingir a tabela. O navy do portal, no meio de tanto dado, puxava tudo para
+     o azul. */
+  --color-tinta: #1c2027;
+
+  /* Indigo. A acao, a barra do grafico, o numero em destaque. Rende 7,4:1 sobre
+     branco — o `azul` da marca rendia 5,3:1, e aqui ha muito numero pequeno em
+     cor. */
+  --color-marinho: #4338ca;
+
+  /* Um grau mais claro, para link, foco e estado interativo: ainda 5,6:1 sobre
+     branco, e distinguivel do `marinho` quando os dois se encostam. */
+  --color-azul: #4f46e5;
+
+  /* A segunda fatia da rosca. Mesma familia do `marinho`, mais clara: entradas
+     e aditivos sao as duas metades de uma coisa só, e cor de outra familia ali
+     leria como assunto diferente. */
+  --color-ceu: #818cf8;
+
+  /* Ambar no lugar do ouro, no mesmo papel — a secao aberta, o mes corrente.
+     Continua sendo o contraponto quente do acento frio, so que menos amarelo:
+     ao lado do indigo o ouro puxava para o esverdeado. */
+  --color-ouro: #f59e0b;
+
+  /* Esmeralda: o "lancado", o aviso de sucesso. */
+  --color-verde: #059669;
+
+  /* Acento claro, so para superficie escura — mesmo papel do ciano da marca. */
+  --color-ciano: #38bdf8;
+}
+
 
 /* Acessibilidade: quem pede menos movimento recebe o resultado final na hora,
    sem deslocamento nem espera. Vale para tudo, inclusive libs de terceiros. */
@@ -420,18 +491,6 @@ body {
     rgb(0, 20, 73) 0%,
     rgb(1, 38, 119) 55%,
     rgb(0, 91, 197) 100%
-  );
-}
-
-.degrade-cartao {
-  /* 0.8 é o `/80` que era feito com opacidade no utilitario: mesma cor, so
-     que ja resolvida contra o branco da pagina. No ponto mais claro, o canto
-     inferior direito, o branco por cima le em 4,25:1. */
-  background-image: linear-gradient(
-    to bottom right,
-    rgba(0, 20, 73, 0.8) 0%,
-    rgba(1, 38, 119, 0.8) 50%,
-    rgba(0, 91, 197, 0.8) 100%
   );
 }
 

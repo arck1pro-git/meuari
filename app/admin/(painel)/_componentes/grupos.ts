@@ -6,13 +6,13 @@
  * escolhe o bloco primeiro — e os blocos sao os assuntos do painel, que é como
  * quem administra ja pensa: gente, dinheiro, obra, recado.
  *
- * A ordem daqui manda na ordem da coluna e da tela inicial, e nao a do registro
- * de `lib/admin/tabelas.ts` — aquele é a fonte dos identificadores do SQL, e o
- * que ele ordena é outra coisa.
+ * A ordem daqui manda na ordem da coluna, e nao a do registro de
+ * `lib/admin/tabelas.ts` — aquele é a fonte dos identificadores do SQL, e o que
+ * ele ordena é outra coisa.
  *
- * Modulo proprio porque a coluna é componente de cliente e a tela inicial é de
- * servidor: os dois precisam da mesma divisao, e ela nao pode morar em nenhum
- * dos dois lados.
+ * Modulo proprio, e nao dentro da coluna, porque a divisao é decisao de
+ * navegacao e nao de marcacao: a tela inicial ja a usou, e volta a usar se
+ * alguma tela precisar listar as secoes de novo.
  */
 export const GRUPOS: { titulo: string; slugs: string[] }[] = [
   { titulo: "Pessoas", slugs: ["usuarios"] },

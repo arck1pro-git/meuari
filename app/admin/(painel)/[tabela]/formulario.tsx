@@ -7,7 +7,7 @@ import { CampoArquivo } from "./campo-arquivo";
 /* O mesmo desenho de campo do login: canto de 12px, borda discreta e o anel
    azul so no foco por teclado. */
 const CLASSE_CAMPO =
-  "mt-1.5 w-full rounded-xl border border-tinta/12 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-tinta/25 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
+  "mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
 
 /**
  * `AAAA-MM-DD` para o `input[type=date]`.
@@ -168,9 +168,9 @@ export async function Formulario({
      */
     <details
       open={editando}
-      className="sombra-cartao group animate-surgir rounded-2xl border border-tinta/12 bg-white [animation-delay:60ms]"
+      className="sombra-cartao group animate-surgir rounded-2xl border border-zinc-200 bg-white [animation-delay:60ms]"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-colors duration-200 hover:bg-tinta/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-azul sm:px-8 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-colors duration-200 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul sm:px-8 [&::-webkit-details-marker]:hidden">
         <span>
           <span className="block text-sm font-bold tracking-tight text-tinta">
             {editando ? "Editar registro" : `Novo em ${tabela.rotulo}`}
@@ -186,7 +186,7 @@ export async function Formulario({
             estados, sem trocar de icone. */}
         <span
           aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-marinho/[0.07] text-marinho transition-transform duration-300 ease-[var(--ease-suave)] group-open:rotate-45"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-marinho transition-transform duration-300 ease-[var(--ease-suave)] group-open:rotate-45"
         >
           <svg
             viewBox="0 0 24 24"
@@ -213,7 +213,7 @@ export async function Formulario({
          */
         key={editando ? String(linha!.id) : "novo"}
         action={acao}
-        className="border-t border-tinta/[0.08] px-5 py-6 sm:px-8"
+        className="border-t border-zinc-200 px-5 py-6 sm:px-8"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           {tabela.campos.map((campo) => (
@@ -236,7 +236,7 @@ export async function Formulario({
           {editando && (
             <a
               href={`/admin/${tabela.slug}`}
-              className="rounded-xl border border-tinta/12 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-tinta/5 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+              className="rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-zinc-50 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
             >
               Cancelar
             </a>

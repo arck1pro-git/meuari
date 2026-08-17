@@ -23,7 +23,15 @@ export type Acao =
   | "criar"
   | "atualizar"
   | "excluir"
-  | "upload";
+  | "upload"
+  /**
+   * Leitura de documento privado — contrato, aditivo ou papel da obra.
+   *
+   * É a unica acao de *leitura* registrada, e ela existe porque é a unica em que
+   * a pergunta "quem viu o contrato de quem" pode ser feita a serio. Ver
+   * `app/arquivo/[escopo]/[id]/route.ts`.
+   */
+  | "download";
 
 /** Campos cujo valor nunca é guardado, seja qual for o nome da coluna. */
 const SIGILOSOS = /senha|password|hash|token|secret|chave|auth/i;

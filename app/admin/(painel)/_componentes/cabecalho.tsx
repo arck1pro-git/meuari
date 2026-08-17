@@ -10,28 +10,27 @@
  * Agora toda tela abre por aqui, e o que era titulo virou o nome do que vem
  * abaixo. O `acessorio` é o canto direito — filtro, contagem, o que a tela
  * tiver.
+ *
+ * Nao ha frase de apoio, e nao é esquecimento: havia uma por tela, e ela
+ * repetia o titulo com outras palavras — "Fotos da obra" embaixo de "Imagens".
+ * Quem administra abre a tela sabendo o que ela é; a linha só empurrava o
+ * conteudo para baixo.
  */
 export function CabecalhoDaSecao({
   titulo,
-  apoio,
   acessorio,
 }: {
   titulo: string;
-  apoio?: string;
   acessorio?: React.ReactNode;
 }) {
   return (
-    <header className="flex animate-surgir flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-tinta/[0.08] pb-5">
-      <div className="min-w-0">
-        <h1 className="text-xl font-bold tracking-tight text-tinta">
-          {titulo}
-        </h1>
-        {apoio && (
-          <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-            {apoio}
-          </p>
-        )}
-      </div>
+    // `items-center` porque o titulo virou uma linha só: com `items-end` o
+    // filtro e a contagem do canto direito assentavam na base do texto e
+    // subiam um fio acima dele.
+    <header className="flex animate-surgir flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-zinc-200 pb-5">
+      <h1 className="min-w-0 text-xl font-bold tracking-tight text-tinta">
+        {titulo}
+      </h1>
 
       {acessorio && (
         <div className="flex shrink-0 items-center gap-3">{acessorio}</div>
@@ -48,7 +47,7 @@ export function CabecalhoDaSecao({
  */
 export function Contagem({ total }: { total: number }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 rounded-full border border-tinta/[0.08] bg-tinta/[0.03] px-3 py-1.5 text-xs text-neutral-500">
+    <span className="inline-flex items-baseline gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-neutral-500">
       <span className="font-bold tabular-nums text-tinta">{total}</span>
       {total === 1 ? "registro" : "registros"}
     </span>

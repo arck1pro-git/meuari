@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { exigirSessao } from "@/lib/auth";
 import { apurarPosicao, montarHistorico } from "@/lib/portal/calculo";
@@ -13,6 +14,7 @@ import { montarRecebimentos } from "@/lib/portal/recebimentos";
 import { AbaAporte } from "./_componentes/aba-aporte";
 import { CartaoDeNotificacoes } from "./_componentes/cartao-notificacoes";
 import { CartaoSaldo } from "./_componentes/cartao-saldo";
+import { IconeSetaDireita } from "./_componentes/icones";
 import { SeletorDeEmpreendimento } from "./_componentes/seletor-empreendimento";
 import { Sugestoes } from "./_componentes/sugestoes";
 
@@ -118,10 +120,24 @@ export default async function PortalPage({
           }
         />
 
-        {/* 72px entre o cartao de saldo e o Meu ARI. Eram 24; passaram por 34 e
-            56 ate aqui — a distancia separa dois assuntos, e nao dois cartoes
-            do mesmo bloco. */}
-        <div className="mt-18">
+        {/* O convite para simular, logo abaixo do saldo: é o momento em que a
+            pessoa acabou de ver quanto tem e quanto rendeu, e "e se eu
+            aportasse mais" é a pergunta natural que segue. Em ouro porque é
+            oferta, e nao a leitura do cartao.
+            `mt`/`mb` iguais, e nao o `mt-18` do bloco seguinte: o botao fica
+            centralizado entre o cartao de saldo e o "Meu ARI", nao mais colado
+            num dos dois.
+            Ouro cheio, sem contorno: rebaixado com opacidade ele perdia a
+            presenca de convite e passava a ler como etiqueta. */}
+        <Link
+          href="/simulador"
+          className="group mt-7 mb-7 flex w-full items-center justify-center gap-1.5 rounded-full bg-ouro px-4 py-2 text-xs font-semibold text-tinta shadow-[0_10px_30px_-12px_rgba(247,188,5,0.55)] transition-all duration-200 ease-[var(--ease-suave)] hover:scale-[1.02] hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ouro focus-visible:ring-offset-2 active:scale-[0.98] active:brightness-90 sm:w-auto"
+        >
+          Simule um novo aporte
+          <IconeSetaDireita className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </Link>
+
+        <div>
           <AbaAporte
             historico={historico}
             recebimentos={recebimentos}
