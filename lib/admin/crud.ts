@@ -5,6 +5,51 @@ import { acharTabela, type Campo, type Tabela } from "./tabelas";
 
 export type Linha = Record<string, unknown>;
 
+/** O SQLSTATE de "ja existe uma linha com estes valores". */
+export const DUPLICADO = "23505";
+
+/**
+ * O que cada restricao de unicidade quer dizer, em portugues.
+ *
+ * A chave é o nome da restricao no banco — o Postgres o devolve em
+ * `erro.constraint`. Ele é preciso: diz exatamente qual regra foi violada, o
+ * que uma mensagem generica nao daria. "Ja existe um registro" nao ajuda quem
+ * esta olhando um formulario de dez campos.
+ *
+ * Mora aqui, e nao na acao nem na tela, porque as duas precisam: a acao para
+ * decidir se o erro é tratavel, a tela para escrever a frase. Duas copias
+ * divergiriam no dia em que uma restricao nova aparecesse.
+ *
+ * Restricao que nao estiver aqui cai no texto generico — melhor uma frase vaga
+ * do que uma tela de erro 500.
+ */
+const JA_EXISTE: Record<string, string> = {
+  recebimentos_contrato_data_key:
+    "Já existe um crédito lançado para este contrato nesta data. Para corrigir o valor, edite o crédito que já existe em vez de criar outro.",
+  usuarios_email_unico:
+    "Já existe uma conta com este e-mail. O e-mail identifica a pessoa no login, então ele não se repete.",
+  push_inscricoes_endpoint_key:
+    "Este aparelho já está inscrito para receber avisos.",
+};
+
+/** `true` quando o erro é uma violacao de unicidade — a que a tela sabe explicar. */
+export function ehDuplicado(erro: unknown): boolean {
+  return (erro as { code?: string }).code === DUPLICADO;
+}
+
+/** O nome da restricao violada, para viajar na URL ate a tela. */
+export function restricaoDe(erro: unknown): string {
+  return (erro as { constraint?: string }).constraint ?? "";
+}
+
+/** A frase que a tela mostra. Restricao desconhecida cai no generico. */
+export function textoDeDuplicado(restricao?: string): string {
+  return (
+    (restricao && JA_EXISTE[restricao]) ||
+    "Já existe um registro com estes dados. Confira os campos que não podem se repetir."
+  );
+}
+
 /*
  * Identificadores vao para o texto do SQL entre aspas duplas. Como todos saem
  * do registro de tabelas — nunca da URL ou do formulario —, nao ha entrada do
@@ -44,9 +89,20 @@ function colunasVisiveis(t: Tabela): string {
     if (campo.tipo === "senha") continue;
     nomes.add(coluna(campo));
   }
-  // Tudo passa por `ident()`: os nomes vem do registro, e esta é a mesma trava
-  // do resto do arquivo.
-  return [...nomes].map(ident).join(", ");
+
+  return [...nomes]
+    .map((nome) => {
+      /*
+       * Coluna calculada (`colunasSql`) entra como expressao apelidada; o resto
+       * passa por `ident()`. Os dois saem do registro — nunca de requisicao —, e
+       * é isso que torna a interpolacao segura. O apelido continua passando por
+       * `ident()` mesmo assim: o nome vira chave do objeto que a tela le, e um
+       * apelido torto quebraria a listagem em silencio.
+       */
+      const expressao = t.colunasSql?.[nome];
+      return expressao ? `${expressao} as ${ident(nome)}` : ident(nome);
+    })
+    .join(", ");
 }
 
 export async function listar(
@@ -110,6 +166,43 @@ export async function opcoesDeReferencia(
  * Devolve `undefined` quando o campo deve ser ignorado — o caso da senha em
  * branco, que significa "manter a atual", e nao "apagar".
  */
+/**
+ * Numero digitado por gente, em portugues.
+ *
+ * Aceita o que a tela devolve depois de formatar (`1.234,56`, `2,6%`) e tambem o
+ * que alguem digita cru (`1234.56`, `3`). A regra dos separadores:
+ *
+ * - **Virgula presente** manda: ela é o decimal, e todo ponto é milhar.
+ *   `1.234,56` -> 1234.56.
+ * - **Só ponto**: é o decimal, como em qualquer teclado. `1234.56` -> 1234.56.
+ *
+ * O caso ambiguo de verdade — `1.234`, que pode ser mil e duzentos ou um e
+ * pouco — cai na segunda regra e vira 1.234. É a leitura certa para quem digita
+ * direto, e quem usa a tela nunca chega aqui com esse texto: o campo formata no
+ * blur e manda a virgula junto.
+ *
+ * `%`, `R$` e espaco saem antes de tudo — inclusive o espaco fino que o
+ * `Intl.NumberFormat` usa como separador de milhar em alguns ambientes, que nao
+ * é o espaco comum e passa batido por um `trim()`.
+ */
+function numeroDeTexto(texto: string): number {
+  const limpo = texto
+    .replace(/[R$%\s  ]/gi, "")
+    .replace(/^\+/, "");
+
+  const normalizado = limpo.includes(",")
+    ? limpo.replace(/\./g, "").replace(",", ".")
+    : limpo;
+
+  const n = Number(normalizado);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** Corta as casas decimais que o banco nao guarda, sem deixar lixo binario. */
+function arredondar(valor: number, casas: number): number {
+  return Number(valor.toFixed(casas));
+}
+
 async function valorDoCampo(
   campo: Campo,
   bruto: FormDataEntryValue | null,
@@ -124,10 +217,30 @@ async function valorDoCampo(
   // aceitam, e a diferenca entre "sem valor" e "vazio" nao se perde.
   if (texto === "") return null;
 
-  if (campo.tipo === "numero" || campo.tipo === "dinheiro") {
-    const n = Number(texto.replace(",", "."));
+  /*
+   * A divisao por 100 mora **aqui**, e nao no componente que formata.
+   *
+   * O campo chega em por cento — é assim que se fala de participacao — e o
+   * banco guarda decimal. Se a conversao vivesse no navegador, um envio sem
+   * JavaScript (ou um `curl`) gravaria 3 no lugar de 0,03: trezentos por cento
+   * ao mes. Com ela no servidor, a tela é só apresentacao.
+   */
+  if (campo.tipo === "percentual") {
+    const n = numeroDeTexto(texto);
     if (Number.isNaN(n)) throw new Error(`${campo.rotulo}: numero invalido`);
-    return n;
+    if (n < 0) throw new Error(`${campo.rotulo}: nao pode ser negativo`);
+    // `taxa` é `numeric(6,5)`: cinco casas no decimal, que sao tres no
+    // percentual. Arredondar aqui evita o `0.026000000000000002` que a divisao
+    // binaria produz e que o banco recusaria por escala.
+    return arredondar(n / 100, 5);
+  }
+
+  if (campo.tipo === "numero" || campo.tipo === "dinheiro") {
+    const n = numeroDeTexto(texto);
+    if (Number.isNaN(n)) throw new Error(`${campo.rotulo}: numero invalido`);
+    // Dinheiro é `numeric(14,2)`; `numero` pode ser inteiro (prazo, ordem) ou
+    // ter casas (percentual de etapa), e ai nao se arredonda nada.
+    return campo.tipo === "dinheiro" ? arredondar(n, 2) : n;
   }
 
   return texto;

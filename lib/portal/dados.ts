@@ -63,7 +63,21 @@ export type Empreendimento = {
   imagens: Arquivo[];
 };
 
-/** As colunas da ficha, no formato que a tela usa. Uma lista só, para as duas consultas. */
+/**
+ * As colunas da ficha, no formato que a tela usa. Uma lista só, para as duas
+ * consultas.
+ *
+ * **A lista é fechada, e é ela que decide o que o investidor recebe.** Nao ha
+ * `select e.*` aqui de proposito: coluna nova em `empreendimentos` nao chega ao
+ * portal sozinha — alguem precisa vir aqui e acrescenta-la, e é nesse momento
+ * que se pergunta se aquele dado é para ser visto.
+ *
+ * `meta_captacao` **nao entra aqui**, e a ausencia é a funcionalidade: ela diz
+ * quanto a incorporadora ainda precisa levantar. É numero de negocio, sem uso
+ * para quem ja aportou, e que pode ser lido como sinal de risco por quem ve "R$
+ * 5,8 milhoes a captar" na tela da propria obra. Ela vive so no /admin — ver
+ * `lib/admin/painel.ts`.
+ */
 const COLUNAS_DA_FICHA = `e.id,
             e.nome,
             e.descricao,

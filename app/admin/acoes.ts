@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { autenticar, abrirSessao, fecharSessao, sessaoValida } from "@/lib/auth";
 import { agendar, removerAgendamento } from "@/lib/admin/agendamentos";
-import { atualizar, camposAlterados, criar, excluir } from "@/lib/admin/crud";
+import {
+  atualizar,
+  camposAlterados,
+  criar,
+  ehDuplicado,
+  excluir,
+  restricaoDe,
+} from "@/lib/admin/crud";
 import {
   estimativaDe,
   jaLancado,
@@ -86,10 +93,37 @@ export async function sair() {
   redirect("/admin/login");
 }
 
+/**
+ * Manda de volta para a listagem com o aviso de duplicado, ou relanca.
+ *
+ * Violacao de unicidade nao é falha de sistema: é o banco recusando uma linha
+ * que ja existe, e quem esta preenchendo o formulario precisa ler isso em
+ * portugues. Ate aqui virava 500 na cara de quem tentava lancar o credito do mes
+ * duas vezes — e tentar duas vezes é o que acontece com uma aba aberta desde
+ * antes do primeiro lancamento.
+ *
+ * O `redirect` funciona lancando, entao ele mora no `catch` de quem chama, e
+ * nao aqui dentro: aqui ele seria engolido pelo proprio bloco.
+ */
+function avisoDeDuplicado(erro: unknown, slug: string): string {
+  if (!ehDuplicado(erro)) throw erro;
+  const onde = encodeURIComponent(restricaoDe(erro));
+  // `novo=1` mantem o formulario aberto: o aviso serve para corrigir e tentar de
+  // novo, e fechar a tela junto obrigaria a reabrir para isso.
+  return `/admin/${slug}?erro=duplicado&onde=${onde}&novo=1`;
+}
+
 export async function acaoCriar(slug: string, dados: FormData) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
-  const { id, colunas } = await criar(tabela, dados);
+
+  let id: string;
+  let colunas: string[];
+  try {
+    ({ id, colunas } = await criar(tabela, dados));
+  } catch (erro) {
+    redirect(avisoDeDuplicado(erro, slug));
+  }
 
   await registrar({
     acao: "criar",
@@ -112,7 +146,14 @@ export async function acaoAtualizar(
   const tabela = exigirTabela(slug);
   const campos = await camposAlterados(tabela, dados);
 
-  await atualizar(tabela, id, dados);
+  try {
+    await atualizar(tabela, id, dados);
+  } catch (erro) {
+    // Mesma historia da criacao: editar a data de um credito para uma que ja
+    // tem lancamento esbarra na mesma restricao.
+    redirect(avisoDeDuplicado(erro, slug));
+  }
+
   await registrar({
     acao: "atualizar",
     alvoTabela: tabela.tabela,
@@ -187,7 +228,9 @@ export async function acaoLancarCredito(
 
   const data = dataDoCredito(alvo.competencia);
   // O painel de lancamento vive dentro da tela de Recebimentos.
-  const destino = `/admin/recebimentos?mes=${alvo.competencia}`;
+  // `lancar=1` para o painel continuar aberto: quem acabou de lancar quase
+  // sempre lanca o proximo.
+  const destino = `/admin/recebimentos?lancar=1&mes=${alvo.competencia}`;
 
   if (await jaLancado(alvo.contratoId, data)) {
     redirect(`${destino}&aviso=duplicado`);

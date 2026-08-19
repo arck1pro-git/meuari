@@ -19,7 +19,21 @@ export type Campo = {
     | "area"
     | "email"
     | "numero"
+    /** Dinheiro. Na tela sai `1.234,56`; no banco entra `1234.56`. */
     | "dinheiro"
+    /**
+     * Participacao, digitada em **por cento** e guardada em **decimal**.
+     *
+     * Quem administra pensa e fala "2,6% ao mes"; o calculo e o banco querem
+     * `0.026`. Antes a conversao era mental e ficava na `ajuda` do campo — "Em
+     * decimal: 0.026 = 2,6% ao mes" —, o que significa que um dia alguem
+     * digitaria `2,6` e gravaria 260% ao mes.
+     *
+     * Agora a divisao por 100 acontece no servidor (`valorDoCampo`), e a tela só
+     * mostra o `%`. Nao confundir com `etapas.percentual`, que é `numero` e vive
+     * em 0–100 no proprio banco — ali nao ha conversao nenhuma.
+     */
+    | "percentual"
     | "data"
     | "senha"
     | "escolha"
@@ -57,8 +71,32 @@ export type Tabela = {
    */
   rotuloSql?: string;
   campos: Campo[];
+  /**
+   * O texto do botao que abre o formulario de criar.
+   *
+   * Escrito por extenso, e nao derivado do `rotulo`: em portugues o artigo
+   * concorda com o substantivo — "Nova imagem", "Novo contrato" —, e nenhuma
+   * regra de singular acerta "Etapas da obra" ou o genero de cada palavra.
+   * Tabela sem isto cai em "Novo registro".
+   */
+  rotuloNovo?: string;
   /** Colunas mostradas na listagem. */
   colunas: string[];
+  /**
+   * Colunas da listagem que **nao existem no banco**: uma expressao SQL por
+   * nome.
+   *
+   * Vai **literal** para o texto da consulta, e por isso mora aqui e em lugar
+   * nenhum mais — é a mesma regra do `rotuloSql` acima e dos nomes de tabela:
+   * nada que venha de requisicao entra nesta string.
+   *
+   * Existe por um caso concreto: dizer se um usuario tem senha definida. O que o
+   * banco guarda é o hash, que nao é a senha e nao volta a ser — mostrar o valor
+   * seria exibir um blob hexadecimal inutil, e ainda por cima entregar material
+   * para quebra offline. O que responde a pergunta de quem administra é "tem ou
+   * nao tem", e isso é uma expressao, nao uma coluna.
+   */
+  colunasSql?: Record<string, string>;
   /**
    * Tabela que é registro do que aconteceu, e nao cadastro: a listagem some com
    * o formulario de criar e com o "Editar", e sobra o "Excluir".
@@ -79,10 +117,29 @@ export type Tabela = {
 export const TABELAS: Tabela[] = [
   {
     slug: "usuarios",
-    rotulo: "Usuários",
+    /*
+     * "Investidores", e nao "Usuarios" — é como se fala deles em todo o resto do
+     * produto. A tabela guarda tambem os administradores, que sao poucos e
+     * aparecem com o `tipo` na propria listagem; o rotulo segue quem é a
+     * maioria e o motivo de a tela existir.
+     *
+     * O `slug` continua `usuarios`: ele é a URL e o nome real no banco, e mexer
+     * nele quebraria link salvo sem ganhar nada.
+     */
+    rotulo: "Investidores",
     tabela: "usuarios",
+    rotuloNovo: "Novo investidor",
     rotuloRef: "nome",
-    colunas: ["nome", "email", "tipo", "criado_em"],
+    colunas: ["nome", "email", "tipo", "senha_definida", "criado_em"],
+    /*
+     * A senha nao tem valor a mostrar: `senha_hash` guarda o resultado de um
+     * scrypt, que é de mao unica. O que a listagem responde é se ha senha —
+     * quem nunca definiu nao consegue entrar, e ate aqui isso so se descobria
+     * tentando.
+     */
+    colunasSql: {
+      senha_definida: `case when senha_hash is null or senha_hash = '' then 'sem senha' else 'definida' end`,
+    },
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
       { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
@@ -105,10 +162,28 @@ export const TABELAS: Tabela[] = [
     slug: "empreendimentos",
     rotulo: "Empreendimentos",
     tabela: "empreendimentos",
+    rotuloNovo: "Novo empreendimento",
     rotuloRef: "nome",
-    colunas: ["nome", "cidade", "uf", "status", "previsao_entrega"],
+    colunas: ["nome", "cidade", "uf", "status", "meta_captacao", "previsao_entrega"],
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
+      {
+        /*
+         * Quanto se pretende captar. **Dado interno** — ele diz quanto ainda
+         * falta levantar, e no portal de quem ja aportou isso nao tem uso e
+         * pode ser lido como sinal de risco.
+         *
+         * O que o mantem interno nao é este comentario: é `COLUNAS_DA_FICHA`,
+         * em `lib/portal/dados.ts`, que lista uma a uma as colunas que o
+         * investidor recebe. `meta_captacao` nao esta la, e ha uma nota ali
+         * explicando que a ausencia é proposital.
+         */
+        nome: "meta_captacao",
+        rotulo: "Meta de captação",
+        tipo: "dinheiro",
+        ajuda:
+          "Quanto se pretende captar nesta obra. Só o /admin vê — nunca aparece para o investidor. Em branco, o painel não mostra progresso.",
+      },
       {
         nome: "descricao",
         rotulo: "Chamada",
@@ -154,6 +229,7 @@ export const TABELAS: Tabela[] = [
     slug: "contratos",
     rotulo: "Contratos",
     tabela: "contratos",
+    rotuloNovo: "Novo contrato",
     rotuloRef: "data",
     // A legenda de um contrato precisa dizer de quem é e de qual obra: uma
     // lista de datas soltas nao identifica nada no seletor do aditivo.
@@ -195,11 +271,11 @@ export const TABELAS: Tabela[] = [
       },
       {
         nome: "taxa",
-        rotulo: "Participacao mensal",
-        tipo: "numero",
+        rotulo: "Participação mensal",
+        tipo: "percentual",
         obrigatorio: true,
         ajuda:
-          "Em decimal: 0.026 = 2,6% ao mes. Um aditivo pode troca-la; enquanto nao trocar, vale esta.",
+          "Ao mês. Um aditivo pode trocá-la; enquanto não trocar, vale esta.",
       },
       {
         nome: "modalidade",
@@ -208,13 +284,16 @@ export const TABELAS: Tabela[] = [
         obrigatorio: true,
         opcoes: ["mensal", "final"],
       },
-      {
-        nome: "tipo",
-        rotulo: "Tipo",
-        tipo: "texto",
-        obrigatorio: true,
-        ajuda: 'Aparece no cartao do historico. Ex.: "Aporte inicial".',
-      },
+      /*
+       * "Tipo" saiu daqui. Era texto livre que virava a legenda do cartao no
+       * historico do investidor, e em tres contratos tinha tres grafias:
+       * 'Aporte Inicial', 'Aporte inicial' e 'contrato'. A coluna continua no
+       * banco, NOT NULL, com DEFAULT 'Aporte inicial' — ver
+       * `db/contrato-tipo-padrao.sql`. O historico segue lendo ela.
+       *
+       * "Observacao" saiu junto, e essa nao deixou nada para tras: estava vazia
+       * em todos os contratos.
+       */
       {
         nome: "documento",
         rotulo: "Instrumento assinado",
@@ -225,10 +304,10 @@ export const TABELAS: Tabela[] = [
       {
         nome: "prazo_meses",
         rotulo: "Prazo (meses)",
+        // `numero`, e nao `percentual`: sao meses, e 18 é 18.
         tipo: "numero",
         ajuda: "18, 24 ou 36. É ele que decide a faixa no simulador.",
       },
-      { nome: "observacao", rotulo: "Observacao", tipo: "texto" },
     ],
   },
   {
@@ -239,6 +318,7 @@ export const TABELAS: Tabela[] = [
     slug: "aditivos",
     rotulo: "Aditivos",
     tabela: "aditivos",
+    rotuloNovo: "Novo aditivo",
     rotuloRef: "data",
     colunas: ["contrato_id", "data", "valor", "taxa", "observacao"],
     filtros: ["contrato_id"],
@@ -259,8 +339,10 @@ export const TABELAS: Tabela[] = [
       { nome: "valor", rotulo: "Valor", tipo: "dinheiro", obrigatorio: true },
       {
         nome: "taxa",
-        rotulo: "Nova participacao",
-        tipo: "numero",
+        rotulo: "Nova participação",
+        // A mesma grandeza do contrato, e por isso o mesmo tipo: se aqui fosse
+        // `numero`, o mesmo campo teria duas regras em duas telas.
+        tipo: "percentual",
         ajuda:
           "Em branco = segue a do contrato. Preenchida, passa a valer para o capital inteiro a partir desta data.",
       },
@@ -282,6 +364,7 @@ export const TABELAS: Tabela[] = [
     slug: "recebimentos",
     rotulo: "Recebimentos",
     tabela: "recebimentos",
+    rotuloNovo: "Novo recebimento",
     rotuloRef: "data",
     colunas: ["contrato_id", "data", "valor", "observacao"],
     filtros: ["contrato_id"],
@@ -351,6 +434,7 @@ export const TABELAS: Tabela[] = [
     slug: "documentos",
     rotulo: "Documentos",
     tabela: "documentos",
+    rotuloNovo: "Novo documento",
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "criado_em"],
     campos: [
@@ -375,6 +459,7 @@ export const TABELAS: Tabela[] = [
     slug: "etapas",
     rotulo: "Etapas da obra",
     tabela: "etapas",
+    rotuloNovo: "Nova etapa",
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "percentual", "concluida_em", "ordem"],
     filtros: ["empreendimento_id"],
@@ -425,6 +510,7 @@ export const TABELAS: Tabela[] = [
     slug: "imagens",
     rotulo: "Imagens",
     tabela: "imagens",
+    rotuloNovo: "Nova imagem",
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "criado_em"],
     campos: [

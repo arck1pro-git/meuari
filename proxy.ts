@@ -85,8 +85,13 @@ export const config = {
    * otimizador de imagem do Next busca o arquivo original no *nosso proprio
    * servidor*, entao a guarda o desviava para o login e o `/_next/image`
    * respondia "isn't a valid image", com 400, para uma foto que existia.
+   *
+   * `ios/` entra pela mesma porta: sao os quatro prints do passo a passo de
+   * instalacao no iPhone, mostrados na propria tela de login. Nao ha nada
+   * privado neles — sao telas do Safari sobre a pagina publica —, e sem a
+   * excecao o passo a passo abriria com quatro retangulos vazios.
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|ARI.png|logo.png|mao2.png|icons/|manifest.webmanifest|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|ARI.png|logo.png|mao2.png|icons/|ios/|manifest.webmanifest|sw.js).*)",
   ],
 };

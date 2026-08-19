@@ -4,6 +4,7 @@ import {
   listar,
   obter,
   opcoesDeReferencia,
+  textoDeDuplicado,
   type Linha,
 } from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
@@ -11,6 +12,7 @@ import { acaoExcluir } from "../../acoes";
 import { PainelDeAgendamentos } from "../_componentes/agendamentos";
 import { CabecalhoDaSecao, Contagem } from "../_componentes/cabecalho";
 import { EnviarAgora } from "../_componentes/enviar-agora";
+import { FolhaDeLancamento } from "../_componentes/folha-lancamento";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { BotaoExcluir } from "./botao-excluir";
 import { FiltroDaListagem } from "./filtro";
@@ -53,6 +55,10 @@ export default async function TabelaPage({
    */
   searchParams: Promise<{
     editar?: string;
+    /** `1` abre o formulario de criar. Ver `href` mais abaixo. */
+    novo?: string;
+    /** `1` abre o painel de lancamento do mes, em Recebimentos. */
+    lancar?: string;
     f?: string;
     mes?: string;
     ok?: string;
@@ -64,7 +70,7 @@ export default async function TabelaPage({
   }>;
 }) {
   const { tabela: slug } = await params;
-  const { editar, f, mes, ok, aviso, erro, onde, entregues, aparelhos } =
+  const { editar, novo, lancar, f, mes, ok, aviso, erro, onde, entregues, aparelhos } =
     await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
@@ -79,6 +85,31 @@ export default async function TabelaPage({
   const campoReferencia = tabela.campos.find((c) => c.nome === campoDoFiltro);
   const filtro =
     campoDoFiltro && f ? { campo: campoDoFiltro, valor: f } : undefined;
+
+  /*
+   * Os controles do topo sao `<Link>`, e nao botoes com estado no cliente.
+   *
+   * O que eles fazem é mudar a URL — abrir o formulario, abrir o painel de
+   * lancamento, filtrar por contrato —, e a pagina é `force-dynamic`: ela ja
+   * refaz a consulta a cada navegacao. Estado no cliente aqui exigiria trazer
+   * para o navegador dados que o servidor ja tem, e perderia o link
+   * compartilhavel e o botao de voltar.
+   *
+   * Cada link **preserva o resto**: abrir o formulario nao pode zerar o filtro
+   * de contrato, nem fechar o painel de lancamento.
+   */
+  const comParametros = (mudanca: Record<string, string | null>) => {
+    const busca = new URLSearchParams();
+    const atual: Record<string, string | undefined> = { editar, novo, lancar, f, mes };
+    for (const [chave, valor] of Object.entries({ ...atual, ...mudanca })) {
+      if (valor) busca.set(chave, valor);
+    }
+    const query = busca.toString();
+    return `/admin/${slug}${query ? `?${query}` : ""}`;
+  };
+
+  // O formulario aparece ao criar e ao editar. Fechado, sobra a listagem.
+  const formularioAberto = Boolean(novo) || Boolean(editar);
 
   const [linhas, rotulos, emEdicao, opcoesDoFiltro] = await Promise.all([
     listar(tabela, filtro),
@@ -105,9 +136,47 @@ export default async function TabelaPage({
                 opcoes={opcoesDoFiltro}
                 selecionado={f ?? ""}
                 destino={`/admin/${tabela.slug}`}
+                // Trocar de contrato nao fecha o formulario nem o painel.
+                atuais={{ editar, novo, lancar, mes }}
               />
             )}
             <Contagem total={linhas.length} />
+
+            {/* Só em Recebimentos: é a unica tabela que tem o que lancar. O
+                painel é alto — um cartao por contrato —, e abria sempre,
+                empurrando a listagem para fora da tela. */}
+            {tabela.slug === "recebimentos" && (
+              <Link
+                href={comParametros({ lancar: lancar ? null : "1" })}
+                aria-pressed={Boolean(lancar)}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul ${
+                  lancar
+                    ? "border-marinho bg-marinho text-white hover:bg-azul"
+                    : "border-zinc-200 bg-white text-neutral-600 hover:border-zinc-300 hover:text-tinta"
+                }`}
+              >
+                Para lançar
+              </Link>
+            )}
+
+            {!tabela.semFormulario && (
+              <Link
+                href={
+                  formularioAberto
+                    ? comParametros({ novo: null, editar: null })
+                    : comParametros({ novo: "1", editar: null })
+                }
+                className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 ${
+                  formularioAberto
+                    ? "border border-zinc-200 bg-white text-neutral-600 hover:border-zinc-300 hover:text-tinta"
+                    : "bg-marinho text-white hover:bg-azul"
+                }`}
+              >
+                {formularioAberto
+                  ? "Fechar"
+                  : (tabela.rotuloNovo ?? "Novo registro")}
+              </Link>
+            )}
           </>
         }
       />
@@ -117,8 +186,19 @@ export default async function TabelaPage({
        * de criar uma linha nesta tabela — separado numa rota propria, obrigava
        * a trocar de tela para conferir o que acabou de ser gravado.
        */}
-      {tabela.slug === "recebimentos" && (
-        <PainelDeLancamentos mes={mes} ok={ok} aviso={aviso} />
+      {/*
+       * O que falta lancar sobe numa folha por cima da tela, e nao mais como uma
+       * secao empurrando a listagem para baixo. Sao duas leituras diferentes: a
+       * listagem é o historico do que ja caiu, a folha é uma tarefa a executar —
+       * e tarefa em cima de historico fazia a tela abrir por um formulario.
+       *
+       * O conteudo é montado no servidor e entregue como `children`: a folha nao
+       * busca nada ao abrir.
+       */}
+      {tabela.slug === "recebimentos" && lancar && (
+        <FolhaDeLancamento fechar={comParametros({ lancar: null })}>
+          <PainelDeLancamentos mes={mes} ok={ok} aviso={aviso} />
+        </FolhaDeLancamento>
       )}
 
       {/*
@@ -150,9 +230,27 @@ export default async function TabelaPage({
         </p>
       )}
 
+      {/*
+       * Ja existe uma linha assim.
+       *
+       * Como o de vinculo acima, nao é falha de sistema: é uma restricao de
+       * unicidade fazendo o trabalho dela. O caso comum é lancar o credito do
+       * mes duas vezes, com uma aba aberta desde antes do primeiro lancamento —
+       * e ate aqui isso dava tela de erro 500.
+       *
+       * A frase sai de `textoDeDuplicado`, que traduz o nome da restricao. É a
+       * mesma fonte que a acao usou para decidir que o erro era tratavel.
+       */}
+      {erro === "duplicado" && (
+        <p className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+          <span className="font-semibold">Não foi possível salvar.</span>{" "}
+          {textoDeDuplicado(onde)}
+        </p>
+      )}
+
       {/* Tabela de registro nao tem formulario: ver `semFormulario` no
           registro das tabelas. */}
-      {!tabela.semFormulario && (
+      {!tabela.semFormulario && formularioAberto && (
         <div className="mt-6">
           <Formulario tabela={tabela} linha={emEdicao} />
         </div>
@@ -229,7 +327,10 @@ export default async function TabelaPage({
                   <span className="inline-flex items-center gap-1 opacity-45 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
                     {!tabela.semFormulario && (
                       <Link
-                        href={`/admin/${tabela.slug}?editar=${String(linha.id)}`}
+                        href={comParametros({
+                          editar: String(linha.id),
+                          novo: null,
+                        })}
                         className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
                       >
                         Editar

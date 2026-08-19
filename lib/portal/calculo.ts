@@ -1,5 +1,9 @@
 import type { Aporte, DataISO } from "./dados";
-import { faixasDeParticipacao, taxaEm } from "./recebimentos";
+import {
+  faixasDeParticipacao,
+  taxaEm,
+  type AporteMensal,
+} from "./recebimentos";
 
 /** Um mes fechado (ou o mes corrente, parcial) da posicao do investidor. */
 export type MesDaPosicao = {
@@ -12,7 +16,13 @@ export type MesDaPosicao = {
   /** Resultado apurado no mes, somando todos os aportes. */
   rendimento: number;
   saldoFinal: number;
-  /** `true` no mes corrente, que ainda nao fechou. */
+  /**
+   * `true` no mes corrente — o da data de referencia.
+   *
+   * Marca a posicao na linha do tempo, e nao o valor: desde que o rendimento
+   * passou a ser por mes fechado, o mes corrente rende igual aos outros. Quem
+   * usa isto é a tela, para distinguir o mes em curso.
+   */
   parcial: boolean;
 };
 
@@ -29,12 +39,10 @@ export type Posicao = {
   rendimentoAcumulado: number;
   /** Resultado sobre o capital aportado, em decimal. */
   rentabilidadeAcumulada: number;
-  /** Resultado apurado no mes corrente ate a data de referencia. */
+  /** Resultado do mes corrente. Mes cheio, como todos os outros. */
   rendimentoNoMes: number;
   /** Um mes cheio na participacao vigente. Em juros simples é exato. */
   rendimentoMensalCheio: number;
-  /** Dias ja decorridos e dias totais do mes corrente. */
-  diasDoMesCorrente: { decorridos: number; total: number };
   /**
    * Participacao vigente na data de referencia, em decimal.
    *
@@ -59,10 +67,6 @@ function partes(iso: DataISO): PartesDaData {
   return { ano, mes, dia };
 }
 
-function diasNoMes(ano: number, mes: number): number {
-  return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
-}
-
 function competenciaDe(ano: number, mes: number): string {
   return `${ano}-${String(mes).padStart(2, "0")}`;
 }
@@ -70,22 +74,48 @@ function competenciaDe(ano: number, mes: number): string {
 /**
  * Apura a posicao mes a mes, do primeiro aporte ate a data de referencia.
  *
- * Regime: **juros simples**. O resultado de cada mes incide apenas sobre o
- * capital aportado — `capital x participacao` —, nunca sobre o resultado ja
- * acumulado. Aportes rendem pro rata die no proprio mes de entrada, e o mes
- * corrente é apurado proporcionalmente aos dias ja decorridos.
+ * Regime: **juros simples**, por **mes fechado**. O resultado de cada mes incide
+ * apenas sobre o capital aportado — `capital x participacao` —, nunca sobre o
+ * resultado ja acumulado.
+ *
+ * **Nao ha rateio por dia.** O mes em que o dinheiro entra rende inteiro, e o
+ * ultimo mes do prazo tambem: um contrato de N meses tem N parcelas iguais.
+ *
+ * Ja foram tentadas duas contagens por dia antes desta, e as duas erravam. A de
+ * calendario dava a um contrato de N meses um rendimento diferente de
+ * `capital x taxa x N` sempre que o mes de entrada e o de saida tinham tamanhos
+ * diferentes — quem entrava em agosto (31 dias) e saia em fevereiro (28) recebia
+ * 1,017 mes na virada. A de 30/360 corrigia o total, mas deixava a primeira e a
+ * ultima barra do grafico pela metade, cada uma com um pedaco do mesmo mes.
+ *
+ * Por mes fechado nao ha ponta a completar: cada competencia em que o dinheiro
+ * esteve rende `capital x taxa`, e o total sai exato por construcao.
+ *
+ * Vale só para a modalidade `final`. O credito mensal continua rateado por dia
+ * quando o aporte entra no meio do ciclo — ver `lib/portal/recebimentos.ts`.
  *
  * A modalidade decide o que entra aqui:
  * - `final`: o resultado acumula no saldo e é recebido de uma vez no resgate.
  * - `mensal`: entra so como capital. O resultado dele é creditado todo dia 17 e
- *   nao acumula — ele é lancado no /admin e lido de `recebimentos`, em base
- *   30/360, e nao no calendario deste apurador.
+ *   nao acumula — ele é lancado no /admin e lido de `recebimentos`, que aplica a
+ *   mesma base 30/360 sobre o ciclo do dia 18 ao 17.
  *
  * Devolve `null` quando nao ha aporte nenhum — carteira vazia nao tem posicao a
  * apurar, e a tela mostra o estado vazio em vez de uma serie de zeros.
  */
+/*
+ * `AporteMensal` e nao `Aporte`: sao os quatro campos que esta funcao le — data,
+ * valor, taxa e modalidade. O nome do tipo diz "mensal" por causa de onde ele
+ * nasceu, mas ele nao filtra modalidade nenhuma; aqui a `final` é justamente a
+ * que rende.
+ *
+ * A assinatura foi aberta para o painel do /admin poder apurar a provisao dos
+ * contratos `final` sem precisar montar um `Aporte` inteiro — com id, documento
+ * e nome de empreendimento — só para jogar fora. O `/portal` continua passando
+ * `Aporte[]`, que satisfaz este tipo.
+ */
 export function apurarPosicao(
-  aportes: Aporte[],
+  aportes: AporteMensal[],
   referencia: DataISO,
 ): Posicao | null {
   if (aportes.length === 0) return null;
@@ -101,18 +131,10 @@ export function apurarPosicao(
   let retido = 0; // a parte que fica no saldo (modalidade `final`)
   let ano = inicio.ano;
   let mes = inicio.mes;
-  let diasDoMesCorrente = { decorridos: 0, total: 0 };
 
   while (ano < fim.ano || (ano === fim.ano && mes <= fim.mes)) {
     const competencia = competenciaDe(ano, mes);
-    const totalDeDias = diasNoMes(ano, mes);
     const parcial = ano === fim.ano && mes === fim.mes;
-    const diasDecorridos = parcial
-      ? Math.min(fim.dia, totalDeDias)
-      : totalDeDias;
-    if (parcial) {
-      diasDoMesCorrente = { decorridos: diasDecorridos, total: totalDeDias };
-    }
 
     const saldoInicial = capital + retido;
     let rendimentoDoMes = 0;
@@ -123,23 +145,25 @@ export function apurarPosicao(
       if (aporte.data > competencia + "-31") continue; // ainda nao entrou
       const entrouAgora = aporte.data.startsWith(competencia);
 
-      // Quantos dias do mes este aporte passou rendendo.
-      let diasRendendo: number;
       if (entrouAgora) {
-        const dia = partes(aporte.data).dia;
-        if (dia > diasDecorridos) continue; // aporte ainda nao ocorreu
-        diasRendendo = diasDecorridos - dia + 1;
+        /*
+         * No mes corrente, um aporte marcado para daqui a alguns dias ainda nao
+         * entrou — e dinheiro que nao entrou nao rende. Nos meses ja fechados
+         * todo aporte do mes ja aconteceu, e a checagem nao se aplica.
+         */
+        if (parcial && partes(aporte.data).dia > fim.dia) continue;
         aportadoNoMes += aporte.valor;
         capital += aporte.valor;
-      } else {
-        diasRendendo = diasDecorridos;
       }
 
       // So a modalidade `final` rende aqui. Ver a nota do topo.
       if (aporte.modalidade !== "final") continue;
 
-      const rendimento =
-        aporte.valor * aporte.taxaMensal * (diasRendendo / totalDeDias);
+      /*
+       * **Mes cheio, sempre.** O mes em que o dinheiro entra conta inteiro, e o
+       * ultimo do prazo tambem — nao ha meia barra em ponta nenhuma.
+       */
+      const rendimento = aporte.valor * aporte.taxaMensal;
       rendimentoDoMes += rendimento;
       retidoDoMes += rendimento;
     }
@@ -178,7 +202,6 @@ export function apurarPosicao(
       totalAportado > 0 ? rendimentoAcumulado / totalAportado : 0,
     rendimentoNoMes: ultimo?.rendimento ?? 0,
     rendimentoMensalCheio: totalAportado * participacaoMensal,
-    diasDoMesCorrente,
     participacaoMensal,
   };
 }

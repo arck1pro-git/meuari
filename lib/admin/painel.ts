@@ -1,6 +1,7 @@
 import "server-only";
 import { consultar } from "@/lib/db";
 import type { DataISO, Modalidade } from "@/lib/portal/dados";
+import { apurarPosicao } from "@/lib/portal/calculo";
 import {
   dataDoCredito,
   faixasDeParticipacao,
@@ -80,6 +81,19 @@ export type ResumoDeObra = {
   contratos: number;
   capital: number;
   porMes: number;
+  /**
+   * Quanto se pretende captar nesta obra. `null` quando ninguem definiu.
+   *
+   * Dado interno: nunca sai daqui para o portal do investidor. Ver a nota em
+   * `COLUNAS_DA_FICHA`, em `lib/portal/dados.ts`.
+   */
+  meta: number | null;
+  /**
+   * `capital / meta`, em decimal. `null` sem meta — e nao zero: "0% captado" e
+   * "obra sem meta definida" sao coisas diferentes, e a tela mostra cada uma do
+   * seu jeito.
+   */
+  progresso: number | null;
 };
 
 /**
@@ -98,6 +112,34 @@ export type PontoDaSerie = {
   quantos: number;
 };
 
+/** Um mes da curva de captacao. */
+export type PontoDaCaptacao = {
+  competencia: string;
+  /** O que entrou neste mes — entradas de contrato mais aditivos. */
+  valor: number;
+  /** Tudo que ja tinha entrado ao fim deste mes. */
+  acumulado: number;
+};
+
+/**
+ * Um mes do resultado de cada modalidade — e **as duas nao sao a mesma coisa**.
+ *
+ * `pago` sai da tabela `recebimentos`: é dinheiro que saiu do caixa, para
+ * contratos `mensal`. `provisionado` sai da formula: é o que os contratos
+ * `final` renderam naquele mes e ficou retido no saldo, a pagar no resgate.
+ *
+ * Estao no mesmo tipo porque a pergunta é a mesma — quanto a carteira rendeu
+ * naquele mes —, mas nunca devem ser somados num numero só nem desenhados com a
+ * mesma cor: um ja aconteceu, o outro é divida. A tela separa os dois.
+ */
+export type PontoDeRendimento = {
+  competencia: string;
+  /** Creditado de fato aos contratos `mensal`. Veio da tabela. */
+  pago: number;
+  /** Apurado no mes pelos contratos `final`. Veio da conta. */
+  provisionado: number;
+};
+
 /** Onde esta o lancamento do credito deste mes. */
 export type CicloDoMes = {
   data: DataISO;
@@ -109,6 +151,20 @@ export type CicloDoMes = {
 export type PainelDoAdmin = {
   /** Tudo que entrou: as entradas de contrato mais todos os aditivos. */
   totalCaptado: number;
+  /**
+   * A soma das metas das obras **que tem meta**. `0` quando nenhuma tem.
+   *
+   * Obra sem meta fica fora da soma em vez de entrar como zero: senao o
+   * progresso global passaria a dizer que se captou mais do que se pretendia,
+   * so porque alguem nao preencheu um campo.
+   */
+  metaTotal: number;
+  /** `totalCaptado / metaTotal`, ou `null` quando nao ha meta nenhuma. */
+  progresso: number | null;
+  /** O que falta para a meta. Nunca negativo — captar acima dela é 100%. */
+  faltaCaptar: number;
+  /** Quantas obras ainda nao tem meta definida — a tela avisa. */
+  obrasSemMeta: number;
   entradas: number;
   aditivos: number;
   quantosContratos: number;
@@ -122,6 +178,12 @@ export type PainelDoAdmin = {
   totalPago: number;
   /** Um ponto por mes com credito. Mes sem credito nao vira ponto zerado. */
   serie: PontoDaSerie[];
+  /** A curva do que ja entrou, mes a mes e acumulada. */
+  captacao: PontoDaCaptacao[];
+  /** O resultado de cada modalidade, mes a mes. Ver `PontoDeRendimento`. */
+  rendimento: PontoDeRendimento[];
+  /** Total provisionado nos contratos `final` — a pagar no resgate. */
+  totalProvisionado: number;
   ciclo: CicloDoMes;
 };
 
@@ -217,6 +279,92 @@ function apurarContratos(
   return apurados;
 }
 
+/**
+ * A curva de captacao: o que entrou em cada mes, e o acumulado ate ali.
+ *
+ * Mes sem aporte **entra na serie**, com valor zero e o acumulado repetido — ao
+ * contrario da serie de creditos, onde mes vazio é omitido. A diferenca é o que
+ * cada grafico diz: barra de credito ausente é "nao houve credito"; curva
+ * acumulada com buraco desenharia uma reta ligando dois pontos distantes, como
+ * se a captacao tivesse crescido devagar durante um periodo em que ela nao
+ * mexeu.
+ */
+function curvaDaCaptacao(linhas: LinhaDeAporte[]): PontoDaCaptacao[] {
+  if (linhas.length === 0) return [];
+
+  const porMes = new Map<string, number>();
+  for (const linha of linhas) {
+    const competencia = linha.data.slice(0, 7);
+    porMes.set(competencia, (porMes.get(competencia) ?? 0) + linha.valor);
+  }
+
+  const ordenadas = [...porMes.keys()].sort();
+  const primeira = ordenadas[0];
+  const ultima = ordenadas[ordenadas.length - 1];
+
+  const curva: PontoDaCaptacao[] = [];
+  let acumulado = 0;
+
+  for (let mes = primeira; mes <= ultima; mes = mesSeguinte(mes)) {
+    const valor = porMes.get(mes) ?? 0;
+    acumulado += valor;
+    curva.push({ competencia: mes, valor, acumulado });
+  }
+
+  return curva;
+}
+
+/** `2026-08` -> `2026-09`. */
+function mesSeguinte(competencia: string): string {
+  const [ano, mes] = competencia.split("-").map(Number);
+  return mes === 12
+    ? `${ano + 1}-01`
+    : `${ano}-${String(mes + 1).padStart(2, "0")}`;
+}
+
+/**
+ * O que os contratos `final` renderam em cada mes.
+ *
+ * Reaproveita `apurarPosicao`, o mesmo apurador da posicao do investidor: é ele
+ * que sabe as convencoes da modalidade `final` — juros simples sobre o capital,
+ * pro rata die no mes de entrada, resultado retido. Refazer a conta aqui daria
+ * uma segunda versao da regra, e as duas divergiriam no primeiro ajuste.
+ *
+ * **Um contrato por vez, somando as series depois.** Jogar os aportes de todo
+ * mundo num `apurarPosicao` só daria o mesmo total (o rendimento de cada aporte
+ * é independente), mas as faixas de participacao seriam calculadas sobre a
+ * mistura das taxas de investidores diferentes — um numero sem significado que
+ * ninguem usa aqui, mas que ficaria armado para quem viesse depois.
+ */
+function provisaoDosFinais(
+  linhas: LinhaDeAporte[],
+  referencia: DataISO,
+): Map<string, number> {
+  const porContrato = new Map<string, LinhaDeAporte[]>();
+  for (const linha of linhas) {
+    if (linha.modalidade !== "final") continue;
+    const lista = porContrato.get(linha.contratoId);
+    if (lista) lista.push(linha);
+    else porContrato.set(linha.contratoId, [linha]);
+  }
+
+  const porMes = new Map<string, number>();
+
+  for (const doContrato of porContrato.values()) {
+    const posicao = apurarPosicao(doContrato, referencia);
+    if (!posicao) continue;
+
+    for (const mes of posicao.serie) {
+      porMes.set(
+        mes.competencia,
+        (porMes.get(mes.competencia) ?? 0) + mes.rendimento,
+      );
+    }
+  }
+
+  return porMes;
+}
+
 /** A ordem dos blocos na tela: primeiro o que sai de caixa, depois o retido. */
 const ORDEM_DAS_MODALIDADES: Modalidade[] = ["mensal", "final"];
 
@@ -246,17 +394,56 @@ function resumirModalidades(
   }).filter((m) => m.contratos > 0);
 }
 
-function resumirObras(contratos: ContratoApurado[]): ResumoDeObra[] {
+/** Uma obra como o cadastro a conhece, antes de somar contrato nenhum. */
+type ObraCadastrada = { id: string; nome: string; meta: number | null };
+
+/**
+ * As obras com o que entrou em cada uma.
+ *
+ * A lista parte do **cadastro**, e nao dos contratos: uma obra recem-lancada tem
+ * meta e nenhum aporte, e ela precisa aparecer — é justamente a que mais
+ * interessa a quem capta. Montada só a partir dos contratos, ela sumiria da tela
+ * exatamente enquanto estivesse em zero.
+ *
+ * Fica de fora a obra que nao tem meta **nem** contrato: essa é linha de
+ * cadastro sem nada dentro, e listar zero contra nada é ruido.
+ */
+function resumirObras(
+  contratos: ContratoApurado[],
+  cadastradas: ObraCadastrada[],
+): ResumoDeObra[] {
   const porObra = new Map<string, ResumoDeObra>();
 
-  for (const contrato of contratos) {
-    const atual = porObra.get(contrato.empreendimentoId) ?? {
-      id: contrato.empreendimentoId,
-      nome: contrato.empreendimento,
+  for (const obra of cadastradas) {
+    porObra.set(obra.id, {
+      id: obra.id,
+      nome: obra.nome,
       contratos: 0,
       capital: 0,
       porMes: 0,
-    };
+      meta: obra.meta,
+      progresso: null,
+    });
+  }
+
+  for (const contrato of contratos) {
+    /*
+     * O `??` cobre o caso de um contrato apontar para obra que a consulta de
+     * cadastro nao trouxe. Nao deveria acontecer — ha chave estrangeira —, mas
+     * perder capital de vista por causa de uma corrida entre duas consultas
+     * seria pior do que uma linha sem meta.
+     */
+    const atual =
+      porObra.get(contrato.empreendimentoId) ??
+      ({
+        id: contrato.empreendimentoId,
+        nome: contrato.empreendimento,
+        contratos: 0,
+        capital: 0,
+        porMes: 0,
+        meta: null,
+        progresso: null,
+      } satisfies ResumoDeObra);
 
     atual.contratos += 1;
     atual.capital += contrato.capital;
@@ -264,7 +451,15 @@ function resumirObras(contratos: ContratoApurado[]): ResumoDeObra[] {
     porObra.set(contrato.empreendimentoId, atual);
   }
 
-  return [...porObra.values()].sort((a, b) => b.capital - a.capital);
+  return [...porObra.values()]
+    .filter((obra) => obra.contratos > 0 || obra.meta !== null)
+    .map((obra) => ({
+      ...obra,
+      // Sem meta nao ha progresso — e `null`, e nao `0`: a tela precisa
+      // distinguir "nao captou nada" de "ninguem definiu a meta".
+      progresso: obra.meta && obra.meta > 0 ? obra.capital / obra.meta : null,
+    }))
+    .sort((a, b) => b.capital - a.capital);
 }
 
 export async function montarPainel(
@@ -272,20 +467,38 @@ export async function montarPainel(
 ): Promise<PainelDoAdmin> {
   const dataDoCiclo = dataDoCredito(referencia.slice(0, 7));
 
-  const [linhas, meses, lancados] = await Promise.all([
+  const [linhas, cadastradas, meses, lancados] = await Promise.all([
     aportes(),
+    /*
+     * O cadastro das obras, com a meta. Consulta propria, e nao um campo a mais
+     * na juncao de `aportes()`: aquela devolve uma linha por aporte, e a meta
+     * viria repetida em todas — alem de sumir justamente na obra que ainda nao
+     * tem aporte nenhum, que é a que mais interessa a quem esta captando.
+     */
+    consultar<ObraCadastrada>(
+      `select id, nome, meta_captacao::float8 as meta
+         from empreendimentos
+        order by nome`,
+    ),
     /*
      * Um ponto por mes, e nao um por credito: a tela é da carteira inteira, e
      * o que ela mostra é o desembolso do mes. Credito com data futura fica de
      * fora — o lancamento pode ser preparado antes do dia 17.
+     *
+     * Sai separado por modalidade porque o grafico de rendimento distingue os
+     * dois: `mensal` é caixa que saiu, `final` é divida que cresceu. O `join`
+     * com `contratos` é o que traz a modalidade — `recebimentos` só guarda o
+     * contrato.
      */
-    consultar<PontoDaSerie>(
-      `select to_char(data, 'YYYY-MM') as competencia,
-              sum(valor)::float8       as valor,
-              count(*)::int            as quantos
-         from recebimentos
-        where data <= $1
-        group by 1
+    consultar<PontoDaSerie & { modalidade: Modalidade }>(
+      `select to_char(r.data, 'YYYY-MM') as competencia,
+              c.modalidade,
+              sum(r.valor)::float8       as valor,
+              count(*)::int              as quantos
+         from recebimentos r
+         join contratos c on c.id = r.contrato_id
+        where r.data <= $1
+        group by 1, 2
         order by 1`,
       [referencia],
     ),
@@ -307,18 +520,84 @@ export async function montarPainel(
 
   const entradas = soma((c) => c.entrada);
   const aditivos = soma((c) => c.aditivos);
+  const totalCaptado = entradas + aditivos;
+
+  /*
+   * As duas metades do grafico de rendimento, juntadas por competencia.
+   *
+   * `pago` vem da tabela e existe só onde alguem lancou; `provisionado` vem da
+   * conta e existe em todo mes desde o primeiro aporte `final`. A uniao das
+   * duas listas de competencia é o eixo — assim nenhum mes some por faltar em
+   * um dos lados, e o mes que só tem um deles aparece com zero no outro, que é a
+   * leitura correta.
+   */
+  const provisao = provisaoDosFinais(linhas, referencia);
+
+  const pagoPorMes = new Map<string, number>();
+  for (const m of meses) {
+    // Só `mensal`: um credito lancado a mao num contrato `final` é adiantamento
+    // de resgate, e nao rendimento mensal — somar ali diria que a modalidade que
+    // nao paga por mes pagou.
+    if (m.modalidade !== "mensal") continue;
+    pagoPorMes.set(m.competencia, (pagoPorMes.get(m.competencia) ?? 0) + m.valor);
+  }
+
+  const rendimento: PontoDeRendimento[] = [
+    ...new Set([...pagoPorMes.keys(), ...provisao.keys()]),
+  ]
+    .sort()
+    .map((competencia) => ({
+      competencia,
+      pago: pagoPorMes.get(competencia) ?? 0,
+      provisionado: provisao.get(competencia) ?? 0,
+    }));
+
+  // A serie antiga — todos os creditos por mes, sem separar — continua servindo
+  // a contagem de "meses com credito" na faixa de indicadores.
+  const serie: PontoDaSerie[] = [
+    ...meses
+      .reduce((mapa, m) => {
+        const atual = mapa.get(m.competencia) ?? { valor: 0, quantos: 0 };
+        mapa.set(m.competencia, {
+          valor: atual.valor + m.valor,
+          quantos: atual.quantos + m.quantos,
+        });
+        return mapa;
+      }, new Map<string, { valor: number; quantos: number }>())
+      .entries(),
+  ]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([competencia, v]) => ({ competencia, ...v }));
+
+  const obras = resumirObras(apurados, cadastradas);
+
+  /*
+   * Só as obras com meta entram na soma. Uma obra sem meta entrando como zero
+   * faria o progresso global subir sozinho a cada empreendimento novo cadastrado
+   * — o denominador ficaria parado enquanto o numerador cresce.
+   */
+  const metaTotal = obras.reduce((total, obra) => total + (obra.meta ?? 0), 0);
 
   return {
-    totalCaptado: entradas + aditivos,
+    totalCaptado,
+    metaTotal,
+    progresso: metaTotal > 0 ? totalCaptado / metaTotal : null,
+    // Nunca negativo: captar acima da meta é meta cumprida, e nao "falta menos
+    // que zero".
+    faltaCaptar: Math.max(0, metaTotal - totalCaptado),
+    obrasSemMeta: obras.filter((obra) => obra.meta === null).length,
     entradas,
     aditivos,
     quantosContratos: apurados.length,
     quantosAditivos: soma((c) => c.quantosAditivos),
     investidores: new Set(apurados.map((c) => c.usuarioId)).size,
     modalidades: resumirModalidades(apurados),
-    obras: resumirObras(apurados),
+    obras,
     totalPago: meses.reduce((total, m) => total + m.valor, 0),
-    serie: meses,
+    serie,
+    captacao: curvaDaCaptacao(linhas),
+    rendimento,
+    totalProvisionado: [...provisao.values()].reduce((t, v) => t + v, 0),
     ciclo: {
       data: dataDoCiclo,
       contratos: apurados.filter((c) => c.modalidade === "mensal").length,

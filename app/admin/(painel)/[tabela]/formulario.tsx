@@ -3,6 +3,7 @@ import type { Campo, Tabela } from "@/lib/admin/tabelas";
 import { TETOS } from "@/lib/upload";
 import { acaoAtualizar, acaoCriar } from "../../acoes";
 import { CampoArquivo } from "./campo-arquivo";
+import { CampoNumero } from "./campo-numero";
 
 /* O mesmo desenho de campo do login: canto de 12px, borda discreta e o anel
    azul so no foco por teclado. */
@@ -28,12 +29,46 @@ function paraDataISO(bruto: unknown): string {
   return String(bruto).slice(0, 10);
 }
 
-/** Valor que o input espera: `date` quer `AAAA-MM-DD`, nao ISO completo. */
+/**
+ * Valor que o input espera: `date` quer `AAAA-MM-DD`, nao ISO completo.
+ *
+ * `percentual` e `dinheiro` voltam **ja formatados**, e nao crus: o banco guarda
+ * `0.026` e `50000.00`, e a tela mostra `2,6%` e `50.000,00`. Sem esta volta, o
+ * campo abriria na edicao com o numero do banco e a pessoa salvaria `0,026%` —
+ * o inverso exato do que se quis consertar.
+ *
+ * A conta é feita aqui, no servidor, pelo mesmo motivo que a divisao por 100
+ * mora em `valorDoCampo`: um lado só faz as duas pontas da conversao, e elas nao
+ * podem divergir.
+ */
 function valorInicial(campo: Campo, linha?: Linha): string {
   if (!linha) return "";
   const bruto = linha[campo.nome];
   if (bruto === null || bruto === undefined) return "";
   if (campo.tipo === "data") return paraDataISO(bruto);
+
+  if (campo.tipo === "percentual") {
+    // O driver devolve `numeric` como string, para nao perder precisao.
+    const n = Number(bruto);
+    if (!Number.isFinite(n)) return "";
+    /*
+     * `toFixed(3)` antes do parse: `0.026 * 100` em ponto flutuante da
+     * 2.6000000000000005, e o campo abriria com essa cauda. Tres casas é o que
+     * cabe num `numeric(6,5)` convertido para percentual.
+     */
+    const percentual = Number((n * 100).toFixed(3));
+    return `${percentual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}%`;
+  }
+
+  if (campo.tipo === "dinheiro") {
+    const n = Number(bruto);
+    if (!Number.isFinite(n)) return "";
+    return n.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   return String(bruto);
 }
 
@@ -47,6 +82,21 @@ async function CampoDoFormulario({
   slug: string;
 }) {
   const valor = valorInicial(campo, linha);
+
+  // Dinheiro e participacao tem componente proprio: eles se formatam ao sair do
+  // campo, o que exige estado no cliente. Ver `CampoNumero`.
+  if (campo.tipo === "dinheiro" || campo.tipo === "percentual") {
+    return (
+      <CampoNumero
+        nome={campo.nome}
+        rotulo={campo.rotulo}
+        valorInicial={valor}
+        formato={campo.tipo}
+        obrigatorio={campo.obrigatorio}
+        ajuda={campo.ajuda}
+      />
+    );
+  }
 
   // Arquivo tem componente proprio: o envio acontece no browser, antes do
   // `submit`, e o formulario so carrega o caminho de volta.
@@ -106,6 +156,9 @@ async function CampoDoFormulario({
       ) : (
         <input
           {...comum}
+          /* Sem `dinheiro` nestes dois: ele sai antes, no `CampoNumero`. O
+             TypeScript acusou os ramos como inalcancaveis assim que o tipo
+             ganhou saida propria — que é exatamente o que se quer dele. */
           type={
             campo.tipo === "senha"
               ? "password"
@@ -113,17 +166,11 @@ async function CampoDoFormulario({
                 ? "email"
                 : campo.tipo === "data"
                   ? "date"
-                  : campo.tipo === "numero" || campo.tipo === "dinheiro"
+                  : campo.tipo === "numero"
                     ? "number"
                     : "text"
           }
-          step={
-            campo.tipo === "dinheiro"
-              ? "0.01"
-              : campo.tipo === "numero"
-                ? "any"
-                : undefined
-          }
+          step={campo.tipo === "numero" ? "any" : undefined}
           // A senha nunca volta preenchida: o banco guarda o hash, e ele nao
           // tem volta. Em branco significa "manter a atual".
           defaultValue={campo.tipo === "senha" ? "" : valor}
