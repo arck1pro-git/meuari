@@ -8,11 +8,16 @@ import {
   type Linha,
 } from "@/lib/admin/crud";
 import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
+import { formatarMoeda } from "@/lib/portal/formato";
 import { acaoExcluir } from "../../acoes";
-import { PainelDeAgendamentos } from "../_componentes/agendamentos";
+import {
+  investidoresParaAviso,
+  PainelDeAgendamentos,
+} from "../_componentes/agendamentos";
+import { FormularioDeAgendamento } from "../_componentes/formulario-agendamento";
 import { CabecalhoDaSecao, Contagem } from "../_componentes/cabecalho";
 import { EnviarAgora } from "../_componentes/enviar-agora";
-import { FolhaDeLancamento } from "../_componentes/folha-lancamento";
+import { Folha } from "../_componentes/folha";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { BotaoExcluir } from "./botao-excluir";
 import { FiltroDaListagem } from "./filtro";
@@ -37,9 +42,32 @@ async function mapaDeRotulos(tabela: Tabela) {
   return mapa;
 }
 
-function exibir(valor: unknown, rotulos: Map<string, string>): string {
+/**
+ * O valor de uma celula, pronto para ler.
+ *
+ * `moeda` formata em reais no padrao daqui — ponto no milhar, virgula no
+ * decimal: `3.025.000,00`. Sem ela, o driver do Postgres entrega `numeric` como
+ * a string crua do banco (`"3025000.00"`), que é o formato de quem escreve SQL e
+ * nao o de quem le dinheiro.
+ *
+ * A conta fica aqui e nao no SQL de proposito: `to_char` do Postgres decide o
+ * separador de milhar por `lc_numeric`, que no servidor nao é o do Brasil — a
+ * mesma consulta sairia `3,025,000.00` em produção e certa aqui.
+ */
+function exibir(
+  valor: unknown,
+  rotulos: Map<string, string>,
+  moeda = false,
+): string {
   if (valor === null || valor === undefined) return "—";
   if (valor instanceof Date) return valor.toLocaleDateString("pt-BR");
+
+  if (moeda) {
+    // O driver devolve `numeric` como texto para nao perder precisao.
+    const n = Number(valor);
+    return Number.isFinite(n) ? formatarMoeda(n) : String(valor);
+  }
+
   const texto = String(valor);
   return rotulos.get(texto) ?? texto;
 }
@@ -59,6 +87,10 @@ export default async function TabelaPage({
     novo?: string;
     /** `1` abre o painel de lancamento do mes, em Recebimentos. */
     lancar?: string;
+    /** `1` abre o formulario de aviso imediato, em Notificacoes. */
+    enviar?: string;
+    /** `1` abre o formulario de envio automatico, em Notificacoes. */
+    agendar?: string;
     f?: string;
     mes?: string;
     ok?: string;
@@ -70,8 +102,21 @@ export default async function TabelaPage({
   }>;
 }) {
   const { tabela: slug } = await params;
-  const { editar, novo, lancar, f, mes, ok, aviso, erro, onde, entregues, aparelhos } =
-    await searchParams;
+  const {
+    editar,
+    novo,
+    lancar,
+    enviar,
+    agendar,
+    f,
+    mes,
+    ok,
+    aviso,
+    erro,
+    onde,
+    entregues,
+    aparelhos,
+  } = await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
@@ -100,7 +145,15 @@ export default async function TabelaPage({
    */
   const comParametros = (mudanca: Record<string, string | null>) => {
     const busca = new URLSearchParams();
-    const atual: Record<string, string | undefined> = { editar, novo, lancar, f, mes };
+    const atual: Record<string, string | undefined> = {
+      editar,
+      novo,
+      lancar,
+      enviar,
+      agendar,
+      f,
+      mes,
+    };
     for (const [chave, valor] of Object.entries({ ...atual, ...mudanca })) {
       if (valor) busca.set(chave, valor);
     }
@@ -159,6 +212,25 @@ export default async function TabelaPage({
               </Link>
             )}
 
+            {/* Notificacoes nao tem CRUD — o "novo" dela sao estes dois jeitos
+                de mandar, e cada um abre a propria folha. */}
+            {tabela.slug === "notificacoes" && (
+              <>
+                <Link
+                  href={comParametros({ enviar: "1", agendar: null })}
+                  className="rounded-xl border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-200 hover:border-zinc-300 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                >
+                  Enviar agora
+                </Link>
+                <Link
+                  href={comParametros({ agendar: "1", enviar: null })}
+                  className="rounded-xl bg-marinho px-3.5 py-1.5 text-xs font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+                >
+                  Novo agendamento
+                </Link>
+              </>
+            )}
+
             {!tabela.semFormulario && (
               <Link
                 href={
@@ -196,9 +268,13 @@ export default async function TabelaPage({
        * busca nada ao abrir.
        */}
       {tabela.slug === "recebimentos" && lancar && (
-        <FolhaDeLancamento fechar={comParametros({ lancar: null })}>
+        <Folha
+          titulo="Créditos a lançar"
+          largura="max-w-3xl"
+          fechar={comParametros({ lancar: null })}
+        >
           <PainelDeLancamentos mes={mes} ok={ok} aviso={aviso} />
-        </FolhaDeLancamento>
+        </Folha>
       )}
 
       {/*
@@ -206,9 +282,33 @@ export default async function TabelaPage({
        * repeticao —, nesta ordem. A tabela de baixo é o historico do que saiu
        * por qualquer um dos dois.
        */}
+      {/*
+       * Notificacoes: as duas folhas de envio, e a lista do que ja esta
+       * agendado. A lista fica na pagina — é dado, como a tabela de baixo; os
+       * formularios sobem por cima, como todo "novo" do painel.
+       */}
       {tabela.slug === "notificacoes" && (
         <>
-          <EnviarAgora ok={ok} entregues={entregues} aparelhos={aparelhos} />
+          {enviar && (
+            <Folha
+              titulo="Enviar agora"
+              fechar={comParametros({ enviar: null })}
+            >
+              <EnviarAgora />
+            </Folha>
+          )}
+
+          {agendar && (
+            <Folha
+              titulo="Envio automático"
+              fechar={comParametros({ agendar: null })}
+            >
+              <FormularioDeAgendamento
+                investidores={await investidoresParaAviso()}
+              />
+            </Folha>
+          )}
+
           <PainelDeAgendamentos ok={ok} aviso={aviso} />
         </>
       )}
@@ -248,12 +348,37 @@ export default async function TabelaPage({
         </p>
       )}
 
+      {/* O aviso chega depois de a folha fechar — ver a nota em `EnviarAgora`. */}
+      {ok === "enviado" && (
+        <p className="mt-6 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm leading-relaxed font-medium text-verde">
+          Aviso enviado.{" "}
+          {Number(aparelhos ?? 0) === 0
+            ? "Nenhum aparelho está inscrito para push — ele aparece no sino quando o investidor abrir o app."
+            : `Push entregue em ${entregues} de ${aparelhos} ${
+                Number(aparelhos) === 1 ? "aparelho" : "aparelhos"
+              }.`}
+        </p>
+      )}
+
       {/* Tabela de registro nao tem formulario: ver `semFormulario` no
           registro das tabelas. */}
+      {/*
+       * O formulario sobe por cima de tudo, e nao mais acima da tabela.
+       *
+       * Vale para criar e para editar: é o mesmo componente, e um formulario que
+       * abre num lugar ao criar e em outro ao editar seria a mesma peca com duas
+       * gramaticas. Fechar volta para a listagem com o filtro e o resto da URL
+       * intactos — ver `comParametros`.
+       */}
       {!tabela.semFormulario && formularioAberto && (
-        <div className="mt-6">
+        <Folha
+          titulo={
+            editar ? "Editar registro" : (tabela.rotuloNovo ?? "Novo registro")
+          }
+          fechar={comParametros({ novo: null, editar: null })}
+        >
           <Formulario tabela={tabela} linha={emEdicao} />
-        </div>
+        </Folha>
       )}
 
       {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
@@ -265,7 +390,9 @@ export default async function TabelaPage({
               {tabela.colunas.map((c) => (
                 <th
                   key={c}
-                  className="px-4 py-3 font-semibold tracking-wider whitespace-nowrap uppercase"
+                  className={`px-4 py-3 font-semibold tracking-wider whitespace-nowrap uppercase ${
+                    tabela.colunasMoeda?.includes(c) ? "text-right" : ""
+                  }`}
                 >
                   {c}
                 </th>
@@ -318,11 +445,22 @@ export default async function TabelaPage({
                    traz os dois de volta. */
                 className="group transition-colors duration-200 hover:bg-indigo-50"
               >
-                {tabela.colunas.map((c) => (
-                  <td key={c} className="px-4 py-3 whitespace-nowrap">
-                    {exibir(linha[c], rotulos)}
-                  </td>
-                ))}
+                {tabela.colunas.map((c) => {
+                  const dinheiro = tabela.colunasMoeda?.includes(c) ?? false;
+                  return (
+                    <td
+                      key={c}
+                      /* Dinheiro alinhado a direita e em `tabular-nums`: é assim
+                         que a virgula de uma linha fica embaixo da da outra, e a
+                         coluna se compara de relance. */
+                      className={`px-4 py-3 whitespace-nowrap ${
+                        dinheiro ? "text-right font-medium tabular-nums" : ""
+                      }`}
+                    >
+                      {exibir(linha[c], rotulos, dinheiro)}
+                    </td>
+                  );
+                })}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   <span className="inline-flex items-center gap-1 opacity-45 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
                     {!tabela.semFormulario && (

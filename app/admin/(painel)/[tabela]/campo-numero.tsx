@@ -94,7 +94,10 @@ export function CampoNumero({
       <span className="text-xs font-semibold text-neutral-600">
         {rotulo}
         {obrigatorio && (
-          <span aria-hidden className="text-red-600"> *</span>
+          <span aria-hidden className="text-red-600">
+            {" "}
+            *
+          </span>
         )}
       </span>
 

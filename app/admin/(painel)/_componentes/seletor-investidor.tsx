@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { Modalidade } from "@/lib/portal/dados";
+import { Seletor } from "./seletor";
 
 /**
  * Quem olhar, e sob qual modalidade.
@@ -45,20 +46,14 @@ export function SeletorDeInvestidor({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-2">
-        <span className="sr-only">Investidor</span>
-        <select
-          value={selecionado}
-          onChange={(evento) => ir({ i: evento.target.value })}
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
-        >
-          {investidores.map((investidor) => (
-            <option key={investidor.id} value={investidor.id}>
-              {investidor.nome}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Seletor
+        key={selecionado}
+        rotuloAcessivel="Investidor"
+        opcoes={investidores.map((i) => ({ valor: i.id, rotulo: i.nome }))}
+        valorInicial={selecionado}
+        aoEscolher={(i) => ir({ i })}
+        className="min-w-56 py-1.5"
+      />
 
       {/* Dois botoes, e nao um segundo `select`: sao duas opcoes fixas e
           mutuamente exclusivas, e o par mostra as duas de uma vez — o `select`

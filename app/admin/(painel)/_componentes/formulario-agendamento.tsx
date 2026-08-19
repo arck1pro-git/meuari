@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { DIAS_DA_SEMANA } from "@/lib/admin/dias-da-semana";
 import { acaoAgendarNotificacao } from "../../acoes";
+import { BotaoEnviar } from "./botao-enviar";
+import { Seletor } from "./seletor";
 
 /**
  * O formulario de um aviso que se repete.
@@ -69,14 +71,17 @@ export function FormularioDeAgendamento({
           <span className="text-xs font-semibold text-neutral-600">
             Investidor
           </span>
-          <select name="usuario_id" defaultValue="" className={CLASSE_CAMPO}>
-            <option value="">Todos os investidores</option>
-            {investidores.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.nome}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1.5">
+            <Seletor
+              nome="usuario_id"
+              rotuloAcessivel="Investidor"
+              opcoes={investidores.map((i) => ({
+                valor: i.id,
+                rotulo: i.nome,
+              }))}
+              vazio="Todos os investidores"
+            />
+          </div>
           <span className="mt-1 block text-xs text-neutral-400">
             Em branco = aviso geral.
           </span>
@@ -84,11 +89,7 @@ export function FormularioDeAgendamento({
 
         <label className="block">
           <span className="text-xs font-semibold text-neutral-600">Link</span>
-          <input
-            name="url"
-            placeholder="/portal"
-            className={CLASSE_CAMPO}
-          />
+          <input name="url" placeholder="/portal" className={CLASSE_CAMPO} />
           <span className="mt-1 block text-xs text-neutral-400">
             Para onde o toque leva.
           </span>
@@ -201,9 +202,7 @@ export function FormularioDeAgendamento({
                   value={horario}
                   onChange={(evento) =>
                     setHorarios((atuais) =>
-                      atuais.map((h, j) =>
-                        j === i ? evento.target.value : h,
-                      ),
+                      atuais.map((h, j) => (j === i ? evento.target.value : h)),
                     )
                   }
                   className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
@@ -238,12 +237,12 @@ export function FormularioDeAgendamento({
         </div>
       </fieldset>
 
-      <button
-        type="submit"
+      <BotaoEnviar
+        enviando="Agendando…"
         className="mt-6 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
       >
         Agendar e criar automação
-      </button>
+      </BotaoEnviar>
     </form>
   );
 }

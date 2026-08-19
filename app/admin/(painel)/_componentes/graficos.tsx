@@ -89,51 +89,46 @@ const EIXO = {
   tickLine: false,
 } as const;
 
-/** O que o grafico de creditos recebe: um ponto por mes. */
-export type PontoDoMes = {
+export type PontoDaEntrada = {
   competencia: string;
+  entradas: number;
+  aditivos: number;
   valor: number;
-  quantos: number;
 };
 
 /**
- * Quanto foi pago em credito, mes a mes — a carteira inteira somada.
+ * Quanto entrou em cada mes — a barra de captacao.
  *
- * Area, e nao barras: no portal cada barra é o credito daquela pessoa, um evento
- * fechado. Aqui a linha é o desembolso da casa ao longo do tempo, e o que se
- * quer ver é a curva — se esta subindo, e quanto.
+ * É o primeiro bloco do painel, e o mais direto: sem acumulado, sem meta, sem
+ * projecao. Uma barra por mes, com a altura do que entrou. A curva acumulada
+ * logo abaixo responde "onde estamos"; esta responde "como foi o mes".
+ *
+ * **Empilhada por origem.** Entrada de contrato novo e aditivo sao dois
+ * movimentos diferentes de captacao — um é investidor que chegou, o outro é
+ * quem ja estava dentro aportando de novo —, e a divisao muda o que o mes
+ * significa. Um mes de 200 mil todo em aditivo diz algo diferente de um mes de
+ * 200 mil em contratos novos. A soma continua sendo a barra inteira.
+ *
+ * Mes sem aporte aparece como vao, e nao é omitido: o eixo é o tempo, e buraco
+ * no meio de uma serie mensal faria dois meses distantes parecerem vizinhos.
  */
-export function GraficoDeCreditos({
-  pontos,
-  competenciaAtual,
-}: {
-  pontos: PontoDoMes[];
-  /** `AAAA-MM` de hoje, vindo do servidor: o relogio do navegador é outro. */
-  competenciaAtual: string;
-}) {
+export function GraficoDeEntradas({ pontos }: { pontos: PontoDaEntrada[] }) {
   const dados = pontos.map((ponto) => ({
     ...ponto,
     rotulo: formatarCompetenciaCurta(ponto.competencia),
-    atual: ponto.competencia === competenciaAtual,
   }));
+
+  // Modalidade sem valor nenhum nao vira barra invisivel na legenda.
+  const temAditivos = pontos.some((p) => p.aditivos > 0);
 
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
+        <BarChart
           accessibilityLayer
           data={dados}
           margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
-          <defs>
-            {/* O degrade morre antes da base: area chapada em azul pesa mais que
-                a curva, e é a curva que carrega a informacao. */}
-            <linearGradient id="area-creditos" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COR.azul} stopOpacity={0.28} />
-              <stop offset="100%" stopColor={COR.azul} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-
           <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
           <YAxis
             {...EIXO}
@@ -143,39 +138,49 @@ export function GraficoDeCreditos({
           />
 
           <Tooltip
-            // A linha de referencia do Recharts vem cinza-claro por padrao e
-            // sumia sobre o branco do cartao.
-            cursor={{ stroke: COR.grade, strokeWidth: 1 }}
+            cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
             content={({ active, payload }) => {
               const ponto = payload?.[0]?.payload as
-                | (PontoDoMes & { rotulo: string })
-                | undefined;
+                (PontoDaEntrada & { rotulo: string }) | undefined;
               if (!active || !ponto) return null;
 
               return (
                 <Balao titulo={ponto.rotulo}>
                   <ValorDoBalao>{formatarMoeda(ponto.valor)}</ValorDoBalao>
-                  <p className="text-[0.6875rem] text-neutral-500">
-                    {ponto.quantos}{" "}
-                    {ponto.quantos === 1 ? "crédito" : "créditos"}
-                  </p>
+                  {ponto.valor === 0 ? (
+                    <p className="text-[0.6875rem] text-neutral-400">
+                      Sem aporte neste mês
+                    </p>
+                  ) : (
+                    <p className="text-[0.6875rem] text-neutral-500 tabular-nums">
+                      {formatarMoeda(ponto.entradas)} em contratos ·{" "}
+                      {formatarMoeda(ponto.aditivos)} em aditivos
+                    </p>
+                  )}
                 </Balao>
               );
             }}
           />
 
-          <Area
-            type="monotone"
-            dataKey="valor"
-            stroke={COR.azul}
-            strokeWidth={2}
-            fill="url(#area-creditos)"
-            // O ponto aparece so onde o ponteiro esta: um marcador por mes em
-            // dez meses vira uma fileira de bolinhas competindo com a curva.
-            dot={false}
-            activeDot={{ r: 4, fill: COR.azul, stroke: "#ffffff", strokeWidth: 2 }}
+          {/* As mesmas cores da rosca "Captado por origem": é o mesmo corte do
+              mesmo dinheiro, visto no tempo em vez de em proporcao. */}
+          <Bar
+            dataKey="entradas"
+            stackId="entrada"
+            fill={COR.marinho}
+            radius={temAditivos ? [0, 0, 0, 0] : [3, 3, 0, 0]}
+            maxBarSize={40}
           />
-        </AreaChart>
+          {temAditivos && (
+            <Bar
+              dataKey="aditivos"
+              stackId="entrada"
+              fill={COR.ceu}
+              radius={[3, 3, 0, 0]}
+              maxBarSize={40}
+            />
+          )}
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -235,7 +240,10 @@ export function GraficoDaCaptacao({
             /* O topo do eixo acomoda a meta, e nao só a curva: sem isto a linha
                tracejada cairia fora da area desenhada e a comparacao — que é o
                ponto do grafico — nao apareceria. */
-            domain={[0, meta ? Math.max(meta, ...dados.map((d) => d.acumulado)) : "auto"]}
+            domain={[
+              0,
+              meta ? Math.max(meta, ...dados.map((d) => d.acumulado)) : "auto",
+            ]}
           />
 
           {meta && (
@@ -257,8 +265,7 @@ export function GraficoDaCaptacao({
             cursor={{ stroke: COR.grade, strokeWidth: 1 }}
             content={({ active, payload }) => {
               const ponto = payload?.[0]?.payload as
-                | (PontoDaCurva & { rotulo: string })
-                | undefined;
+                (PontoDaCurva & { rotulo: string }) | undefined;
               if (!active || !ponto) return null;
 
               return (
@@ -268,7 +275,9 @@ export function GraficoDaCaptacao({
                     {ponto.valor > 0
                       ? `+ ${formatarMoeda(ponto.valor)} neste mês`
                       : "sem aporte neste mês"}
-                    {meta ? ` · ${formatarPercentual(ponto.acumulado / meta, 1)} da meta` : ""}
+                    {meta
+                      ? ` · ${formatarPercentual(ponto.acumulado / meta, 1)} da meta`
+                      : ""}
                   </p>
                 </Balao>
               );
@@ -282,113 +291,14 @@ export function GraficoDaCaptacao({
             strokeWidth={2}
             fill="url(#area-captacao)"
             dot={false}
-            activeDot={{ r: 4, fill: COR.marinho, stroke: "#ffffff", strokeWidth: 2 }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-export type PontoDoRendimento = {
-  competencia: string;
-  pago: number;
-  provisionado: number;
-};
-
-/**
- * O resultado de cada modalidade, mes a mes — e as duas **nao** se somam.
- *
- * `pago` é o credito que saiu do caixa para os contratos `mensal`, lido da
- * tabela `recebimentos`. `provisionado` é o que os contratos `final` renderam
- * naquele mes e ficou retido, a pagar no resgate — vem da formula, porque nao ha
- * tabela do que ainda nao foi pago.
- *
- * Barras lado a lado, e nao empilhadas: empilhar somaria visualmente caixa que
- * saiu com divida que cresceu, e o topo da pilha seria um numero que nao existe.
- * Lado a lado, cada um se le sozinho e a comparacao continua imediata.
- *
- * Cores de familias diferentes pelo mesmo motivo: o indigo é o dinheiro que
- * andou; o ambar é o que ficou devendo.
- */
-export function GraficoDeRendimento({ pontos }: { pontos: PontoDoRendimento[] }) {
-  const dados = pontos.map((ponto) => ({
-    ...ponto,
-    rotulo: formatarCompetenciaCurta(ponto.competencia),
-  }));
-
-  // Uma modalidade sem nenhum valor nao vira barra invisivel na legenda.
-  const temPago = pontos.some((p) => p.pago > 0);
-  const temProvisao = pontos.some((p) => p.provisionado > 0);
-
-  return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          accessibilityLayer
-          data={dados}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-        >
-          <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
-          <YAxis
-            {...EIXO}
-            width={72}
-            tickFormatter={formatarMoedaCurta}
-            tickCount={4}
-          />
-
-          <Tooltip
-            cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
-            content={({ active, payload }) => {
-              const ponto = payload?.[0]?.payload as
-                | (PontoDoRendimento & { rotulo: string })
-                | undefined;
-              if (!active || !ponto) return null;
-
-              return (
-                <Balao titulo={ponto.rotulo}>
-                  {temPago && (
-                    <p className="mt-0.5 text-sm font-bold tabular-nums text-tinta">
-                      {formatarMoeda(ponto.pago)}
-                      <span className="ml-1.5 text-[0.6875rem] font-normal text-neutral-500">
-                        pago no mensal
-                      </span>
-                    </p>
-                  )}
-                  {temProvisao && (
-                    <p className="mt-0.5 text-sm font-bold tabular-nums text-tinta">
-                      {formatarMoeda(ponto.provisionado)}
-                      <span className="ml-1.5 text-[0.6875rem] font-normal text-neutral-500">
-                        provisionado no final
-                      </span>
-                    </p>
-                  )}
-                </Balao>
-              );
+            activeDot={{
+              r: 4,
+              fill: COR.marinho,
+              stroke: "#ffffff",
+              strokeWidth: 2,
             }}
           />
-
-          {/* As cores saem de `COR_DA_MODALIDADE`, e nao de literais: a legenda
-              abaixo do grafico le do mesmo lugar, e com dois literais separados
-              elas divergiriam no primeiro ajuste de paleta — que foi
-              exatamente o que quase aconteceu. */}
-          {temPago && (
-            <Bar
-              dataKey="pago"
-              fill={COR_DA_MODALIDADE.mensal}
-              radius={[3, 3, 0, 0]}
-              maxBarSize={28}
-            />
-          )}
-          {temProvisao && (
-            <Bar
-              dataKey="provisionado"
-              fill={COR_DA_MODALIDADE.final}
-              radius={[3, 3, 0, 0]}
-              maxBarSize={28}
-            />
-          )}
-        </BarChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
@@ -442,7 +352,12 @@ export function GraficoDoInvestidor({
   const eixos = (
     <>
       <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
-      <YAxis {...EIXO} width={72} tickFormatter={formatarMoedaCurta} tickCount={4} />
+      <YAxis
+        {...EIXO}
+        width={72}
+        tickFormatter={formatarMoedaCurta}
+        tickCount={4}
+      />
     </>
   );
 
@@ -455,8 +370,7 @@ export function GraficoDoInvestidor({
       }
       content={({ active, payload }) => {
         const ponto = payload?.[0]?.payload as
-          | (PontoDoInvestidor & { rotulo: string })
-          | undefined;
+          (PontoDoInvestidor & { rotulo: string }) | undefined;
         if (!active || !ponto) return null;
 
         return (
@@ -488,7 +402,12 @@ export function GraficoDoInvestidor({
           >
             {eixos}
             {balao}
-            <Bar dataKey="real" fill={COR.marinho} radius={[3, 3, 0, 0]} maxBarSize={22} />
+            <Bar
+              dataKey="real"
+              fill={COR.marinho}
+              radius={[3, 3, 0, 0]}
+              maxBarSize={22}
+            />
             {/* A projecao em ambar e translucida: mesma familia do "retido" no
                 resto do painel, e clara o bastante para nao competir com o que
                 de fato foi pago. */}
@@ -551,21 +470,30 @@ export type FatiaDoCaptado = { nome: string; valor: number };
 export function GraficoDoCaptado({
   fatias,
   total,
-  cores,
+  paleta = "origem",
   rotulo = "Captado",
 }: {
   fatias: FatiaDoCaptado[];
   total: number;
   /**
-   * As cores das fatias, na ordem. Quando a rosca corta por modalidade elas
-   * precisam ser as mesmas da barra e da tabela logo abaixo — a mesma coisa com
-   * duas cores em blocos vizinhos lê como duas coisas.
+   * Qual conjunto de cores usar. **Um nome, e nao os hexes.**
+   *
+   * A pagina que monta esta rosca é Server Component, e as cores moram neste
+   * modulo, que é `"use client"`. Valor exportado de modulo cliente **nao
+   * atravessa** essa fronteira: o servidor recebe uma referencia, e nao a
+   * string. Era o que deixava as duas fatias pretas — o `fill` chegava
+   * invalido e o Recharts caia na cor padrao dele.
+   *
+   * Um nome é dado comum: atravessa, e a escolha da cor acontece deste lado.
    */
-  cores?: string[];
+  paleta?: "origem" | "modalidade";
   /** A palavra no buraco, acima do total. */
   rotulo?: string;
 }) {
-  const CORES = cores ?? [COR.marinho, COR.ceu];
+  const CORES =
+    paleta === "modalidade"
+      ? [COR_DA_MODALIDADE.mensal, COR_DA_MODALIDADE.final]
+      : [COR.marinho, COR.ceu];
 
   return (
     <div className="relative h-56 w-full">
@@ -593,9 +521,7 @@ export function GraficoDoCaptado({
 
           <Tooltip
             content={({ active, payload }) => {
-              const fatia = payload?.[0]?.payload as
-                | FatiaDoCaptado
-                | undefined;
+              const fatia = payload?.[0]?.payload as FatiaDoCaptado | undefined;
               if (!active || !fatia) return null;
 
               return (
@@ -717,7 +643,12 @@ export function GraficoDeObras({ obras }: { obras: BarraDeObra[] }) {
           />
 
           {/* A ordem importa: o captado primeiro, encostado no eixo. */}
-          <Bar dataKey="capital" stackId="obra" fill={COR.marinho} maxBarSize={22} />
+          <Bar
+            dataKey="capital"
+            stackId="obra"
+            fill={COR.marinho}
+            maxBarSize={22}
+          />
           <Bar
             dataKey="falta"
             stackId="obra"
@@ -743,7 +674,9 @@ export function GraficoDeObras({ obras }: { obras: BarraDeObra[] }) {
 export function BarraDeModalidades({
   fatias,
 }: {
-  fatias: { nome: string; valor: number; cor: string }[];
+  /* `modalidade`, e nao `cor`: pelo mesmo motivo da rosca — hex vindo do
+     servidor nao atravessa a fronteira do `"use client"`. */
+  fatias: { nome: string; valor: number; modalidade: "mensal" | "final" }[];
 }) {
   const total = fatias.reduce((soma, f) => soma + f.valor, 0);
   if (total <= 0) return null;
@@ -759,7 +692,7 @@ export function BarraDeModalidades({
             key={fatia.nome}
             style={{
               width: `${(fatia.valor / total) * 100}%`,
-              backgroundColor: fatia.cor,
+              backgroundColor: COR_DA_MODALIDADE[fatia.modalidade],
             }}
           />
         ))}
@@ -771,7 +704,7 @@ export function BarraDeModalidades({
             <span
               aria-hidden
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: fatia.cor }}
+              style={{ backgroundColor: COR_DA_MODALIDADE[fatia.modalidade] }}
             />
             <span className="text-neutral-500">{fatia.nome}</span>
             <span className="font-semibold tabular-nums text-tinta">
@@ -785,26 +718,26 @@ export function BarraDeModalidades({
 }
 
 /**
- * As cores das duas modalidades. **Fonte unica** — barra, rosca, pontinho da
- * tabela, barras do rendimento e legenda leem daqui.
+ * As cores das duas modalidades. **Fonte unica** — a rosca, a barra empilhada e
+ * o pontinho da tabela leem daqui.
  *
- * Sao de familias diferentes de proposito: mensal e final nao sao duas partes de
- * uma coisa, sao dois produtos com regras opostas — um paga todo mes, o outro
- * segura tudo ate o resgate. Duas tonalidades da mesma cor diriam o contrario.
+ * **Sao as mesmas de "Captado por origem", por escolha de quem desenha a tela.**
+ * Nao sao copias dos valores: apontam para `COR.marinho` e `COR.ceu`, os mesmos
+ * tokens que a outra rosca usa por padrao, entao as duas nunca podem divergir num
+ * ajuste futuro de paleta.
  *
- * **Nenhuma das duas é o indigo.** O `marinho` é a cor de "captado por origem",
- * na rosca vizinha, onde ele é "entradas de contrato". As duas roscas aparecem
- * lado a lado, e ate aqui o indigo estava nas duas significando coisas
- * diferentes — o mesmo tom dizendo "entrada" a esquerda e "mensal" a direita.
- * Agora a rosca da origem fica na familia do indigo (duas partes de um todo) e a
- * da modalidade em duas familias proprias.
+ * O que se perde, e fica registrado: as duas roscas aparecem **lado a lado**, e
+ * agora o mesmo indigo escuro quer dizer "entradas de contrato" numa e "retorno
+ * mensal" na outra. Quem passar o olho pelas duas de uma vez pode ler a cor como
+ * se fosse o mesmo assunto. Os titulos e a legenda de cada bloco sao o que
+ * separa — antes a cor separava sozinha.
  *
- * O ambar do `final` é o mesmo que marca "provisionado" e "retido" no resto do
- * painel: ali ele ja quer dizer "dinheiro que ainda nao saiu".
+ * Se um dia a leitura cruzada atrapalhar, o caminho de volta é trocar estes dois
+ * valores por um par de outra familia; nada mais precisa mudar.
  */
 export const COR_DA_MODALIDADE = {
-  /** Ciano: o dinheiro que circula todo mes. */
-  mensal: "#0891b2",
-  /** Ambar: o que fica retido ate o resgate. */
-  final: COR.ouro,
+  /** O tom cheio, como as entradas de contrato na rosca vizinha. */
+  mensal: COR.marinho,
+  /** O tom claro, como os aditivos. */
+  final: COR.ceu,
 } as const;

@@ -1,8 +1,12 @@
-import { montarLancamentos, type LinhaDeLancamento } from "@/lib/admin/lancamentos";
+import {
+  montarLancamentos,
+  type LinhaDeLancamento,
+} from "@/lib/admin/lancamentos";
 import { dataDeReferencia } from "@/lib/portal/dados";
 import { formatarData, formatarMoeda } from "@/lib/portal/formato";
 import { dataDoCredito } from "@/lib/portal/recebimentos";
 import { acaoLancarCredito } from "../../acoes";
+import { BotaoEnviar } from "./botao-enviar";
 import { SeletorDeMes } from "./seletor-mes";
 
 const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -151,9 +155,7 @@ function CartaoDeLancamento({
       </span>
 
       <label className="w-36 shrink-0">
-        <span className="sr-only">
-          Valor do crédito de {linha.investidor}
-        </span>
+        <span className="sr-only">Valor do crédito de {linha.investidor}</span>
         <input
           name="valor"
           type="number"
@@ -164,12 +166,12 @@ function CartaoDeLancamento({
         />
       </label>
 
-      <button
-        type="submit"
+      <BotaoEnviar
+        enviando="Lançando…"
         className="shrink-0 rounded-lg bg-marinho px-4 py-1.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
       >
         Lançar
-      </button>
+      </BotaoEnviar>
     </form>
   );
 }

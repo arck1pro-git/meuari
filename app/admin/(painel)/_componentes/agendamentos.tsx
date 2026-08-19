@@ -2,7 +2,7 @@ import { listarAgendamentos, type Agendado } from "@/lib/admin/agendamentos";
 import { DIAS_DA_SEMANA } from "@/lib/admin/dias-da-semana";
 import { consultar } from "@/lib/db";
 import { acaoRemoverAgendamento } from "../../acoes";
-import { FormularioDeAgendamento } from "./formulario-agendamento";
+import { BotaoEnviar } from "./botao-enviar";
 
 /**
  * As automacoes: avisos que se repetem sozinhos.
@@ -34,6 +34,13 @@ function emPalavras(a: Agendado): string {
   return `${quando} · ${horas}`;
 }
 
+/** Os investidores, para o `<select>` dos formularios de aviso. */
+export async function investidoresParaAviso() {
+  return consultar<{ id: string; nome: string }>(
+    `select id, nome from usuarios where tipo = 'investidor' order by nome`,
+  );
+}
+
 export async function PainelDeAgendamentos({
   ok,
   aviso,
@@ -41,12 +48,9 @@ export async function PainelDeAgendamentos({
   ok?: string;
   aviso?: string;
 }) {
-  const [agendamentos, investidores] = await Promise.all([
-    listarAgendamentos(),
-    consultar<{ id: string; nome: string }>(
-      `select id, nome from usuarios where tipo = 'investidor' order by nome`,
-    ),
-  ]);
+  // Só a lista: o `<select>` de investidor foi junto com o formulario, para a
+  // folha. Uma consulta a menos por visita a esta tela.
+  const agendamentos = await listarAgendamentos();
 
   const naoConfigurado = !process.env.N8N_BASE_URL || !process.env.N8N_API_KEY;
 
@@ -56,8 +60,7 @@ export async function PainelDeAgendamentos({
         Envio automático
       </h2>
       <p className="mt-1 animate-surgir text-sm text-neutral-500">
-        Repete sozinho, no dia e na hora que você marcar. Cada disparo envia o
-        mesmo aviso que o campo acima enviaria na hora.
+        O que repete sozinho, no dia e na hora marcados.
       </p>
 
       {ok === "agendado" && (
@@ -86,9 +89,11 @@ export async function PainelDeAgendamentos({
         </p>
       )}
 
-      <div className="mt-5">
-        <FormularioDeAgendamento investidores={investidores} />
-      </div>
+      {/*
+       * O formulario saiu daqui: ele mora numa folha, aberta pelo botao do topo
+       * da tela (`?agendar=1`). O que sobra nesta secao é a **lista** do que ja
+       * esta agendado — dado, e nao tarefa, como a tabela de baixo.
+       */}
 
       {agendamentos.length > 0 && (
         <ul className="escalonar mt-5 grid gap-3 lg:grid-cols-2">
@@ -122,12 +127,12 @@ export async function PainelDeAgendamentos({
               {/* Apagar aqui apaga tambem o fluxo la: um fluxo vivo apontando
                   para uma linha que sumiu bateria de hora em hora num 404. */}
               <form action={acaoRemoverAgendamento.bind(null, a.id)}>
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  enviando="Excluindo…"
                   className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold text-red-600 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                 >
                   Excluir
-                </button>
+                </BotaoEnviar>
               </form>
             </li>
           ))}

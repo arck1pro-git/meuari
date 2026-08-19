@@ -98,6 +98,25 @@ export type Tabela = {
    */
   colunasSql?: Record<string, string>;
   /**
+   * Colunas da listagem que sao dinheiro — saem formatadas em reais.
+   *
+   * A formatacao acontece na tela, e nao no SQL: `to_char` do Postgres depende
+   * de `lc_numeric` para saber se o separador de milhar é ponto ou virgula, e
+   * o do servidor nao é o do Brasil. O `Intl` do Node ja sabe.
+   */
+  colunasMoeda?: string[];
+  /**
+   * Uma condicao fixa que **toda** consulta desta tabela aplica — listagem,
+   * edicao e as opcoes de referencia em outras telas.
+   *
+   * Vai **literal** para o SQL, como `rotuloSql` e `colunasSql`, e por isso
+   * mora aqui e em lugar nenhum mais. Nada de requisicao entra nesta string.
+   *
+   * Existe por um caso concreto: `usuarios` guarda investidores e
+   * administradores na mesma tabela, e a tela é dos investidores.
+   */
+  onde?: string;
+  /**
    * Tabela que é registro do que aconteceu, e nao cadastro: a listagem some com
    * o formulario de criar e com o "Editar", e sobra o "Excluir".
    *
@@ -130,7 +149,18 @@ export const TABELAS: Tabela[] = [
     tabela: "usuarios",
     rotuloNovo: "Novo investidor",
     rotuloRef: "nome",
-    colunas: ["nome", "email", "tipo", "senha_definida", "criado_em"],
+    /*
+     * Só investidores. A tabela guarda os administradores tambem, e ate aqui a
+     * tela misturava os dois — com a coluna `tipo` servindo de aviso.
+     *
+     * **Vale para toda consulta**, e nao so para a listagem: o `<select>` de
+     * investidor em Contratos e em Notificacoes le da mesma tabela, e um
+     * administrador nunca deveria aparecer ali como opcao.
+     */
+    onde: "tipo = 'investidor'",
+    // `tipo` saiu: com o filtro acima ela seria a mesma palavra em toda linha.
+    colunas: ["nome", "na_operacao", "email", "senha_definida", "criado_em"],
+    colunasMoeda: ["na_operacao"],
     /*
      * A senha nao tem valor a mostrar: `senha_hash` guarda o resultado de um
      * scrypt, que é de mao unica. O que a listagem responde é se ha senha —
@@ -139,6 +169,22 @@ export const TABELAS: Tabela[] = [
      */
     colunasSql: {
       senha_definida: `case when senha_hash is null or senha_hash = '' then 'sem senha' else 'definida' end`,
+      /*
+       * Quanto a pessoa tem na operacao: a entrada de cada contrato dela mais
+       * todos os aditivos.
+       *
+       * Duas subconsultas somadas, e nao um `join` com `group by`: o join com
+       * contratos ja multiplicaria a linha do usuario, e somar aditivos por cima
+       * disso contaria cada aditivo uma vez por contrato. O `coalesce` cobre
+       * quem ainda nao aportou — a coluna mostra zero, e nao vazio.
+       */
+      na_operacao: `(
+        coalesce((select sum(c.valor) from contratos c
+                   where c.usuario_id = usuarios.id), 0)
+        + coalesce((select sum(a.valor) from aditivos a
+                     join contratos c on c.id = a.contrato_id
+                    where c.usuario_id = usuarios.id), 0)
+      )`,
     },
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
@@ -164,7 +210,15 @@ export const TABELAS: Tabela[] = [
     tabela: "empreendimentos",
     rotuloNovo: "Novo empreendimento",
     rotuloRef: "nome",
-    colunas: ["nome", "cidade", "uf", "status", "meta_captacao", "previsao_entrega"],
+    colunas: [
+      "nome",
+      "cidade",
+      "uf",
+      "status",
+      "meta_captacao",
+      "previsao_entrega",
+    ],
+    colunasMoeda: ["meta_captacao"],
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
       {
@@ -237,7 +291,14 @@ export const TABELAS: Tabela[] = [
                 || ' · ' ||
                 (select e.nome from empreendimentos e where e.id = contratos.empreendimento_id)
                 || ' · ' || to_char(contratos.data, 'DD/MM/YYYY')`,
-    colunas: ["usuario_id", "empreendimento_id", "data", "valor", "taxa", "modalidade"],
+    colunas: [
+      "usuario_id",
+      "empreendimento_id",
+      "data",
+      "valor",
+      "taxa",
+      "modalidade",
+    ],
     // Um investidor tem varios aportes, e a pergunta de sempre é "o que fulano
     // tem". Sem filtro, a lista é a mistura de todo mundo em ordem de criacao.
     filtros: ["usuario_id"],
@@ -461,7 +522,13 @@ export const TABELAS: Tabela[] = [
     tabela: "etapas",
     rotuloNovo: "Nova etapa",
     rotuloRef: "nome",
-    colunas: ["nome", "empreendimento_id", "percentual", "concluida_em", "ordem"],
+    colunas: [
+      "nome",
+      "empreendimento_id",
+      "percentual",
+      "concluida_em",
+      "ordem",
+    ],
     filtros: ["empreendimento_id"],
     campos: [
       {

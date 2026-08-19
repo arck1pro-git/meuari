@@ -1,7 +1,6 @@
 import "server-only";
 import { consultar } from "@/lib/db";
 import type { DataISO, Modalidade } from "@/lib/portal/dados";
-import { apurarPosicao } from "@/lib/portal/calculo";
 import {
   dataDoCredito,
   faixasDeParticipacao,
@@ -115,29 +114,14 @@ export type PontoDaSerie = {
 /** Um mes da curva de captacao. */
 export type PontoDaCaptacao = {
   competencia: string;
-  /** O que entrou neste mes — entradas de contrato mais aditivos. */
+  /** O que entrou neste mes — `entradas + aditivos`. */
   valor: number;
+  /** Só a entrada de contratos assinados neste mes. */
+  entradas: number;
+  /** Só os aportes feitos em contrato que ja existia. */
+  aditivos: number;
   /** Tudo que ja tinha entrado ao fim deste mes. */
   acumulado: number;
-};
-
-/**
- * Um mes do resultado de cada modalidade — e **as duas nao sao a mesma coisa**.
- *
- * `pago` sai da tabela `recebimentos`: é dinheiro que saiu do caixa, para
- * contratos `mensal`. `provisionado` sai da formula: é o que os contratos
- * `final` renderam naquele mes e ficou retido no saldo, a pagar no resgate.
- *
- * Estao no mesmo tipo porque a pergunta é a mesma — quanto a carteira rendeu
- * naquele mes —, mas nunca devem ser somados num numero só nem desenhados com a
- * mesma cor: um ja aconteceu, o outro é divida. A tela separa os dois.
- */
-export type PontoDeRendimento = {
-  competencia: string;
-  /** Creditado de fato aos contratos `mensal`. Veio da tabela. */
-  pago: number;
-  /** Apurado no mes pelos contratos `final`. Veio da conta. */
-  provisionado: number;
 };
 
 /** Onde esta o lancamento do credito deste mes. */
@@ -180,10 +164,6 @@ export type PainelDoAdmin = {
   serie: PontoDaSerie[];
   /** A curva do que ja entrou, mes a mes e acumulada. */
   captacao: PontoDaCaptacao[];
-  /** O resultado de cada modalidade, mes a mes. Ver `PontoDeRendimento`. */
-  rendimento: PontoDeRendimento[];
-  /** Total provisionado nos contratos `final` — a pagar no resgate. */
-  totalProvisionado: number;
   ciclo: CicloDoMes;
 };
 
@@ -292,10 +272,20 @@ function apurarContratos(
 function curvaDaCaptacao(linhas: LinhaDeAporte[]): PontoDaCaptacao[] {
   if (linhas.length === 0) return [];
 
-  const porMes = new Map<string, number>();
+  /*
+   * Separado por origem, e nao só somado: a entrada de um contrato novo e um
+   * aporte num contrato que ja existe sao dois movimentos diferentes de
+   * captacao — um é cliente novo, o outro é confianca de quem ja esta dentro. O
+   * grafico do topo mostra os dois empilhados, e a soma continua sendo a barra
+   * inteira.
+   */
+  const porMes = new Map<string, { entradas: number; aditivos: number }>();
   for (const linha of linhas) {
     const competencia = linha.data.slice(0, 7);
-    porMes.set(competencia, (porMes.get(competencia) ?? 0) + linha.valor);
+    const atual = porMes.get(competencia) ?? { entradas: 0, aditivos: 0 };
+    if (linha.origem === "contrato") atual.entradas += linha.valor;
+    else atual.aditivos += linha.valor;
+    porMes.set(competencia, atual);
   }
 
   const ordenadas = [...porMes.keys()].sort();
@@ -306,9 +296,13 @@ function curvaDaCaptacao(linhas: LinhaDeAporte[]): PontoDaCaptacao[] {
   let acumulado = 0;
 
   for (let mes = primeira; mes <= ultima; mes = mesSeguinte(mes)) {
-    const valor = porMes.get(mes) ?? 0;
+    const { entradas, aditivos } = porMes.get(mes) ?? {
+      entradas: 0,
+      aditivos: 0,
+    };
+    const valor = entradas + aditivos;
     acumulado += valor;
-    curva.push({ competencia: mes, valor, acumulado });
+    curva.push({ competencia: mes, valor, entradas, aditivos, acumulado });
   }
 
   return curva;
@@ -320,49 +314,6 @@ function mesSeguinte(competencia: string): string {
   return mes === 12
     ? `${ano + 1}-01`
     : `${ano}-${String(mes + 1).padStart(2, "0")}`;
-}
-
-/**
- * O que os contratos `final` renderam em cada mes.
- *
- * Reaproveita `apurarPosicao`, o mesmo apurador da posicao do investidor: é ele
- * que sabe as convencoes da modalidade `final` — juros simples sobre o capital,
- * pro rata die no mes de entrada, resultado retido. Refazer a conta aqui daria
- * uma segunda versao da regra, e as duas divergiriam no primeiro ajuste.
- *
- * **Um contrato por vez, somando as series depois.** Jogar os aportes de todo
- * mundo num `apurarPosicao` só daria o mesmo total (o rendimento de cada aporte
- * é independente), mas as faixas de participacao seriam calculadas sobre a
- * mistura das taxas de investidores diferentes — um numero sem significado que
- * ninguem usa aqui, mas que ficaria armado para quem viesse depois.
- */
-function provisaoDosFinais(
-  linhas: LinhaDeAporte[],
-  referencia: DataISO,
-): Map<string, number> {
-  const porContrato = new Map<string, LinhaDeAporte[]>();
-  for (const linha of linhas) {
-    if (linha.modalidade !== "final") continue;
-    const lista = porContrato.get(linha.contratoId);
-    if (lista) lista.push(linha);
-    else porContrato.set(linha.contratoId, [linha]);
-  }
-
-  const porMes = new Map<string, number>();
-
-  for (const doContrato of porContrato.values()) {
-    const posicao = apurarPosicao(doContrato, referencia);
-    if (!posicao) continue;
-
-    for (const mes of posicao.serie) {
-      porMes.set(
-        mes.competencia,
-        (porMes.get(mes.competencia) ?? 0) + mes.rendimento,
-      );
-    }
-  }
-
-  return porMes;
 }
 
 /** A ordem dos blocos na tela: primeiro o que sai de caixa, depois o retido. */
@@ -522,36 +473,6 @@ export async function montarPainel(
   const aditivos = soma((c) => c.aditivos);
   const totalCaptado = entradas + aditivos;
 
-  /*
-   * As duas metades do grafico de rendimento, juntadas por competencia.
-   *
-   * `pago` vem da tabela e existe só onde alguem lancou; `provisionado` vem da
-   * conta e existe em todo mes desde o primeiro aporte `final`. A uniao das
-   * duas listas de competencia é o eixo — assim nenhum mes some por faltar em
-   * um dos lados, e o mes que só tem um deles aparece com zero no outro, que é a
-   * leitura correta.
-   */
-  const provisao = provisaoDosFinais(linhas, referencia);
-
-  const pagoPorMes = new Map<string, number>();
-  for (const m of meses) {
-    // Só `mensal`: um credito lancado a mao num contrato `final` é adiantamento
-    // de resgate, e nao rendimento mensal — somar ali diria que a modalidade que
-    // nao paga por mes pagou.
-    if (m.modalidade !== "mensal") continue;
-    pagoPorMes.set(m.competencia, (pagoPorMes.get(m.competencia) ?? 0) + m.valor);
-  }
-
-  const rendimento: PontoDeRendimento[] = [
-    ...new Set([...pagoPorMes.keys(), ...provisao.keys()]),
-  ]
-    .sort()
-    .map((competencia) => ({
-      competencia,
-      pago: pagoPorMes.get(competencia) ?? 0,
-      provisionado: provisao.get(competencia) ?? 0,
-    }));
-
   // A serie antiga — todos os creditos por mes, sem separar — continua servindo
   // a contagem de "meses com credito" na faixa de indicadores.
   const serie: PontoDaSerie[] = [
@@ -596,8 +517,6 @@ export async function montarPainel(
     totalPago: meses.reduce((total, m) => total + m.valor, 0),
     serie,
     captacao: curvaDaCaptacao(linhas),
-    rendimento,
-    totalProvisionado: [...provisao.values()].reduce((t, v) => t + v, 0),
     ciclo: {
       data: dataDoCiclo,
       contratos: apurados.filter((c) => c.modalidade === "mensal").length,

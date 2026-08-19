@@ -105,6 +105,20 @@ function colunasVisiveis(t: Tabela): string {
     .join(", ");
 }
 
+/**
+ * O `where` da consulta: a condicao fixa da tabela mais o filtro da tela.
+ *
+ * `t.onde` vai literal — ele vem do registro, como os nomes de coluna. O filtro
+ * da URL entra por `$1`, e o **nome** dele ja foi conferido contra `t.filtros`
+ * antes de chegar aqui.
+ */
+function condicoes(t: Tabela, campoDoFiltro?: string): string {
+  const partes: string[] = [];
+  if (t.onde) partes.push(`(${t.onde})`);
+  if (campoDoFiltro) partes.push(`${ident(campoDoFiltro)} = $1`);
+  return partes.length ? `where ${partes.join(" and ")}` : "";
+}
+
 export async function listar(
   t: Tabela,
   filtro?: { campo: string; valor: string },
@@ -117,24 +131,23 @@ export async function listar(
   const permitido = filtro && t.filtros?.includes(filtro.campo);
   // `criado_em` no `order by` sem estar no `select`: o Postgres aceita, e nao ha
   // tabela que mostre essa coluna em todas as telas.
-  if (!permitido) {
-    return consultar(
-      `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
-        order by criado_em desc limit 200`,
-    );
-  }
-
   return consultar(
     `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
-      where ${ident(filtro.campo)} = $1
+      ${condicoes(t, permitido ? filtro.campo : undefined)}
       order by criado_em desc limit 200`,
-    [filtro.valor],
+    permitido ? [filtro.valor] : [],
   );
 }
 
 export async function obter(t: Tabela, id: string): Promise<Linha | undefined> {
+  /*
+   * O `onde` da tabela vale aqui tambem: um id de administrador colado na URL
+   * nao pode abrir o formulario de uma tela que so mostra investidores. Sem
+   * isso, a listagem esconderia a linha e a edicao a devolveria.
+   */
   const [linha] = await consultar(
-    `select ${colunasVisiveis(t)} from ${ident(t.tabela)} where id = $1`,
+    `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
+      where id = $1${t.onde ? ` and (${t.onde})` : ""}`,
     [id],
   );
   return linha;
@@ -154,9 +167,15 @@ export async function opcoesDeReferencia(
    */
   const legenda = alvo.rotuloSql ?? `${ident(alvo.rotuloRef)}::text`;
 
+  /*
+   * O `onde` do alvo entra aqui: o `<select>` de investidor em Contratos e em
+   * Notificacoes le `usuarios`, e administrador nao é opcao de investidor.
+   */
   const linhas = await consultar<{ id: string; rotulo: string }>(
     `select id, ${legenda} as rotulo
-       from ${ident(alvo.tabela)} order by rotulo limit 500`,
+       from ${ident(alvo.tabela)}
+       ${alvo.onde ? `where (${alvo.onde})` : ""}
+      order by rotulo limit 500`,
   );
   return linhas;
 }
@@ -186,9 +205,7 @@ export async function opcoesDeReferencia(
  * é o espaco comum e passa batido por um `trim()`.
  */
 function numeroDeTexto(texto: string): number {
-  const limpo = texto
-    .replace(/[R$%\s  ]/gi, "")
-    .replace(/^\+/, "");
+  const limpo = texto.replace(/[R$%\s  ]/gi, "").replace(/^\+/, "");
 
   const normalizado = limpo.includes(",")
     ? limpo.replace(/\./g, "").replace(",", ".")

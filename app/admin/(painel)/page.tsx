@@ -20,10 +20,9 @@ import { CabecalhoDaSecao } from "./_componentes/cabecalho";
 import { SeletorDeInvestidor } from "./_componentes/seletor-investidor";
 import {
   BarraDeModalidades,
-  COR_DA_MODALIDADE,
   GraficoDaCaptacao,
+  GraficoDeEntradas,
   GraficoDeObras,
-  GraficoDeRendimento,
   GraficoDoCaptado,
   GraficoDoInvestidor,
 } from "./_componentes/graficos";
@@ -130,14 +129,66 @@ export default async function AdminPage({
 
   return (
     <>
-      <CabecalhoDaSecao titulo="Painel" />
+      {/*
+       * O estado do ciclo vive no cabecalho desde que o bloco "Rendimento por
+       * mes" saiu: ele era o `acessorio` daquele bloco, e é a unica porta do
+       * painel para a folha de lancamento. Perde-lo junto com o grafico teria
+       * escondido a tarefa mais recorrente do /admin.
+       */}
+      <CabecalhoDaSecao
+        titulo="Painel"
+        acessorio={
+          <Link
+            href="/admin/recebimentos?lancar=1"
+            className="group flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+          >
+            {faltamLancar > 0
+              ? `Faltam ${faltamLancar} de ${painel.ciclo.contratos} em ${formatarData(painel.ciclo.data)}`
+              : `Ciclo de ${formatarData(painel.ciclo.data)} lançado`}
+            <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </Link>
+        }
+      />
 
-      {/* A captação abre a tela, e sozinha: ela é a unica pergunta que o painel
+      {/*
+       * O primeiro bloco: quanto entrou em cada mes.
+       *
+       * É a pergunta mais direta que o painel responde, e por isso abre a tela.
+       * Tudo o que vem depois é recorte disso — quanto do total ja foi, de onde
+       * veio, sob que regra entrou, quanto rende. Aqui é só o movimento bruto,
+       * mes a mes.
+       */}
+      <div className="escalonar mt-6">
+        <Bloco
+          titulo="Entradas por mês"
+          apoio="O que entrou em cada mês, entre contratos novos e aditivos."
+          acessorio={
+            <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
+                Contratos
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-ceu" />
+                Aditivos
+              </span>
+            </span>
+          }
+        >
+          {painel.captacao.length === 0 ? (
+            <p className="py-20 text-center text-sm text-neutral-500">
+              Nenhum aporte registrado ainda.
+            </p>
+          ) : (
+            <GraficoDeEntradas pontos={painel.captacao} />
+          )}
+        </Bloco>
+      </div>
+
+      {/* Logo abaixo do movimento do mes: ela é a unica peca do painel que
           responde com um numero contra outro — quanto entrou de quanto se quer.
           O resto é composição do que ja entrou. */}
-      {painel.progresso !== null && (
-        <ProgressoDaCaptacao painel={painel} />
-      )}
+      {painel.progresso !== null && <ProgressoDaCaptacao painel={painel} />}
 
       {/* A faixa: larga, baixa e dividida por filetes. Nao sao quatro cartoes —
           é uma peca só, e os numeros dela se leem numa passada horizontal. */}
@@ -239,7 +290,7 @@ export default async function AdminPage({
               nome: MODALIDADES[m.modalidade].nome,
               valor: m.capital,
             }))}
-            cores={painel.modalidades.map((m) => COR_DA_MODALIDADE[m.modalidade])}
+            paleta="modalidade"
             total={painel.totalCaptado}
           />
 
@@ -253,54 +304,6 @@ export default async function AdminPage({
               />
             ))}
           </dl>
-        </Bloco>
-      </div>
-
-      <div className="escalonar mt-4">
-        <Bloco
-          titulo="Rendimento por mês"
-          apoio="O que saiu do caixa no mensal, e o que ficou devendo no final."
-          acessorio={
-            /* O estado do ciclo mora aqui, e nao num bloco proprio: "faltam 2"
-               só quer dizer alguma coisa ao lado do que ja foi pago. */
-            <Link
-              href="/admin/recebimentos?lancar=1"
-              className="group flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-            >
-              {faltamLancar > 0
-                ? `Faltam ${faltamLancar} de ${painel.ciclo.contratos} em ${formatarData(painel.ciclo.data)}`
-                : `Ciclo de ${formatarData(painel.ciclo.data)} lançado`}
-              <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-          }
-        >
-          {painel.rendimento.length === 0 ? (
-            <p className="py-20 text-center text-sm text-neutral-500">
-              Nenhum rendimento apurado ainda.
-            </p>
-          ) : (
-            <>
-              <GraficoDeRendimento pontos={painel.rendimento} />
-
-              {/* A legenda diz a diferenca que as cores sozinhas nao dizem: um
-                  ja saiu do caixa, o outro ainda vai sair. Sem esta linha, duas
-                  barras vizinhas leem como duas parcelas da mesma coisa. */}
-              <dl className="mt-4 grid gap-3 border-t border-zinc-200 pt-4 sm:grid-cols-2">
-                <LegendaDoRendimento
-                  cor={COR_DA_MODALIDADE.mensal}
-                  rotulo="Pago no mensal"
-                  valor={formatarMoeda(painel.totalPago)}
-                  apoio="Crédito que já caiu na conta dos investidores."
-                />
-                <LegendaDoRendimento
-                  cor={COR_DA_MODALIDADE.final}
-                  rotulo="Provisionado no final"
-                  valor={formatarMoeda(painel.totalProvisionado)}
-                  apoio="Retido no saldo, a pagar no resgate."
-                />
-              </dl>
-            </>
-          )}
         </Bloco>
       </div>
 
@@ -340,7 +343,9 @@ export default async function AdminPage({
                     apoio="vigente hoje"
                   />
                   <Resumo
-                    rotulo={serie.modalidade === "mensal" ? "Já pago" : "Saldo hoje"}
+                    rotulo={
+                      serie.modalidade === "mensal" ? "Já pago" : "Saldo hoje"
+                    }
                     valor={formatarMoeda(serie.ateAgora)}
                     apoio={
                       serie.modalidade === "mensal"
@@ -350,7 +355,9 @@ export default async function AdminPage({
                   />
                   <Resumo
                     rotulo={
-                      serie.modalidade === "mensal" ? "Total no prazo" : "No resgate"
+                      serie.modalidade === "mensal"
+                        ? "Total no prazo"
+                        : "No resgate"
                     }
                     valor={formatarMoeda(serie.aoFim)}
                     apoio={`projetado até ${formatarCompetencia(serie.fimDoPrazo)}`}
@@ -391,7 +398,7 @@ export default async function AdminPage({
             fatias={painel.modalidades.map((m) => ({
               nome: MODALIDADES[m.modalidade].nome,
               valor: m.capital,
-              cor: COR_DA_MODALIDADE[m.modalidade],
+              modalidade: m.modalidade,
             }))}
           />
 
@@ -428,10 +435,7 @@ export default async function AdminPage({
           acessorio={
             <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
               <span className="flex items-center gap-1.5">
-                <span
-                  aria-hidden
-                  className="h-2 w-2 rounded-full bg-marinho"
-                />
+                <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
                 Captado
               </span>
               <span className="flex items-center gap-1.5">
@@ -593,52 +597,12 @@ function Bloco({
           <h2 className="text-sm font-bold tracking-tight text-tinta">
             {titulo}
           </h2>
-          {apoio && (
-            <p className="mt-0.5 text-xs text-neutral-500">{apoio}</p>
-          )}
+          {apoio && <p className="mt-0.5 text-xs text-neutral-500">{apoio}</p>}
         </div>
         {acessorio}
       </header>
       {children}
     </section>
-  );
-}
-
-/**
- * Uma metade da legenda do rendimento.
- *
- * Existe porque a diferenca entre as duas barras nao é de grandeza, é de
- * natureza: uma ja saiu do caixa e a outra ainda vai sair. Cor sozinha nao diz
- * isso, e o total ao lado é o que ancora cada barra num numero.
- */
-function LegendaDoRendimento({
-  cor,
-  rotulo,
-  valor,
-  apoio,
-}: {
-  cor: string;
-  rotulo: string;
-  valor: string;
-  apoio: string;
-}) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <span
-        aria-hidden
-        className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: cor }}
-      />
-      <div className="min-w-0">
-        <dt className="text-xs text-neutral-500">{rotulo}</dt>
-        <dd className="mt-0.5 text-sm font-bold tabular-nums text-tinta">
-          {valor}
-        </dd>
-        <p className="mt-0.5 text-xs leading-relaxed text-neutral-400">
-          {apoio}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -663,7 +627,9 @@ function Resumo({
       <dt className="text-[0.6875rem] font-semibold tracking-wider text-neutral-400 uppercase">
         {rotulo}
       </dt>
-      <dd className="mt-1 text-lg font-bold tabular-nums text-tinta">{valor}</dd>
+      <dd className="mt-1 text-lg font-bold tabular-nums text-tinta">
+        {valor}
+      </dd>
       <p className="text-xs text-neutral-400">{apoio}</p>
     </div>
   );
@@ -716,10 +682,14 @@ function LinhaDaModalidade({ resumo }: { resumo: ResumoDeModalidade }) {
     <tr>
       <td className="py-3 pr-4">
         <span className="flex items-center gap-2">
+          {/* Classe, e nao `style` com o hex: a cor mora no modulo cliente e
+              nao chega ate aqui. Estas duas sao as mesmas de "Captado por
+              origem", entao os tokens da marca ja as expressam. */}
           <span
             aria-hidden
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: COR_DA_MODALIDADE[resumo.modalidade] }}
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              resumo.modalidade === "mensal" ? "bg-marinho" : "bg-ceu"
+            }`}
           />
           <span className="font-semibold text-tinta">{texto.nome}</span>
         </span>

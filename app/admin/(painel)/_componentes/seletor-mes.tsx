@@ -16,7 +16,9 @@ export function SeletorDeMes({ competencia }: { competencia: string }) {
 
   return (
     <label className="flex items-center gap-2">
-      <span className="text-xs font-semibold text-neutral-600">Competência</span>
+      <span className="text-xs font-semibold text-neutral-600">
+        Competência
+      </span>
       <input
         key={competencia}
         type="month"

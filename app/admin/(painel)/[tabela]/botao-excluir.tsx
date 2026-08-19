@@ -1,5 +1,7 @@
 "use client";
 
+import { BotaoEnviar } from "../_componentes/botao-enviar";
+
 /**
  * O "Excluir" de cada linha, com uma pergunta antes.
  *
@@ -14,8 +16,8 @@
  */
 export function BotaoExcluir({ oQue }: { oQue: string }) {
   return (
-    <button
-      type="submit"
+    <BotaoEnviar
+      enviando="Excluindo…"
       onClick={(evento) => {
         if (!confirm(`Excluir ${oQue}?\n\nIsso não tem volta.`)) {
           evento.preventDefault();
@@ -24,6 +26,6 @@ export function BotaoExcluir({ oQue }: { oQue: string }) {
       className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
     >
       Excluir
-    </button>
+    </BotaoEnviar>
   );
 }

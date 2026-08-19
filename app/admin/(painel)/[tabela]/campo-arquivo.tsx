@@ -37,7 +37,9 @@ export function CampoArquivo({
   ajuda?: string;
 }) {
   const [caminho, setCaminho] = useState(valorAtual);
-  const [estado, setEstado] = useState<"parado" | "enviando" | "erro">("parado");
+  const [estado, setEstado] = useState<"parado" | "enviando" | "erro">(
+    "parado",
+  );
   const [erro, setErro] = useState<string | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
@@ -50,7 +52,9 @@ export function CampoArquivo({
      */
     if (teto && arquivo.size > teto) {
       setEstado("erro");
-      setErro(`o arquivo tem ${(arquivo.size / 1024 / 1024).toFixed(1)} MB e o limite é ${Math.round(teto / 1024 / 1024)} MB`);
+      setErro(
+        `o arquivo tem ${(arquivo.size / 1024 / 1024).toFixed(1)} MB e o limite é ${Math.round(teto / 1024 / 1024)} MB`,
+      );
       if (entrada.current) entrada.current.value = "";
       return;
     }
@@ -69,7 +73,8 @@ export function CampoArquivo({
         headers: { "content-type": arquivo.type || "application/octet-stream" },
         body: arquivo,
       });
-      if (!resposta.ok) throw new Error(`o bucket recusou (${resposta.status})`);
+      if (!resposta.ok)
+        throw new Error(`o bucket recusou (${resposta.status})`);
 
       setCaminho(destino);
       setEstado("parado");
@@ -109,10 +114,7 @@ export function CampoArquivo({
         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-marinho file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul disabled:opacity-60"
       />
 
-      <span
-        className="mt-1 block text-xs text-neutral-400"
-        aria-live="polite"
-      >
+      <span className="mt-1 block text-xs text-neutral-400" aria-live="polite">
         {estado === "enviando"
           ? "Enviando..."
           : estado === "erro"

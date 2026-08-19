@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Seletor } from "../_componentes/seletor";
 
 /**
  * Filtro da listagem, por campo de referencia.
@@ -51,20 +52,22 @@ export function FiltroDaListagem({
   }
 
   return (
-    <label className="flex items-center gap-2">
-      <span className="text-xs font-semibold text-neutral-600">{rotulo}</span>
-      <select
-        value={selecionado}
-        onChange={(evento) => trocar(evento.target.value)}
-        className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
-      >
-        <option value="">Todos</option>
-        {opcoes.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.rotulo}
-          </option>
-        ))}
-      </select>
-    </label>
+    <span className="flex items-center gap-2">
+      <span className="shrink-0 text-xs font-semibold text-neutral-600">
+        {rotulo}
+      </span>
+      {/* `key` no valor: o seletor guarda a escolha em estado proprio, e depois
+          da navegacao o servidor manda o valor novo — sem remontar, os dois
+          discordariam se alguem usasse o botao de voltar. */}
+      <Seletor
+        key={selecionado}
+        rotuloAcessivel={rotulo}
+        opcoes={opcoes.map((o) => ({ valor: o.id, rotulo: o.rotulo }))}
+        valorInicial={selecionado}
+        vazio="Todos"
+        aoEscolher={trocar}
+        className="min-w-52 py-1.5"
+      />
+    </span>
   );
 }

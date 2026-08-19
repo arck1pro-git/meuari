@@ -2,6 +2,8 @@ import { opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
 import type { Campo, Tabela } from "@/lib/admin/tabelas";
 import { TETOS } from "@/lib/upload";
 import { acaoAtualizar, acaoCriar } from "../../acoes";
+import { BotaoEnviar } from "../_componentes/botao-enviar";
+import { Seletor } from "../_componentes/seletor";
 import { CampoArquivo } from "./campo-arquivo";
 import { CampoNumero } from "./campo-numero";
 
@@ -136,23 +138,32 @@ async function CampoDoFormulario({
       {campo.tipo === "area" ? (
         <textarea {...comum} rows={3} defaultValue={valor} />
       ) : campo.tipo === "escolha" ? (
-        <select {...comum} defaultValue={valor}>
-          <option value="">—</option>
-          {campo.opcoes?.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1.5">
+          <Seletor
+            nome={campo.nome}
+            rotuloAcessivel={campo.rotulo}
+            opcoes={(campo.opcoes ?? []).map((o) => ({ valor: o, rotulo: o }))}
+            valorInicial={valor}
+            vazio="—"
+            obrigatorio={campo.obrigatorio}
+          />
+        </div>
       ) : campo.tipo === "referencia" ? (
-        <select {...comum} defaultValue={valor}>
-          <option value="">—</option>
-          {(await opcoesDeReferencia(campo)).map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.rotulo}
-            </option>
-          ))}
-        </select>
+        /* As opcoes vem prontas do servidor — ate 500 linhas. É por isso que o
+           seletor tem busca a partir de oito. */
+        <div className="mt-1.5">
+          <Seletor
+            nome={campo.nome}
+            rotuloAcessivel={campo.rotulo}
+            opcoes={(await opcoesDeReferencia(campo)).map((o) => ({
+              valor: o.id,
+              rotulo: o.rotulo,
+            }))}
+            valorInicial={valor}
+            vazio="—"
+            obrigatorio={campo.obrigatorio}
+          />
+        </div>
       ) : (
         <input
           {...comum}
@@ -203,93 +214,47 @@ export async function Formulario({
 
   return (
     /*
-     * Recolhido para criar, aberto para editar.
+     * Sem moldura propria: a folha que o envolve ja é a superficie.
      *
-     * Ele ficava sempre escancarado acima da tabela, e em Contratos sao doze
-     * campos: para ver os dados era preciso rolar por um formulario vazio toda
-     * vez. `<details>` resolve isso sem estado nem cliente — quem chega para
-     * consultar ve a tabela, e quem chega para cadastrar abre.
+     * Ele era um `<details>` recolhido acima da tabela — cartao branco, sombra,
+     * um resumo clicavel para abrir. Aquilo resolvia o problema de ocupar a tela
+     * toda quando ninguem ia cadastrar nada, mas empurrava a listagem para baixo
+     * ao abrir, e em Contratos sao doze campos: a tabela saia de vista
+     * justamente quando se queria conferir o que ja existe.
      *
-     * Editar abre sozinho, porque ai o formulario *é* o assunto: veio um id na
-     * URL justamente para mexer nele.
+     * Agora ele sobe por cima de tudo, e a listagem continua onde estava.
      */
-    <details
-      open={editando}
-      className="sombra-cartao group animate-surgir rounded-2xl border border-zinc-200 bg-white [animation-delay:60ms]"
-    >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-colors duration-200 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul sm:px-8 [&::-webkit-details-marker]:hidden">
-        <span>
-          <span className="block text-sm font-bold tracking-tight text-tinta">
-            {editando ? "Editar registro" : `Novo em ${tabela.rotulo}`}
-          </span>
-          <span className="mt-0.5 block text-xs text-neutral-500">
-            {editando
-              ? "As alterações valem ao salvar."
-              : "Abrir o formulário de cadastro."}
-          </span>
-        </span>
+    <form action={acao}>
+      <header className="mb-5 pr-10">
+        <h2 className="text-base font-bold tracking-tight text-tinta">
+          {editando
+            ? "Editar registro"
+            : (tabela.rotuloNovo ?? "Novo registro")}
+        </h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          {editando ? "As alterações valem ao salvar." : `Em ${tabela.rotulo}.`}
+        </p>
+      </header>
 
-        {/* A cruz vira "menos" quando abre — a mesma peca dizendo os dois
-            estados, sem trocar de icone. */}
-        <span
-          aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-marinho transition-transform duration-300 ease-[var(--ease-suave)] group-open:rotate-45"
+      <div className="grid gap-4 sm:grid-cols-2">
+        {tabela.campos.map((campo) => (
+          <CampoDoFormulario
+            key={campo.nome}
+            campo={campo}
+            linha={linha}
+            slug={tabela.slug}
+          />
+        ))}
+      </div>
+
+      <div className="mt-6">
+        <BotaoEnviar
+          enviando="Salvando…"
+          className="w-full rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 sm:w-auto"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            className="h-4 w-4"
-          >
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-        </span>
-      </summary>
-
-      <form
-        /*
-         * A `key` amarra o formulario ao registro. Sem ela, ir da lista para
-         * "Editar" é navegacao de cliente: o React reaproveita os mesmos nos do
-         * formulario de criar, e `defaultValue` so vale na montagem. Os inputs
-         * ainda acompanham, porque o React reescreve o atributo `value`; os
-         * `<select>` nao — ficam no vazio do formulario anterior. Como sao
-         * obrigatorios, o navegador barra o envio e o registro nao salva.
-         */
-        key={editando ? String(linha!.id) : "novo"}
-        action={acao}
-        className="border-t border-zinc-200 px-5 py-6 sm:px-8"
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          {tabela.campos.map((campo) => (
-            <CampoDoFormulario
-              key={campo.nome}
-              campo={campo}
-              linha={linha}
-              slug={tabela.slug}
-            />
-          ))}
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="submit"
-            className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-          >
-            {editando ? "Salvar" : "Criar"}
-          </button>
-          {editando && (
-            <a
-              href={`/admin/${tabela.slug}`}
-              className="rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-medium text-neutral-600 transition-colors duration-200 hover:bg-zinc-50 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-            >
-              Cancelar
-            </a>
-          )}
-        </div>
-      </form>
-    </details>
+          {editando ? "Salvar" : "Criar"}
+        </BotaoEnviar>
+      </div>
+    </form>
   );
 }

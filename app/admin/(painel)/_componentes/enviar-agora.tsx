@@ -1,4 +1,6 @@
 import { consultar } from "@/lib/db";
+import { BotaoEnviar } from "./botao-enviar";
+import { Seletor } from "./seletor";
 import { acaoEnviarNotificacao } from "../../acoes";
 
 /**
@@ -15,39 +17,29 @@ import { acaoEnviarNotificacao } from "../../acoes";
 const CLASSE_CAMPO =
   "mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul";
 
-export async function EnviarAgora({
-  ok,
-  entregues,
-  aparelhos,
-}: {
-  ok?: string;
-  entregues?: string;
-  aparelhos?: string;
-}) {
+/*
+ * O aviso de "enviado" saiu daqui e foi para a pagina.
+ *
+ * A acao redireciona para `/admin/notificacoes?ok=enviado`, **sem** o parametro
+ * que abre esta folha — ou seja, quando a confirmacao chega, este componente ja
+ * nao esta na tela. Deixado aqui, o aviso nunca apareceria.
+ */
+export async function EnviarAgora() {
   const investidores = await consultar<{ id: string; nome: string }>(
     `select id, nome from usuarios where tipo = 'investidor' order by nome`,
   );
 
   return (
-    <section className="mt-10">
-      <h2 className="animate-surgir text-base font-bold tracking-tight text-tinta">
-        Enviar agora
-      </h2>
-      <p className="mt-1 animate-surgir text-sm text-neutral-500">
-        Vai na hora: aparece no sino e chega como push em quem tem o app
-        instalado.
-      </p>
-
-      {ok === "enviado" && (
-        <p className="mt-4 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-verde">
-          Aviso enviado.{" "}
-          {Number(aparelhos ?? 0) === 0
-            ? "Nenhum aparelho está inscrito para push — ele aparece no sino quando o investidor abrir o app."
-            : `Push entregue em ${entregues} de ${aparelhos} ${
-                Number(aparelhos) === 1 ? "aparelho" : "aparelhos"
-              }.`}
+    <section>
+      <header className="mb-5 pr-10">
+        <h2 className="text-base font-bold tracking-tight text-tinta">
+          Enviar agora
+        </h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Vai na hora: aparece no sino e chega como push em quem tem o app
+          instalado.
         </p>
-      )}
+      </header>
 
       <form
         action={acaoEnviarNotificacao}
@@ -62,7 +54,9 @@ export async function EnviarAgora({
           </label>
 
           <label className="block sm:col-span-2">
-            <span className="text-xs font-semibold text-neutral-600">Texto</span>
+            <span className="text-xs font-semibold text-neutral-600">
+              Texto
+            </span>
             <textarea name="corpo" rows={2} className={CLASSE_CAMPO} />
           </label>
 
@@ -70,14 +64,17 @@ export async function EnviarAgora({
             <span className="text-xs font-semibold text-neutral-600">
               Investidor
             </span>
-            <select name="usuario_id" defaultValue="" className={CLASSE_CAMPO}>
-              <option value="">Todos os investidores</option>
-              {investidores.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nome}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1.5">
+              <Seletor
+                nome="usuario_id"
+                rotuloAcessivel="Investidor"
+                opcoes={investidores.map((i) => ({
+                  valor: i.id,
+                  rotulo: i.nome,
+                }))}
+                vazio="Todos os investidores"
+              />
+            </div>
             <span className="mt-1 block text-xs text-neutral-400">
               Em branco = aviso geral.
             </span>
@@ -92,12 +89,12 @@ export async function EnviarAgora({
           </label>
         </div>
 
-        <button
-          type="submit"
+        <BotaoEnviar
+          enviando="Enviando…"
           className="mt-6 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
         >
           Enviar agora
-        </button>
+        </BotaoEnviar>
       </form>
     </section>
   );
