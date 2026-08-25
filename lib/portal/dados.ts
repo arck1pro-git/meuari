@@ -336,8 +336,10 @@ export async function getEmpreendimentos(
   const comDocumentos = pelaRota(documentos);
   const comImagens = await resolver(imagens, BUCKETS.imagens);
 
-  const dos = <T extends { empreendimentoId: string }>(lista: T[], id: string) =>
-    lista.filter((item) => item.empreendimentoId === id);
+  const dos = <T extends { empreendimentoId: string }>(
+    lista: T[],
+    id: string,
+  ) => lista.filter((item) => item.empreendimentoId === id);
 
   return empreendimentos.map((e) => ({
     ...e,
@@ -450,6 +452,14 @@ export type Etapa = {
   /** `null` enquanto a etapa estiver em andamento. */
   concluidaEm: DataISO | null;
   observacao: string | null;
+  /**
+   * Link para `/arquivo/etapa/{id}`, ou `null` quando nao ha papel anexado.
+   *
+   * **Nunca o caminho no bucket**, e nunca uma URL assinada: é a rota que
+   * confere a posse de novo, registra quem abriu e assina por 60 segundos.
+   * Mesmo arranjo dos documentos da obra — ver `pelaRota`.
+   */
+  documento: string | null;
 };
 
 /** O empreendimento inteiro: ficha, fotos, etapas e documentos. */
@@ -501,10 +511,16 @@ export async function getObra(
         order by criado_em desc, nome`,
       [base.id, FUSO],
     ),
+    /*
+     * `documento` sai daqui como o caminho cru do bucket e é trocado pelo link
+     * da rota logo abaixo, na montagem — a coluna nunca chega ao navegador. Ver
+     * a nota no tipo `Etapa`.
+     */
     consultar<Etapa>(
       `select id, nome, percentual::float8 as percentual,
               to_char(concluida_em, 'YYYY-MM-DD') as "concluidaEm",
-              observacao
+              observacao,
+              documento
          from etapas where empreendimento_id = $1
         order by ordem, criado_em`,
       [base.id],
@@ -536,7 +552,16 @@ export async function getObra(
     ...base,
     documentos: comDocumentos,
     imagens: comImagens,
-    etapas,
+    /*
+     * O caminho no bucket sai daqui e o link da rota entra no lugar. A troca
+     * é nesta linha, e nao no SQL, pelo mesmo motivo de `pelaRota`: a coluna
+     * guarda o caminho, a tela precisa de um endereco, e quem converte um no
+     * outro é o codigo que sabe onde a rota mora.
+     */
+    etapas: etapas.map((etapa) => ({
+      ...etapa,
+      documento: etapa.documento ? `/arquivo/etapa/${etapa.id}` : null,
+    })),
     atualizadoEm: movimento[0]?.atualizadoEm ?? null,
   };
 }

@@ -5,7 +5,8 @@ import { consultar } from "@/lib/db";
 import { assinarLeitura, BUCKETS, type Bucket } from "@/lib/storage";
 
 /**
- * A porta de todo documento privado: contrato, aditivo e papel de obra.
+ * A porta de todo documento privado: contrato, aditivo, papel de obra e o
+ * comprovante de uma etapa.
  *
  * Antes o link na tela **era** a URL assinada, gerada ao montar a pagina. Duas
  * consequencias:
@@ -43,10 +44,10 @@ const VALIDADE_SEGUNDOS = 60;
  * qual das consultas abaixo roda. É a mesma regra dos nomes de tabela em
  * `lib/admin/tabelas.ts` — identificador nao vem de requisicao.
  */
-type Escopo = "aporte" | "obra";
+type Escopo = "aporte" | "obra" | "etapa";
 
 function ehEscopo(valor: string): valor is Escopo {
-  return valor === "aporte" || valor === "obra";
+  return valor === "aporte" || valor === "obra" || valor === "etapa";
 }
 
 /** O caminho no bucket, ou `undefined` se aquele arquivo nao é desta pessoa. */
@@ -79,7 +80,41 @@ async function caminhoDoArquivo(
     );
 
     return linha
-      ? { caminho: linha.caminho, bucket: BUCKETS.contratos, tabela: linha.origem }
+      ? {
+          caminho: linha.caminho,
+          bucket: BUCKETS.contratos,
+          tabela: linha.origem,
+        }
+      : undefined;
+  }
+
+  if (escopo === "etapa") {
+    /*
+     * O papel que comprova uma etapa da obra — laudo, ART, medicao.
+     *
+     * Mesmo bucket e mesma regra de posse do papel do empreendimento: etapa
+     * pertence a uma obra, e quem pode ver a obra pode ver o que comprova o
+     * andamento dela. Escopo proprio, e nao um id a mais no de `obra`, porque
+     * sao tabelas diferentes e um id de `documentos` nao pode servir de id de
+     * `etapas` — nem o contrario.
+     */
+    const [linha] = await consultar<{ caminho: string }>(
+      `select et.documento as caminho
+         from etapas et
+        where et.id = $1
+          and et.documento is not null
+          and exists (
+            select 1
+              from contratos c
+             where c.empreendimento_id = et.empreendimento_id
+               and c.usuario_id = $2
+          )
+        limit 1`,
+      [id, usuarioId],
+    );
+
+    return linha
+      ? { caminho: linha.caminho, bucket: BUCKETS.documentos, tabela: "etapas" }
       : undefined;
   }
 
@@ -103,7 +138,11 @@ async function caminhoDoArquivo(
   );
 
   return linha
-    ? { caminho: linha.caminho, bucket: BUCKETS.documentos, tabela: "documentos" }
+    ? {
+        caminho: linha.caminho,
+        bucket: BUCKETS.documentos,
+        tabela: "documentos",
+      }
     : undefined;
 }
 

@@ -1,5 +1,8 @@
 import type { Etapa } from "@/lib/portal/dados";
-import { IconeConfere } from "../../portal/_componentes/icones";
+import {
+  IconeConfere,
+  IconeTransparencia,
+} from "../../portal/_componentes/icones";
 
 /**
  * Os projetos em dois quadros, lado a lado: o que ja passou e o que ainda esta
@@ -101,8 +104,38 @@ export function QuadrosDaObra({ etapas }: { etapas: Etapa[] }) {
                         <span className="truncate">{etapa.nome}</span>
                       </p>
 
-                      <span className="shrink-0 text-sm font-bold tabular-nums text-black">
-                        {etapa.percentual.toFixed(0)}%
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="text-sm font-bold tabular-nums text-black">
+                          {etapa.percentual.toFixed(0)}%
+                        </span>
+
+                        {/*
+                         * O papel que comprova a etapa — laudo, ART, medicao.
+                         *
+                         * So aparece na etapa que tem um. Um botao apagado em
+                         * toda linha prometeria um documento que nao existe, e
+                         * a ausencia dele ja é a resposta.
+                         *
+                         * `<a>`, e nao `<button>`: o destino é um endereco, e
+                         * quem clica espera poder abrir em outra aba. Ele leva
+                         * a `/arquivo/etapa/{id}`, que confere a posse de novo
+                         * no servidor, registra quem abriu e so entao assina —
+                         * o link daqui nao é o arquivo, é o pedido dele.
+                         *
+                         * O alvo de toque é 32px, acima do minimo confortavel,
+                         * mesmo com o icone desenhando 16.
+                         */}
+                        {etapa.documento && (
+                          <a
+                            href={etapa.documento}
+                            download
+                            aria-label={`Baixar o documento da etapa ${etapa.nome}`}
+                            title="Baixar documento"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors duration-200 hover:bg-tinta/[0.06] hover:text-marinho focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                          >
+                            <IconeTransparencia className="h-4 w-4" />
+                          </a>
+                        )}
                       </span>
                     </div>
 
