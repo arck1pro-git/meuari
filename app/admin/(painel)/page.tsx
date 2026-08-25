@@ -604,8 +604,30 @@ function Bloco({
   children: React.ReactNode;
 }) {
   return (
+    /*
+     * `relative` mais `z` no hover: é o que tira o balao do grafico de tras do
+     * bloco vizinho.
+     *
+     * A causa nao é o balao — é a animacao de entrada. `--animate-surgir` anima
+     * `transform` e `opacity` com `fill-mode: both`, e enquanto ela vale o
+     * navegador mantem **cada bloco como um contexto de empilhamento proprio**.
+     * O balao do Recharts é posicionado dentro do bloco dele, entao nao tem como
+     * escapar desse contexto: dois blocos irmaos empatam em camada, e quem vem
+     * depois na arvore pinta por cima — sempre.
+     *
+     * Subir o `z-index` do proprio balao nao resolveria: ele so ordena dentro do
+     * contexto onde ja esta preso. Quem precisa subir é o bloco inteiro.
+     *
+     * No hover, e nao fixo, porque fixo apenas move o empate: se todos os
+     * blocos ficassem em `z-20`, a ordem da arvore voltaria a decidir. Como o
+     * balao só existe enquanto o ponteiro esta no grafico, levantar o bloco
+     * exatamente nesse momento resolve sem criar camada permanente nenhuma.
+     *
+     * `focus-within` pelo mesmo motivo, para quem navega por teclado: o
+     * `accessibilityLayer` do Recharts abre o mesmo balao no foco.
+     */
     <section
-      className={`rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 ${className}`}
+      className={`relative rounded-xl border border-zinc-200 bg-white p-4 focus-within:z-20 hover:z-20 sm:p-5 ${className}`}
     >
       <header className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">

@@ -122,9 +122,7 @@ export function AbaAporte({
        * do container, e soltos aqui eles entrariam em tempos diferentes.
        */}
       <div id="recebimentos" className="scroll-mt-24">
-        <h2 className="mb-5 text-base font-bold tracking-tight text-black">
-          Investido
-        </h2>
+        <h2 className="sr-only">Investido</h2>
         <Cartao tom="escuro">
           {progresso || recebimentos.pagamentos.length > 0 ? (
             <>
@@ -170,28 +168,36 @@ export function AbaAporte({
               </div>
 
               {/* Só o grafico. A participacao de cada ciclo — e o rateio,
-                  quando a taxa muda no meio — continua no toque da barra. */}
-              {(progresso ? mesesVisiveis.length : visiveis.length) > 0 ? (
-                progresso ? (
-                  <GraficoProgresso
-                    serie={mesesVisiveis}
-                    competenciaAtual={competenciaAtual}
-                    tom="escuro"
-                  />
+                  quando a taxa muda no meio — continua no toque da barra.
+
+                  O `mt-8` é o respiro entre o saldo e o desenho. O corpo do
+                  cartao é bloco simples, entao esta margem **colapsa** com o
+                  `mb-5` da fila de periodos logo acima: o vao final é 32px, e
+                  nao a soma dos dois. Mexer aqui é o jeito de afastar o
+                  grafico do numero sem empurrar tambem os botoes. */}
+              <div className="mt-8">
+                {(progresso ? mesesVisiveis.length : visiveis.length) > 0 ? (
+                  progresso ? (
+                    <GraficoProgresso
+                      serie={mesesVisiveis}
+                      competenciaAtual={competenciaAtual}
+                      tom="escuro"
+                    />
+                  ) : (
+                    <GraficoRecebimentos
+                      pagamentos={visiveis}
+                      competenciaAtual={competenciaAtual}
+                      tom="escuro"
+                    />
+                  )
                 ) : (
-                  <GraficoRecebimentos
-                    pagamentos={visiveis}
-                    competenciaAtual={competenciaAtual}
-                    tom="escuro"
-                  />
-                )
-              ) : (
-                // Acontece em "Neste ano" enquanto nada aconteceu no ano
-                // corrente. O grafico precisa de pelo menos um ponto.
-                <p className="py-10 text-center text-sm text-white/75">
-                  Nada neste período.
-                </p>
-              )}
+                  // Acontece em "Neste ano" enquanto nada aconteceu no ano
+                  // corrente. O grafico precisa de pelo menos um ponto.
+                  <p className="py-10 text-center text-sm text-white/75">
+                    Nada neste período.
+                  </p>
+                )}
+              </div>
             </>
           ) : (
             // O grafico precisa de pelo menos um ponto para existir; sem
@@ -208,10 +214,8 @@ export function AbaAporte({
           para nele com o titulo visivel, e nao logo abaixo dele. O `scroll-mt`
           vem junto, porque era o `Cartao` quem o trazia. */}
       <div id="historico" className="mt-16 scroll-mt-24">
-        <div className="mb-5 flex items-baseline justify-between gap-3">
-          <h2 className="text-base font-bold tracking-tight text-black">
-            Historico
-          </h2>
+        <div className="mb-5 flex items-baseline justify-end gap-3">
+          <h2 className="sr-only">Historico</h2>
 
           {/* Mesma forma do atalho do cartao de saldo. Só aparece quando ha o
               que ver alem do recorte — senao levaria a uma copia da tela. */}

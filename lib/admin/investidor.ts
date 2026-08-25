@@ -67,10 +67,16 @@ export type SerieDoInvestidor = {
 export async function investidoresComContrato(): Promise<
   { id: string; nome: string }[]
 > {
+  /*
+   * `tipo = 'investidor'` deixa de fora o contrato em nome de administrador —
+   * a conta de demonstracao. Sem isso ela aparecia no seletor do painel como
+   * mais um investidor da carteira.
+   */
   return consultar(
     `select distinct u.id, u.nome
        from usuarios u
        join contratos c on c.usuario_id = u.id
+      where u.tipo = 'investidor'
       order by u.nome`,
   );
 }

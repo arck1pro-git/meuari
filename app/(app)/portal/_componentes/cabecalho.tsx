@@ -3,19 +3,22 @@ import type { Notificacao } from "@/lib/portal/notificacoes";
 import { Sino } from "./sino";
 
 /*
- * O cabecalho do mobile: quem entrou e o sino.
+ * O cabecalho de todas as telas: quem entrou e o sino.
  *
- * `md:hidden` — a partir do desktop ele nao existe, e tudo o que estava aqui
- * passa para a barra lateral. Nao é o mesmo bloco reposicionado: sao duas
- * formas para dois tamanhos, e a lateral tem espaco para nome, secoes e sino
- * de uma vez.
+ * **Vale tambem no desktop.** Ele era `md:hidden`, e a partir do `md` quem
+ * carregava o nome era a barra lateral. Ela nao existe mais, entao a
+ * identificacao de quem entrou passou a valer nos dois tamanhos, aqui.
+ *
+ * **Sem fila de secoes e sem saida.** As secoes ficariam de enfeite: no
+ * desktop o /portal ja mostra as tres de uma vez, e no celular quem navega é
+ * a barra do rodape. A saida mora no /perfil, junto do "sair de todos os
+ * aparelhos" — e o retrato aqui do lado é o caminho para la.
  *
  * O saldo saiu daqui — antes ele era assumido pelo cabecalho conforme a pessoa
  * rolava, com um `useEffect` medindo a cada quadro. Agora é assunto exclusivo do
  * cartao do /portal.
  *
- * Voltou a ser Server Component quando o sino saiu para o modulo dele: o estado
- * do painel mora la, e aqui nao sobrou nada de cliente.
+ * Sem estado e sem rota lida, é Server Component.
  */
 export function Cabecalho({
   nome,
@@ -33,15 +36,18 @@ export function Cabecalho({
     // `sticky` e nao `fixed`: assim o header continua ocupando altura no fluxo
     // e o conteudo abaixo nao precisa de padding de compensacao.
     /*
-     * O degrade vai de escuro a escuro: quem acende a faixa sao os dois brilhos
-     * radiais abaixo, um em cada canto. Terminar no ceu deixava o canto inferior
-     * lavado de azul-claro, porque parada de cor termina em parede.
+     * Cor chapada, e nao degrade.
      *
-     * A cor vem da classe `degrade-cabecalho`, escrita em CSS puro no
-     * `globals.css` — ver o comentario de la sobre por que ela nao usa os
-     * utilitarios de degrade do Tailwind.
+     * A faixa usava `degrade-cabecalho`, que vai de `#001449` a `#012677` na
+     * diagonal. Sobrou o tom escuro puro — o mesmo `tinta` que é o
+     * `theme_color` do manifesto, entao a barra do sistema no Android continua
+     * casando com o topo do app.
+     *
+     * **A classe do degrade nao foi tocada**: ela ainda veste o hero da obra, o
+     * retrato do /perfil e os cartoes do simulador. O que mudou foi so quem a
+     * usa aqui.
      */
-    <header className="degrade-cabecalho sticky top-0 z-50 isolate animate-surgir rounded-b-2xl text-white md:hidden">
+    <header className="sticky top-0 z-50 isolate animate-surgir rounded-b-2xl bg-tinta text-white">
       {/* Camadas decorativas: sem z-index proprio, ficam acima do fundo da
           faixa e abaixo do conteudo, que sobe com `relative`. O
           `overflow-hidden` fica nesta caixa, e nao no <header>: no header ele
@@ -57,11 +63,22 @@ export function Cabecalho({
         <div className="absolute inset-y-0 left-0 w-1/4 animate-brilho bg-linear-to-r from-transparent via-white/25 to-transparent" />
       </div>
 
-      {/* Faixa mais baixa, de novo: o respiro vertical caiu para `py-2`, e o
-          retrato de 40px passou a 36px. A faixa fica em 52px no lugar de 64px,
-          e o alvo de toque continua de sobra — quem recebe o toque é o link
-          inteiro, retrato e nome juntos, e nao o circulo sozinho. */}
-      <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2 sm:px-8 sm:py-3">
+      {/*
+       * A faixa tem 52px (`py-2`), 60px a partir do `sm` (`sm:py-3`) — o alvo de
+       * toque continua de sobra porque quem o recebe é o link inteiro, retrato e
+       * nome juntos, e nao o circulo sozinho.
+       *
+       * Largura inteira, sem o `mx-auto max-w-5xl` que prendia a faixa em 64rem.
+       * O /portal passou a ocupar a tela toda, e um cabecalho mais estreito que o
+       * conteudo deixaria o nome e o sino flutuando para dentro das bordas
+       * enquanto os cartoes iam ate elas.
+       *
+       * As telas que continuam com coluna centrada — historico, perfil — ficam
+       * com o cabecalho mais largo que o miolo. É o arranjo comum de app de
+       * largura cheia, e o `px` é o mesmo nos dois, entao as pontas se
+       * correspondem.
+       */}
+      <div className="relative flex w-full items-center justify-between gap-4 px-5 py-2 sm:px-8 sm:py-3">
         {/* A foto e o nome sao um alvo só, e nao dois: quem toca no retrato
             espera o mesmo que quem toca no "Ver perfil" logo abaixo. */}
         <Link
@@ -94,6 +111,14 @@ export function Cabecalho({
           </span>
         </Link>
 
+        {/*
+         * Só o sino na ponta direita.
+         *
+         * A saida esteve aqui ao lado dele por uma versao, e saiu: sair é o
+         * oposto de um aviso, e ter os dois a um pixel de distancia convidava
+         * ao toque errado. Ela voltou a morar so no /perfil, alcancado pelo
+         * retrato deste mesmo cabecalho.
+         */}
         <Sino notificacoes={notificacoes} />
       </div>
     </header>

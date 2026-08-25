@@ -4,6 +4,7 @@ import {
   listar,
   obter,
   opcoesDeReferencia,
+  opcoesDoFiltro,
   textoDeDuplicado,
   type Linha,
 } from "@/lib/admin/crud";
@@ -193,11 +194,18 @@ export default async function TabelaPage({
   // O formulario aparece ao criar e ao editar. Fechado, sobra a listagem.
   const formularioAberto = Boolean(novo) || Boolean(editar);
 
-  const [linhas, rotulos, emEdicao, opcoesDoFiltro] = await Promise.all([
+  const [linhas, rotulos, emEdicao, opcoesDoSeletor] = await Promise.all([
     listar(tabela, filtro),
     mapaDeRotulos(tabela),
     editar ? obter(tabela, editar) : Promise.resolve(undefined),
-    campoReferencia ? opcoesDeReferencia(campoReferencia) : Promise.resolve([]),
+    /*
+     * `opcoesDoFiltro`, e nao `opcoesDeReferencia`: o seletor do topo so
+     * oferece o que tem linha. O formulario continua com a lista inteira — ver
+     * a nota da funcao em `lib/admin/crud.ts`.
+     */
+    campoReferencia
+      ? opcoesDoFiltro(tabela, campoReferencia)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -215,7 +223,7 @@ export default async function TabelaPage({
               <FiltroDaListagem
                 rotulo={campoReferencia.rotulo}
                 parametro="f"
-                opcoes={opcoesDoFiltro}
+                opcoes={opcoesDoSeletor}
                 selecionado={f ?? ""}
                 destino={`/admin/${tabela.slug}`}
                 // Trocar de contrato nao fecha o formulario nem o painel.

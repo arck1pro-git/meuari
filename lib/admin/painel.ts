@@ -174,6 +174,12 @@ export type PainelDoAdmin = {
  * participacao —, e o `origem` é o que permite separar de novo os dois totais
  * que a tela mostra. Aditivo sem taxa herda a do contrato (`coalesce`): em
  * branco significa "segue como esta", e nao "sem taxa".
+ *
+ * **Só contrato de investidor.** A juncao com `usuarios` esta aqui por isso, e
+ * nao para trazer coluna nenhuma: ha contrato em nome de administrador — a
+ * conta de demonstracao, a mesma que aparece na foto do app —, e ele inflava
+ * todo numero do painel como se fosse capital captado. O painel responde
+ * "quanto entrou de investidor", e conta de casa nao é entrada.
  */
 async function aportes(): Promise<LinhaDeAporte[]> {
   return consultar<LinhaDeAporte>(
@@ -188,6 +194,8 @@ async function aportes(): Promise<LinhaDeAporte[]> {
             c.taxa::float8  as "taxaMensal"
        from contratos c
        join empreendimentos e on e.id = c.empreendimento_id
+       join usuarios u        on u.id = c.usuario_id
+      where u.tipo = 'investidor'
 
       union all
 
@@ -203,6 +211,8 @@ async function aportes(): Promise<LinhaDeAporte[]> {
        from aditivos a
        join contratos c        on c.id = a.contrato_id
        join empreendimentos e  on e.id = c.empreendimento_id
+       join usuarios u         on u.id = c.usuario_id
+      where u.tipo = 'investidor'
 
       order by data`,
   );
@@ -448,18 +458,27 @@ export async function montarPainel(
               count(*)::int              as quantos
          from recebimentos r
          join contratos c on c.id = r.contrato_id
-        where r.data <= $1
+         join usuarios u  on u.id = c.usuario_id
+        where r.data <= $1 and u.tipo = 'investidor'
         group by 1, 2
         order by 1`,
       [referencia],
     ),
-    // So os `mensal`: um credito lancado a mao num contrato `final` nao conta
-    // como ciclo fechado, e faria o painel dizer que falta menos do que falta.
+    /*
+     * So os `mensal`: um credito lancado a mao num contrato `final` nao conta
+     * como ciclo fechado, e faria o painel dizer que falta menos do que falta.
+     *
+     * E so os de investidor, pelo mesmo motivo do resto: o denominador deste
+     * indicador (`ciclo.contratos`) sai de `aportes()`, que ja exclui o
+     * administrador — contar o credito dele aqui daria "14 de 13 lancados".
+     */
     consultar<{ total: number }>(
       `select count(*)::int as total
          from recebimentos r
          join contratos c on c.id = r.contrato_id
-        where r.data = $1 and c.modalidade = 'mensal'`,
+         join usuarios u  on u.id = c.usuario_id
+        where r.data = $1 and c.modalidade = 'mensal'
+          and u.tipo = 'investidor'`,
       [dataDoCiclo],
     ),
   ]);

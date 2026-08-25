@@ -5,6 +5,8 @@ import type { Arquivo } from "@/lib/portal/dados";
 import {
   IconeExpandir,
   IconeFechar,
+  IconeSetaDireita,
+  IconeSetaEsquerda,
 } from "../../portal/_componentes/icones";
 
 /**
@@ -51,7 +53,10 @@ export function Carrossel({ fotos }: { fotos: Arquivo[] }) {
   function irPara(indice: number) {
     const elemento = fila.current;
     if (!elemento) return;
-    elemento.scrollTo({ left: indice * elemento.clientWidth, behavior: "smooth" });
+    elemento.scrollTo({
+      left: indice * elemento.clientWidth,
+      behavior: "smooth",
+    });
   }
 
   /**
@@ -66,6 +71,26 @@ export function Carrossel({ fotos }: { fotos: Arquivo[] }) {
     setNaAmpliacao(atual);
     const elemento = filaAmpliada.current;
     if (elemento) elemento.scrollLeft = atual * elemento.clientWidth;
+  }
+
+  /**
+   * Anda uma foto na ampliacao — é o que as setas do desktop comandam.
+   *
+   * Ela **rola a mesma fila** que o arraste rola, em vez de guardar um indice
+   * proprio: o `onScroll` continua sendo a unica fonte de qual foto esta na
+   * frente, entao seta, arraste e roda do mouse nunca discordam.
+   *
+   * Sem dar a volta no fim da lista: com `snap-mandatory`, saltar da ultima
+   * para a primeira faz a fila varrer todas as fotos no caminho. As setas se
+   * desabilitam nas pontas, que diz a mesma coisa sem o efeito colateral.
+   */
+  function andar(passo: number) {
+    const elemento = filaAmpliada.current;
+    if (!elemento) return;
+    elemento.scrollTo({
+      left: (naAmpliacao + passo) * elemento.clientWidth,
+      behavior: "smooth",
+    });
   }
 
   /**
@@ -201,6 +226,33 @@ export function Carrossel({ fotos }: { fotos: Arquivo[] }) {
             ))}
           </div>
 
+          {/*
+           * As setas, só a partir do `md`.
+           *
+           * No celular quem troca de foto é o polegar, e dois botoes de 44px
+           * sobre a imagem cobririam justamente as bordas dela. No desktop nao
+           * ha arraste: sobrava a roda do mouse na horizontal, que quase
+           * ninguem usa, ou as setas do teclado, que exigem saber que a fila
+           * tem foco.
+           *
+           * Desabilitadas nas pontas em vez de escondidas: um botao que some
+           * muda a largura util da imagem no meio da navegacao.
+           */}
+          {fotos.length > 1 && (
+            <>
+              <Seta
+                lado="esquerda"
+                onClick={() => andar(-1)}
+                desabilitada={naAmpliacao === 0}
+              />
+              <Seta
+                lado="direita"
+                onClick={() => andar(1)}
+                desabilitada={naAmpliacao === fotos.length - 1}
+              />
+            </>
+          )}
+
           <button
             type="button"
             onClick={fechar}
@@ -239,12 +291,51 @@ export function Carrossel({ fotos }: { fotos: Arquivo[] }) {
               // Sobre a foto, entao brancos: a bolinha marinho sumiria numa
               // imagem escura.
               className={`h-2 w-2 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                i === atual ? "scale-125 bg-white" : "bg-white/45 hover:bg-white/70"
+                i === atual
+                  ? "scale-125 bg-white"
+                  : "bg-white/45 hover:bg-white/70"
               }`}
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Uma seta da ampliacao.
+ *
+ * Fora do corpo do carrossel porque sao duas, e a unica diferenca entre elas é
+ * o lado — repetir doze linhas de classe para trocar `left` por `right` é o
+ * tipo de copia que envelhece torta.
+ *
+ * A pastilha translucida com `backdrop-blur` é a mesma do botao de expandir e
+ * do de fechar: sobre foto clara ou escura, ela se sustenta sem moldura.
+ */
+function Seta({
+  lado,
+  onClick,
+  desabilitada,
+}: {
+  lado: "esquerda" | "direita";
+  onClick: () => void;
+  desabilitada: boolean;
+}) {
+  const esquerda = lado === "esquerda";
+  const Icone = esquerda ? IconeSetaEsquerda : IconeSetaDireita;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={desabilitada}
+      aria-label={esquerda ? "Foto anterior" : "Próxima foto"}
+      className={`absolute top-1/2 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-95 disabled:pointer-events-none disabled:opacity-25 md:flex ${
+        esquerda ? "left-4" : "right-4"
+      }`}
+    >
+      <Icone className="h-6 w-6" />
+    </button>
   );
 }

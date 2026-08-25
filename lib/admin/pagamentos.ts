@@ -26,6 +26,10 @@ import {
  * `serieMensal` em `lib/admin/investidor.ts`, e de proposito — duas telas que
  * mostram o mesmo mes tem de mostrar o mesmo numero.
  *
+ * **Só contrato de investidor.** Contrato em nome de administrador — a conta
+ * de demonstracao — fica de fora das tres consultas. Ele nao é compromisso de
+ * caixa com terceiro, que é o que este grafico mede.
+ *
  * **A conta é por contrato, e nao por investidor.** Parece detalhe e nao é:
  * quem tem dois contratos mensais de prazos diferentes para de receber por um
  * antes do outro, e somar os aportes dos dois numa lista só faria o contrato
@@ -77,7 +81,7 @@ export async function pagamentosMensais(
               c.prazo_meses as "prazoMeses"
          from contratos c
          join usuarios u on u.id = c.usuario_id
-        where c.modalidade = 'mensal'
+        where c.modalidade = 'mensal' and u.tipo = 'investidor'
         order by c.data`,
     ),
 
@@ -93,7 +97,8 @@ export async function pagamentosMensais(
               c.valor::float8 as valor,
               c.taxa::float8  as "taxaMensal"
          from contratos c
-        where c.modalidade = 'mensal'
+         join usuarios u on u.id = c.usuario_id
+        where c.modalidade = 'mensal' and u.tipo = 'investidor'
 
         union all
 
@@ -103,7 +108,8 @@ export async function pagamentosMensais(
               coalesce(a.taxa, c.taxa)::float8
          from aditivos a
          join contratos c on c.id = a.contrato_id
-        where c.modalidade = 'mensal'
+         join usuarios u  on u.id = c.usuario_id
+        where c.modalidade = 'mensal' and u.tipo = 'investidor'
 
         order by data`,
     ),
@@ -119,7 +125,9 @@ export async function pagamentosMensais(
               sum(r.valor)::float8       as valor
          from recebimentos r
          join contratos c on c.id = r.contrato_id
+         join usuarios u  on u.id = c.usuario_id
         where c.modalidade = 'mensal' and r.data <= $1
+          and u.tipo = 'investidor'
         group by 1, 2`,
       [referencia],
     ),

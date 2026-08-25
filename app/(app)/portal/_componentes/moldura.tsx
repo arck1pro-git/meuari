@@ -2,22 +2,26 @@
 
 import { usePathname } from "next/navigation";
 import type { Notificacao } from "@/lib/portal/notificacoes";
-import { BarraLateral } from "./barra-lateral";
 import { Cabecalho } from "./cabecalho";
 import { Navegacao } from "./navegacao";
 
 /**
  * A moldura das telas de quem entrou: navegacao em volta, conteudo no meio.
  *
- * Duas formas, uma por tamanho de tela, e nao a mesma peca reposicionada:
+ * Uma moldura só, nos dois tamanhos: o cabecalho no topo, e no celular tambem
+ * a barra de secoes no rodape.
  *
- * - **mobile** — cabecalho colado no topo e barra de secoes no rodape.
- * - **desktop** — uma coluna fixa a esquerda com tudo dentro: retrato, secoes,
- *   simulador e sino. Sem cabecalho e sem rodape.
+ * **Sem coluna a esquerda.** Ela era a forma do desktop — retrato, secoes,
+ * simulador e sino numa faixa de 15rem —, e cobrava essa faixa em toda tela
+ * larga para oferecer tres links. O conteudo, que é a razao de a tela ser
+ * larga, ficava espremido no que sobrava.
  *
- * A troca é so de CSS (`md:hidden` de um lado, `hidden md:flex` do outro), e nao
- * de JavaScript medindo a janela: medida no cliente muda depois da hidratacao, e
- * a tela piscaria a forma errada antes de acertar.
+ * Chegou a voltar como uma regua de 4rem so com icones, e saiu de novo. No
+ * desktop o /portal ja mostra as tres secoes de uma vez — carteira, obra e
+ * simulador —, entao nao ha para onde a regua levar.
+ *
+ * O rodape continua so no celular (`md:hidden` la dentro): no desktop nao ha
+ * mais nada disputando o lugar dele, mas tambem nao ha polegar.
  *
  * Ela mora no layout do grupo `(app)`, entao **nao remonta** ao trocar de rota:
  * só o miolo é substituido, e o toque no rodape responde na hora. Por isso é
@@ -67,11 +71,11 @@ export function Moldura({
           — que ja foi tela cheia sem ele. Trocar de secao nao deve trocar a
           moldura. */}
       <Cabecalho nome={nome} notificacoes={notificacoes} />
-      <BarraLateral nome={nome} notificacoes={notificacoes} ativo={ativo} />
 
-      {/* `md:pl-60` abre o espaco da coluna fixa. O `pb-28` de cada pagina
-          reserva a altura da barra do rodape no mobile. */}
-      <div className="flex flex-1 flex-col md:pl-60">
+      {/* Sem recuo a esquerda: nao ha coluna fixa para abrir espaco. O
+          `pb-28` de cada pagina reserva a altura da barra do rodape no
+          mobile, que é quem navega abaixo do `md`. */}
+      <div className="flex flex-1 flex-col">
         {children}
         {ativo && <Navegacao ativo={ativo} />}
       </div>

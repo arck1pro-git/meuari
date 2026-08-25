@@ -39,7 +39,21 @@ const OURO = "#f7bc05";
 
 const LARGURA_PADRAO = 780; // usada ate o primeiro measure no cliente
 const ALTURA = 220;
-const MARGEM = { topo: 22, direita: 4, base: 28, esquerda: 0 };
+/*
+ * `esquerda: 64` reserva a faixa dos rotulos do eixo.
+ *
+ * Era `0`, com a justificativa de que o rotulo vai *acima* da linha de grade
+ * e por isso nao precisaria de espaco horizontal. So que a barra tambem
+ * comecava em zero e é desenhada **depois** do texto — entao qualquer barra
+ * alta o bastante para alcancar aquela altura pintava por cima do rotulo.
+ * Com `R$ 25.000` em 12px dando uns 60px, os valores do eixo sumiam atras
+ * das primeiras colunas.
+ *
+ * Vale nos dois tamanhos, e nao so no desktop: a sobreposicao acontecia
+ * igual no celular — la ela so era menos obvia porque o grafico é mais
+ * estreito e as barras, mais baixas.
+ */
+const MARGEM = { topo: 22, direita: 4, base: 28, esquerda: 64 };
 
 /** `2025-09` -> `2025`. */
 const anoDe = (competencia: string) => competencia.slice(0, 4);
@@ -89,10 +103,14 @@ export function GraficoRecebimentos({
       MARGEM.topo + plot.altura - (valor / topo) * plot.altura;
 
     // Uma fatia por mes, com respiro proporcional: em 11 meses a barra fica
-    // larga, em 60 fica fina, e em nenhum dos dois encosta na vizinha. A barra
-    // ocupa 80% da fatia — os 20% restantes sao o vao, metade de cada lado.
+    // larga, em 60 fica fina, e em nenhum dos dois encosta na vizinha.
+    //
+    // A barra ocupa 62% da fatia, e nao os 80% de antes: numa coluna estreita
+    // — a do desktop, ao lado da obra — as colunas gordas encostavam umas nas
+    // outras e viravam um bloco continuo. Os 38% de vao dao a cada credito um
+    // contorno proprio.
     const fatia = plot.largura / pagamentos.length;
-    const espessura = Math.max(2, fatia * 0.8);
+    const espessura = Math.max(2, fatia * 0.62);
 
     return {
       plot,
@@ -173,13 +191,18 @@ export function GraficoRecebimentos({
               strokeWidth={1}
             />
             {/* O rotulo do zero sobraria: a linha de base ja diz o que ele
-                diria. Como no grafico de saldo, o texto vai acima da linha para
-                a margem esquerda poder ser zero. */}
+                diria.
+
+                Ele ficava *acima* da linha, encostado no x=0, porque a margem
+                esquerda era zero e nao havia calha onde pousar. Agora ha: o
+                texto se alinha a direita da calha e centra na propria linha,
+                que é como se le um eixo. */}
             {i > 0 && (
               <text
-                x={0}
-                y={y(valor) - 6}
-                textAnchor="start"
+                x={MARGEM.esquerda - 8}
+                y={y(valor)}
+                textAnchor="end"
+                dominantBaseline="middle"
                 fontSize={12}
                 fill={cor.rotulo}
                 style={{ fontVariantNumeric: "tabular-nums" }}
@@ -208,7 +231,8 @@ export function GraficoRecebimentos({
 
         {/* Um rotulo por ano, na primeira barra de cada ano. */}
         {barras.map((barra, i) =>
-          i === 0 || anoDe(barra.competencia) !== anoDe(barras[i - 1].competencia) ? (
+          i === 0 ||
+          anoDe(barra.competencia) !== anoDe(barras[i - 1].competencia) ? (
             <text
               key={`ano-${barra.data}`}
               x={barra.centro}

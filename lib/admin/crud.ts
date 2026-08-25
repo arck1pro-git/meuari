@@ -186,6 +186,48 @@ export async function opcoesDeReferencia(
 }
 
 /**
+ * As opcoes do **filtro** da listagem — só as que tem linha para mostrar.
+ *
+ * Diferente de `opcoesDeReferencia`, e a diferenca é o ponto:
+ *
+ * - **No formulario**, toda opcao vale. Criar o primeiro aditivo de um contrato
+ *   exige que aquele contrato apareca na lista justamente por ainda nao ter
+ *   aditivo nenhum — filtrar ali tornaria impossivel criar o primeiro.
+ * - **No filtro**, opcao sem linha é beco sem saida: escolher e receber a
+ *   tabela vazia. Em Aditivos eram 21 contratos oferecidos para os poucos que
+ *   de fato tem aditivo.
+ *
+ * O `exists` é o que faz a peneira, e ele mantem a tabela alvo **sem apelido**:
+ * o `rotuloSql` do registro escreve o nome dela por extenso
+ * (`contratos.usuario_id`), e um apelido quebraria essas referencias.
+ */
+export async function opcoesDoFiltro(
+  t: Tabela,
+  campo: Campo,
+): Promise<{ id: string; rotulo: string }[]> {
+  const alvo = campo.aponta ? acharTabela(campo.aponta) : undefined;
+  if (!alvo) return [];
+
+  const legenda = alvo.rotuloSql ?? `${ident(alvo.rotuloRef)}::text`;
+  const tabela = ident(alvo.tabela);
+  const listada = ident(t.tabela);
+
+  return consultar<{ id: string; rotulo: string }>(
+    `select ${tabela}.id, ${legenda} as rotulo
+       from ${tabela}
+      where exists (
+              select 1
+                from ${listada}
+               where ${listada}.${ident(campo.nome)} = ${tabela}.id
+                 ${t.onde ? `and (${t.onde})` : ""}
+            )
+        ${alvo.onde ? `and (${alvo.onde})` : ""}
+      order by rotulo
+      limit 500`,
+  );
+}
+
+/**
  * Converte o que veio do formulario no valor que vai ao banco.
  * Devolve `undefined` quando o campo deve ser ignorado — o caso da senha em
  * branco, que significa "manter a atual", e nao "apagar".
