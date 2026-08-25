@@ -80,11 +80,15 @@ export const config = {
    * cores do app, o outro é o mesmo arquivo publico para todo mundo.
    */
   /*
-   * `mao2.png` entrou aqui pelo mesmo motivo do `logo.png`: ele aparece na tela
-   * de login, que é publica. E ha uma sutileza que custou um diagnostico — o
-   * otimizador de imagem do Next busca o arquivo original no *nosso proprio
+   * As imagens da tela de login ficam de fora, e a razao custou um diagnostico:
+   * o otimizador de imagem do Next busca o arquivo original no *nosso proprio
    * servidor*, entao a guarda o desviava para o login e o `/_next/image`
-   * respondia "isn't a valid image", com 400, para uma foto que existia.
+   * respondia "isn't a valid image", com 400, para uma foto que existe.
+   *
+   * Sao tres agora: a foto do app na mao (`amaaninvest.png`, que substituiu o
+   * `mao2.png` apagado) e as duas versoes do letreiro — a de fundo escuro na
+   * capa, a de fundo claro na folha de entrada. `ARI.png` e `mao2.png` sairam
+   * da lista: os arquivos nao sao mais usados por tela nenhuma.
    *
    * `ios/` entra pela mesma porta: sao os quatro prints do passo a passo de
    * instalacao no iPhone, mostrados na propria tela de login. Nao ha nada
@@ -92,6 +96,6 @@ export const config = {
    * excecao o passo a passo abriria com quatro retangulos vazios.
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|ARI.png|logo.png|mao2.png|icons/|ios/|manifest.webmanifest|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|logo.png|logonome-fundo-escuro.png|logonome-fundo-claro.png|amaaninvest.png|icons/|ios/|manifest.webmanifest|sw.js).*)",
   ],
 };

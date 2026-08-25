@@ -108,16 +108,22 @@ export function AbaAporte({
   return (
     <div className="escalonar">
       {/*
-       * "Meu ARI" era a evolucao do saldo, num cartao azul, e "Recebimentos"
-       * era o que caiu na conta, num cartao claro logo abaixo. Viraram um só:
-       * o nome e o cartao azul do primeiro, o grafico e os numeros do segundo.
+       * Este bloco era dois: "Meu ARI" — a evolucao do saldo, num cartao azul —
+       * e "Recebimentos", o que caiu na conta, num cartao claro logo abaixo.
+       * Viraram um só: o cartao azul do primeiro, o grafico e os numeros do
+       * segundo.
+       *
+       * O titulo agora é **"Investido"**, e nao o nome do app. Ele nomeava o
+       * produto ("Meu ARI") numa tela que ja é o produto inteiro — dizer o nome
+       * de novo, no meio da propria tela, nao informava nada. "Investido" diz o
+       * que o cartao mostra.
        *
        * Titulo e cartao num invólucro só: `escalonar` atrasa cada filho direto
        * do container, e soltos aqui eles entrariam em tempos diferentes.
        */}
       <div id="recebimentos" className="scroll-mt-24">
         <h2 className="mb-5 text-base font-bold tracking-tight text-black">
-          Meu ARI
+          Investido
         </h2>
         <Cartao tom="escuro">
           {progresso || recebimentos.pagamentos.length > 0 ? (

@@ -5,7 +5,12 @@ import { useSyncExternalStore } from "react";
 import { usePush } from "./usar-push";
 
 /**
- * O convite para ligar as notificacoes, no topo do portal.
+ * O convite para ligar as notificacoes, flutuando no topo do portal.
+ *
+ * Ele **nao ocupa lugar no fluxo**. Antes era o primeiro filho do `<main>`, e
+ * por isso empurrava para baixo tudo o que vinha depois: quem abria o app via o
+ * saldo — a razao de entrar — deslocado por um convite. Agora ele paira sobre o
+ * conteudo, e a tela por baixo fica exatamente onde estaria sem ele.
  *
  * Aparece uma vez, para quem ainda nao decidiu. Quem ja ligou, quem recusou no
  * navegador e quem esta num aparelho sem suporte nunca veem — e quem dispensa
@@ -14,6 +19,14 @@ import { usePush } from "./usar-push";
  * O pedido de permissao nasce do toque no botao, e nao da carga da pagina. O
  * navegador exige isso, e a pessoa merece: a caixa do sistema aparece depois de
  * alguem ler o que ela faz.
+ */
+/*
+ * A chave guarda o nome antigo do app de proposito.
+ *
+ * Renomear para `amaan-invest:` faria o navegador de quem ja dispensou nao achar
+ * mais a marca, e o cartao voltaria a aparecer para essas pessoas — um recado
+ * que elas ja recusaram uma vez. O texto da chave nao aparece em lugar nenhum
+ * da tela; trocar so por causa da marca custaria mais do que corrige.
  */
 const DISPENSADO = "meu-ari:push-dispensado";
 
@@ -51,10 +64,32 @@ export function CartaoDeNotificacoes() {
 
   // `verificando` tambem some: o cartao aparece quando ha certeza de que ha o
   // que oferecer, e nao pisca antes disso.
-  if (dispensado || (estado !== "desligado" && estado !== "ligando")) return null;
+  if (dispensado || (estado !== "desligado" && estado !== "ligando"))
+    return null;
 
   return (
-    <div className="sombra-cartao mb-6 flex animate-surgir items-center gap-4 rounded-2xl border border-tinta/12 bg-white p-4 sm:p-5">
+    /*
+     * `fixed` — logo abaixo do cabecalho no celular, no alto a direita no
+     * desktop.
+     *
+     * Os deslocamentos do topo saem da altura do cabecalho, que o proprio
+     * componente dele registra: 52px com `py-2`, 60px com `sm:py-3`. Mais meio
+     * rem de respiro. Sao literais, e nao uma variavel de CSS, porque ha um
+     * consumidor so — uma variavel lida num lugar unico seria a mesma
+     * manutencao com um salto de arquivo no meio.
+     *
+     * No `md` o cabecalho nao existe (`md:hidden`) e quem ocupa a esquerda é a
+     * coluna de 15rem: o cartao larga as ancoras laterais e vira uma caixa
+     * estreita no canto superior direito, longe dela.
+     *
+     * `z-40` acompanha o rodape e a coluna, ficando acima do conteudo. Nao sobe
+     * mais que isso porque o cabecalho é `z-50`, e é dele o painel que desce do
+     * sino — um convite para ligar avisos nao pode cobrir a caixa de avisos.
+     */
+    <div
+      aria-label="Ativar notificações"
+      className="sombra-cartao fixed inset-x-4 top-[3.75rem] z-40 flex animate-surgir items-center gap-4 rounded-2xl border border-tinta/12 bg-white p-4 sm:inset-x-8 sm:top-[4.25rem] sm:p-5 md:inset-x-auto md:top-6 md:right-8 md:w-[26rem]"
+    >
       <Image
         src="/icons/3dicons-bell-dynamic-color.png"
         alt=""

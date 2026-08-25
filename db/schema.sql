@@ -1,4 +1,4 @@
--- Meu ARI — schema PostgreSQL
+-- Amaan Invest — schema PostgreSQL
 -- Requer PG 13+ (gen_random_uuid nativo). Antes disso: CREATE EXTENSION pgcrypto;
 
 BEGIN;

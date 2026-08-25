@@ -1,4 +1,4 @@
--- Meu ARI — a que frente pertence cada etapa
+-- Amaan Invest — a que frente pertence cada etapa
 --
 -- A tela da obra passou a mostrar o andamento por secao: os projetos de
 -- engenharia correm num ritmo, as licencas e registros em outro, e a media dos

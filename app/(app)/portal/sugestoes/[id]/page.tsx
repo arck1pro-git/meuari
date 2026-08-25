@@ -16,9 +16,9 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const artigo = await getArtigo(id);
-    return { title: `${artigo.title} · Meu ARI` };
+    return { title: `${artigo.title} · Amaan Invest` };
   } catch {
-    return { title: "Artigo · Meu ARI" };
+    return { title: "Artigo · Amaan Invest" };
   }
 }
 

@@ -396,7 +396,7 @@ export type Perfil = {
   tipo: string;
   /** Data de criacao da conta, em `AAAA-MM-DD`. */
   desde: DataISO;
-  /** Quantos aportes e quantas obras — o resumo do vinculo com o ARI. */
+  /** Quantos aportes e quantas obras — o resumo do vinculo com a operacao. */
   aportes: number;
   obras: number;
 };

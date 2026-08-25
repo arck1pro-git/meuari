@@ -1,4 +1,4 @@
--- Meu ARI — creditos ja pagos
+-- Amaan Invest — creditos ja pagos
 --
 -- Esta tabela é a unica fonte do grafico de recebimentos: o portal nao calcula
 -- credito nenhum, e mes sem linha é mes sem credito. Quem alimenta é o

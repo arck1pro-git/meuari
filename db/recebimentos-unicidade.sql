@@ -1,4 +1,4 @@
--- Meu ARI — a unicidade dos creditos acompanha o empreendimento
+-- Amaan Invest — a unicidade dos creditos acompanha o empreendimento
 --
 -- Correcao de `db/recebimentos-empreendimento.sql`, que adicionou a coluna mas
 -- deixou de pe a restricao `UNIQUE (usuario_id, data)`. Com dois

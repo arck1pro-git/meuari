@@ -35,7 +35,7 @@ import { agrupar } from "./_componentes/grupos";
  * As secoes vem em grupos (ver `GRUPOS`), e a inicial do painel é o primeiro
  * item da lista, chamado "Dashboard".
  *
- * Ela era o bloco do topo — avatar "A" com "Administração / Meu ARI" —, que
+ * Ela era o bloco do topo — avatar "A" com "Administração / Amaan Invest" —, que
  * levava para `/admin` sem parecer que levava a lugar nenhum: no formato de
  * cabecalho lia como marca, e marca nao se clica. Como item da lista, com icone
  * e o mesmo realce de secao aberta dos outros, ele é o que sempre foi: uma tela

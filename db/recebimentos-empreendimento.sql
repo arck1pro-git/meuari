@@ -1,4 +1,4 @@
--- Meu ARI — credito passa a saber de qual empreendimento é
+-- Amaan Invest — credito passa a saber de qual empreendimento é
 --
 -- Com o seletor de empreendimento no portal, o total de Recebimentos precisa
 -- acompanhar o filtro. Ate aqui a tabela so sabia de quem era o credito, nao de

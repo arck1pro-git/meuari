@@ -205,7 +205,7 @@ export function BotaoInstalar() {
         className={CLASSE_BOTAO}
       >
         <IconeBaixar className="h-4 w-4 shrink-0" />
-        {instalando ? "Instalando…" : "Baixar Meu ARI"}
+        {instalando ? "Instalando…" : "Baixar Amaan Invest"}
       </button>
 
       {mostrarPassos &&
@@ -230,7 +230,9 @@ export function BotaoInstalar() {
                       {indice + 1}
                     </span>
                     <span className="min-w-0">
-                      <span className="block font-semibold">{passo.titulo}</span>
+                      <span className="block font-semibold">
+                        {passo.titulo}
+                      </span>
                       <span className="mt-0.5 block text-xs leading-relaxed text-white/70">
                         {passo.apoio}
                       </span>

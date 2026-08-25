@@ -40,7 +40,7 @@ export function BotaoSimulador({
       <IconeSimulador
         className={`relative h-7 w-7 stroke-[2.5] ${ativo ? "text-ouro" : ""}`}
       />
-      <span className="sr-only">Simulador ARI</span>
+      <span className="sr-only">Simulador</span>
     </Link>
   );
 }

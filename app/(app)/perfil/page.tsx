@@ -9,13 +9,13 @@ import { IconeSetaEsquerda } from "../portal/_componentes/icones";
 import { Cartao } from "../portal/_componentes/ui";
 
 export const metadata: Metadata = {
-  title: "Perfil · Portal do Investidor Ari",
+  title: "Perfil · Amaan Invest",
 };
 
 // Le a sessao: nada de resposta guardada.
 export const dynamic = "force-dynamic";
 
-/** Quem esta logado, o vinculo com o ARI e a porta de saida. */
+/** Quem esta logado, o vinculo com a operacao e a porta de saida. */
 export default async function PerfilPage() {
   const sessao = await exigirSessao("/perfil");
 
@@ -63,7 +63,7 @@ export default async function PerfilPage() {
               <Linha rotulo="Perfil">
                 {perfil.tipo === "administrador" ? "Administrador" : "Investidor"}
               </Linha>
-              <Linha rotulo="No ARI desde">{formatarData(perfil.desde)}</Linha>
+              <Linha rotulo="Investidor desde">{formatarData(perfil.desde)}</Linha>
               <Linha rotulo="Aportes">
                 <span className="tabular-nums">{perfil.aportes}</span>
               </Linha>

@@ -25,9 +25,9 @@
   --color-verde: #00916b;
 
   /* Ouro. Marca o "agora": o mes corrente no grafico, a aba aberta no rodape e
-     o nome ARI no cartao de saldo. Como o ciano, é acento e nao cor de texto
-     corrido — sobre branco rende 1,5:1, entao so funciona em peca curta, em
-     icone ou em area cheia. */
+     a palavra em destaque no titulo do login. Como o ciano, é acento e nao
+     cor de texto corrido — sobre branco rende 1,5:1, entao so funciona em
+     peca curta, em icone ou em area cheia. */
   --color-ouro: #f7bc05;
 
   /* O chao da area de conteudo do painel de administracao.
@@ -180,7 +180,7 @@
  *
  * Com `light` o Chrome ainda pode aplicar o modo escuro automatico (a flag
  * "Auto Dark Mode for Web Contents"), que reescreve fundo e degrade por conta
- * propria — o cabecalho e o cartao do Meu ARI perdem a cor e o resto da tela
+ * propria — o cabecalho e o cartao do Amaan Invest perdem a cor e o resto da tela
  * segue igual. O `only` é a recusa explicita: a pagina é clara e nao aceita
  * ser convertida.
  *
@@ -370,7 +370,7 @@ body {
 
 /**
  * Os dois degrades escuros do portal: a faixa do cabecalho e o cartao do
- * Meu ARI.
+ * Amaan Invest.
  *
  * Em CSS puro, e nao com os utilitarios de degrade do Tailwind. Aqueles saem
  * como `linear-gradient(… in oklab, color-mix(in oklab, …))`, empilhados em

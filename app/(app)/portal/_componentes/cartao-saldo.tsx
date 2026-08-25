@@ -120,7 +120,7 @@ export function CartaoSaldo({
                 inteiro, e é a ultima contratada. */}
             Sua participação nos resultados é de{" "}
             <span className="font-semibold">{resultado.participacao}</span> ao
-            mês com o <span className="font-bold text-ouro">ARI</span>
+            mês sobre o capital aportado
           </Etiqueta>
         </p>
       )}

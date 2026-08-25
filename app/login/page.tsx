@@ -6,7 +6,7 @@ import { inicioDe, sessaoValida } from "@/lib/auth";
 import { BotaoEntrar, DialogoEntrar } from "./dialogo-entrar";
 
 export const metadata: Metadata = {
-  title: "Entrar · Meu ARI",
+  title: "Entrar · Amaan Invest",
   // Tela de login nao tem por que aparecer em busca.
   robots: { index: false, follow: false },
 };
@@ -123,10 +123,10 @@ function FotoDoApp() {
         // abaixo (é a proporcao que reserva o espaco) e liberar o nome novo
         // no `matcher` do `proxy.ts`, senao o otimizador recebe o redirect
         // para /login e responde 400 numa foto que existe.
-        src="/mao2.png"
-        alt="O aplicativo Meu ARI aberto num celular"
-        width={3485}
-        height={4794}
+        src="/amaaninvest.png"
+        alt="O aplicativo Amaan Invest aberto num celular"
+        width={3496}
+        height={4807}
         /* `priority` porque é a imagem grande da primeira dobra — sem isto o
              Next a trata como qualquer outra e ela chega depois do texto. */
         priority
@@ -144,6 +144,29 @@ function FotoDoApp() {
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * O recado de sessao vencida, na propria capa.
+ *
+ * Ele morava dentro do dialogo, e era o que justificava abrir o dialogo sozinho
+ * na carga. Fora dele, o recado é lido de imediato e o dialogo volta a ser o
+ * que deveria: uma coisa que abre quando se pede.
+ *
+ * Ouro, e nao vermelho: sessao vencida nao é erro de quem entra, é o relogio do
+ * sistema. Vermelho leria como senha errada, que é outra mensagem e vem de
+ * dentro do formulario.
+ */
+function AvisoDeSessao() {
+  return (
+    <p
+      role="status"
+      className="mb-6 inline-flex items-start gap-2.5 rounded-xl bg-ouro/15 px-4 py-3 text-sm leading-relaxed text-white ring-1 ring-ouro/40"
+    >
+      Sua sessão expirou por inatividade. Entre novamente para continuar de onde
+      parou.
+    </p>
   );
 }
 
@@ -219,16 +242,26 @@ export default async function LoginPage({
          * aparece de cada vez — nunca os dois na mesma tela.
          */}
         <div className="relative flex shrink-0 items-center justify-between gap-4">
-          {/* O logo sobe para o topo: quem diz o nome do produto passa a ser
-              ele, no canto, e a direita do miolo fica livre para a foto do app
-              em uso. */}
+          {/*
+           * O nome sobe para o topo: quem diz o produto passa a ser ele, no
+           * canto, e a direita do miolo fica livre para a foto do app em uso.
+           *
+           * O arquivo é o `logonome.png` aparado — o original tem 34% de altura
+           * em vazio transparente em cima e embaixo, e usado cru ele reservaria
+           * quase o triplo da caixa que a tinta ocupa, empurrando o botao de
+           * entrar para longe. Aqui o creme lê sobre o marinho; a versao de
+           * fundo claro é outra, e mora na folha de entrada.
+           *
+           * `priority` porque é a primeira coisa da primeira dobra: sem isto o
+           * nome do produto chega depois da frase que o explica.
+           */}
           <Image
-            src="/logo.png"
-            alt="Meu ARI"
-            width={1080}
-            height={1080}
-            className="h-11 w-11 rounded-xl ring-1 ring-white/15 sm:h-12 sm:w-12"
-            loading="eager"
+            src="/logonome-fundo-escuro.png"
+            alt="Amaan Incorporadora"
+            width={1452}
+            height={394}
+            priority
+            className="h-9 w-auto sm:h-11"
           />
 
           <BotaoEntrar className="hidden lg:flex" />
@@ -274,11 +307,13 @@ export default async function LoginPage({
                * tamanho da fonte — `text-balance` só iguala o comprimento delas
                * depois que a largura ja decidiu quantas sao.
                */}
+              {expirou && <AvisoDeSessao />}
+
               <h1 className="font-serif text-[2rem] leading-[1.1] font-normal tracking-tight text-balance sm:text-[2.75rem] lg:max-w-[22ch] lg:text-[3rem] xl:text-[3.5rem]">
                 Você já investiu. Agora{" "}
                 <span className="text-ouro">acompanhe</span> o crescimento do
-                seu <span className="text-ouro">ARI</span> e o que seu dinheiro
-                está construindo.
+                seu <span className="text-ouro">capital</span> e o que seu
+                dinheiro está construindo.
               </h1>
 
               {/*
@@ -294,10 +329,11 @@ export default async function LoginPage({
                * e pelo botao — o detalhe espera do outro lado.
                */}
               <p className="mt-8 hidden max-w-xl text-lg leading-relaxed text-white/70 lg:mt-10 lg:block">
-                O Meu ARI reúne num só lugar tudo sobre o seu investimento e o
-                andamento da incorporação: os contratos e relatórios conforme
-                são disponibilizados, a evolução de cada etapa da obra, as
-                imagens mais recentes e quanto o seu dinheiro rendeu até aqui.
+                O Amaan Invest reúne num só lugar tudo sobre o seu investimento
+                e o andamento da incorporação: os contratos e relatórios
+                conforme são disponibilizados, a evolução de cada etapa da obra,
+                as imagens mais recentes e quanto o seu dinheiro rendeu até
+                aqui.
               </p>
 
               {/* A entrada do celular: largura cheia, logo abaixo do texto e
@@ -332,7 +368,7 @@ export default async function LoginPage({
         {/* O dialogo em si — sem botao. Ele sobe para a *top layer*, entao o
             lugar dele na arvore nao muda nada; fica no fim para deixar claro
             que nao participa do empilhamento da capa. */}
-        <DialogoEntrar proximo={proximo} expirou={expirou} />
+        <DialogoEntrar proximo={proximo} />
       </section>
     </div>
   );

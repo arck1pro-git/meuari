@@ -1,4 +1,4 @@
--- Meu ARI — aporte e contrato viram uma tabela só
+-- Amaan Invest — aporte e contrato viram uma tabela só
 --
 -- `aportes_historicos` existiu por um motivo: `contratos` nao tinha data do
 -- aporte, so `criado_em`. A unificacao leva essa coluna junto — sem ela, voltar

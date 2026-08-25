@@ -117,7 +117,7 @@ export function BarraLateral({
               ativo === "/simulador" ? "text-ouro" : ""
             }`}
           />
-          Simulador ARI
+          Simulador
         </Link>
 
         {/* `mt-auto` empurra o sino para o pé da coluna: ele é aviso, nao

@@ -1,4 +1,4 @@
--- Meu ARI — a ficha do empreendimento: onde fica, em que pé esta, quando entrega
+-- Amaan Invest — a ficha do empreendimento: onde fica, em que pé esta, quando entrega
 --
 -- A tela da obra passou a mostrar cidade, estado, status e entrega prevista.
 -- Nada disso existia como coluna: `previsao_inicio_obras` é o *inicio* das

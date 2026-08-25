@@ -14,7 +14,7 @@ export async function generateMetadata({
   const { id } = await params;
   const sessao = await exigirSessao(`/obras/${id}`);
   const obra = await getObra(sessao.id, id);
-  return { title: obra ? `${obra.nome} · Meu ARI` : "Obra · Meu ARI" };
+  return { title: obra ? `${obra.nome} · Amaan Invest` : "Obra · Amaan Invest" };
 }
 
 /**

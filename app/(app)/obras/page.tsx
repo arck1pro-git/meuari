@@ -5,7 +5,7 @@ import { getEmpreendimentosBasicos, getObra } from "@/lib/portal/dados";
 import { TelaDaObra } from "./_componentes/tela-obra";
 
 export const metadata: Metadata = {
-  title: "Obras · Portal do Investidor Ari",
+  title: "Obras · Amaan Invest",
 };
 
 // Le a sessao e assina URLs que expiram: nada de resposta guardada.

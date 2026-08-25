@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { autenticar, abrirSessao, fecharSessao, sessaoValida } from "@/lib/auth";
+import {
+  autenticar,
+  abrirSessao,
+  fecharSessao,
+  sessaoValida,
+} from "@/lib/auth";
 import { agendar, removerAgendamento } from "@/lib/admin/agendamentos";
 import {
   atualizar,
@@ -17,6 +22,7 @@ import {
   jaLancado,
   lancarCredito,
 } from "@/lib/admin/lancamentos";
+import { avisarNovoDocumento } from "@/lib/admin/aviso-de-documento";
 import { registrar } from "@/lib/auditoria";
 import { enviarAviso } from "@/lib/notificacoes-envio";
 import { acharTabela } from "@/lib/admin/tabelas";
@@ -64,7 +70,10 @@ export async function entrar(_anterior: string | null, dados: FormData) {
   // dos dois falhou entrega quais e-mails existem.
   if (!sessao) {
     // O identificador tentado é registrado; a senha, nunca.
-    await registrar({ acao: "login_recusado", detalhe: { area: "admin", email } });
+    await registrar({
+      acao: "login_recusado",
+      detalhe: { area: "admin", email },
+    });
     return "E-mail ou senha invalidos.";
   }
   if (sessao.tipo !== "administrador") {
@@ -125,23 +134,58 @@ export async function acaoCriar(slug: string, dados: FormData) {
     redirect(avisoDeDuplicado(erro, slug));
   }
 
+  /*
+   * Documento publicado avisa os investidores da obra.
+   *
+   * Aqui, e nao dentro de `criar()`: aquele monta SQL a partir do registro e
+   * serve as onze tabelas igualmente: uma consequencia que vale para uma so nao
+   * pode morar la. E depois do insert, nunca antes — aviso de documento que
+   * falhou na gravacao seria aviso de nada.
+   *
+   * Nao ha o mesmo em `acaoAtualizar`: trocar o nome ou o arquivo de um
+   * documento que ja existe nao é publicacao, e reavisar a cada correcao de
+   * digitacao ensina a ignorar o sino.
+   */
+  const entrega =
+    tabela.slug === "documentos" ? await avisarNovoDocumento(id) : null;
+
   await registrar({
     acao: "criar",
     alvoTabela: tabela.tabela,
     alvoId: id,
     // So os nomes das colunas: o valor pode ser um hash de senha.
-    detalhe: { campos: colunas },
+    detalhe: {
+      campos: colunas,
+      // Sem isto, "quem foi avisado quando o documento entrou" nao teria
+      // resposta: a linha de `notificacoes` nao guarda de onde veio.
+      ...(entrega && {
+        avisados: entrega.pessoas,
+        entregues: entrega.entregues,
+        aparelhos: entrega.inscricoes,
+      }),
+    },
   });
 
   revalidatePath(`/admin/${slug}`);
-  redirect(`/admin/${slug}`);
+  /*
+   * Sem `revalidatePath` para o lado do investidor: o portal e as telas de obra
+   * sao `force-dynamic` e consultam o banco a cada visita, entao nao ha cache
+   * para invalidar — a linha existiria so para parecer cuidadosa.
+   */
+
+  /*
+   * O painel volta dizendo quantos foram avisados. É a unica parte do que
+   * acabou de acontecer que a tabela nao mostra sozinha — a linha nova aparece
+   * na lista, o push nao aparece em lugar nenhum.
+   */
+  redirect(
+    entrega
+      ? `/admin/${slug}?ok=avisado&pessoas=${entrega.pessoas}&entregues=${entrega.entregues}&aparelhos=${entrega.inscricoes}`
+      : `/admin/${slug}`,
+  );
 }
 
-export async function acaoAtualizar(
-  slug: string,
-  id: string,
-  dados: FormData,
-) {
+export async function acaoAtualizar(slug: string, id: string, dados: FormData) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
   const campos = await camposAlterados(tabela, dados);
@@ -398,7 +442,9 @@ export async function acaoAgendarNotificacao(dados: FormData) {
    * so nao ficou ligado. A tela diz isso, e a exclusao continua a um clique.
    */
   redirect(
-    erroDoN8n ? "/admin/notificacoes?aviso=n8n" : "/admin/notificacoes?ok=agendado",
+    erroDoN8n
+      ? "/admin/notificacoes?aviso=n8n"
+      : "/admin/notificacoes?ok=agendado",
   );
 }
 

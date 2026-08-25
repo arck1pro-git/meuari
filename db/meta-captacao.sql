@@ -1,4 +1,4 @@
--- Meu ARI — quanto se pretende captar em cada empreendimento
+-- Amaan Invest — quanto se pretende captar em cada empreendimento
 --
 -- O painel sabia quanto ja entrou, e nada sobre a meta: "R$ 400 mil captados"
 -- nao responde se a obra esta perto ou longe do que precisa. Com a meta, o mesmo

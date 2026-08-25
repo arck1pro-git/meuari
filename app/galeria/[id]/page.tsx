@@ -16,7 +16,7 @@ export async function generateMetadata({
   const { id } = await params;
   const sessao = await exigirSessao(`/galeria/${id}`);
   const alvo = (await getEmpreendimentos(sessao.id)).find((e) => e.id === id);
-  return { title: alvo ? `${alvo.nome} · Galeria` : "Galeria · Meu ARI" };
+  return { title: alvo ? `${alvo.nome} · Galeria` : "Galeria · Amaan Invest" };
 }
 
 export default async function GaleriaDoEmpreendimento({

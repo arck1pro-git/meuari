@@ -104,7 +104,7 @@ function fluxo(agendamento: Agendamento) {
   const destino = `${exigir("APP_URL")}/api/notificacoes/disparar`;
 
   return {
-    name: `Meu ARI · ${agendamento.titulo}`.slice(0, 120),
+    name: `Amaan Invest · ${agendamento.titulo}`.slice(0, 120),
     settings: {
       // Fuso do contrato, e nao o do servidor do n8n: "as 9" é as 9 aqui.
       timezone: "America/Sao_Paulo",

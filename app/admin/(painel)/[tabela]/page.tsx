@@ -72,6 +72,29 @@ function exibir(
   return rotulos.get(texto) ?? texto;
 }
 
+/**
+ * O campo de arquivo da tabela, se houver um.
+ *
+ * Sai do registro, e nao de um `if (slug === "contratos")`: a mesma pergunta —
+ * "este registro tem arquivo anexado?" — vale para contrato, aditivo, papel de
+ * obra e foto, e as quatro declaram o campo do mesmo jeito. Tabela sem campo de
+ * arquivo devolve `undefined` e nao ganha coluna nenhuma.
+ */
+function campoDeArquivo(tabela: Tabela) {
+  return tabela.campos.find((c) => c.tipo === "arquivo" && c.bucket);
+}
+
+/**
+ * O que o botao diz.
+ *
+ * O rotulo do campo nao serve de texto de botao — "Instrumento assinado" é o
+ * nome da coisa, nao a acao. O que separa um caso do outro é o `aceita`, que o
+ * registro ja declara para o seletor de arquivo.
+ */
+function verboDe(aceita: string | undefined) {
+  return aceita?.startsWith("image/") ? "Ver imagem" : "Ver documento";
+}
+
 export default async function TabelaPage({
   params,
   searchParams,
@@ -99,6 +122,8 @@ export default async function TabelaPage({
     onde?: string;
     entregues?: string;
     aparelhos?: string;
+    /** Quantos investidores foram avisados ao publicar um documento. */
+    pessoas?: string;
   }>;
 }) {
   const { tabela: slug } = await params;
@@ -116,11 +141,15 @@ export default async function TabelaPage({
     onde,
     entregues,
     aparelhos,
+    pessoas,
   } = await searchParams;
 
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
   if (!tabela) notFound();
+
+  // Resolvido uma vez, e nao por linha: o registro nao muda no meio da lista.
+  const arquivo = campoDeArquivo(tabela);
 
   /*
    * So a primeira coluna declarada em `filtros` — hoje nenhuma tabela pede
@@ -360,6 +389,37 @@ export default async function TabelaPage({
         </p>
       )}
 
+      {/*
+       * Documento publicado: quem foi avisado.
+       *
+       * A linha nova aparece sozinha na tabela; o push nao aparece em lugar
+       * nenhum, e sem esta frase publicar um documento e publicar um documento
+       * *que avisou catorze pessoas* seriam a mesma tela.
+       *
+       * Os dois numeros respondem perguntas diferentes: `pessoas` é quem vai
+       * ver no sino ao abrir o app — todos —, e `aparelhos` é quem recebeu a
+       * batida na hora. O segundo é sempre menor, e quem le precisa saber que
+       * isso é normal, e nao falha.
+       */}
+      {ok === "avisado" && (
+        <p className="mt-6 animate-surgir rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm leading-relaxed font-medium text-verde">
+          Documento publicado.{" "}
+          {Number(pessoas ?? 0) === 0
+            ? "Nenhum investidor tem contrato nesta obra ainda, então não havia quem avisar."
+            : `${pessoas} ${
+                Number(pessoas) === 1
+                  ? "investidor foi avisado"
+                  : "investidores foram avisados"
+              } no sino${
+                Number(aparelhos ?? 0) === 0
+                  ? " — nenhum aparelho está inscrito para push."
+                  : `, e o push saiu para ${entregues} de ${aparelhos} ${
+                      Number(aparelhos) === 1 ? "aparelho" : "aparelhos"
+                    }.`
+              }`}
+        </p>
+      )}
+
       {/* Tabela de registro nao tem formulario: ver `semFormulario` no
           registro das tabelas. */}
       {/*
@@ -463,6 +523,35 @@ export default async function TabelaPage({
                 })}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   <span className="inline-flex items-center gap-1 opacity-45 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+                    {/*
+                     * O arquivo anexado, quando ha um.
+                     *
+                     * So aparece na linha que tem: um "Ver documento" apagado em
+                     * vinte contratos sem PDF seria uma promessa falsa vinte
+                     * vezes, e a ausencia do botao ja é a resposta de que nao ha
+                     * o que ver.
+                     *
+                     * `<a>` cru, e nao `<Link>`: o destino nao é uma pagina do
+                     * app, é um 302 para o Storage. O `Link` faria prefetch
+                     * dele, e cada prefetch gastaria uma assinatura de 60s e
+                     * uma linha de auditoria dizendo que alguem abriu um
+                     * contrato que ninguem abriu.
+                     *
+                     * Aba nova para a listagem nao se perder — quem confere
+                     * documento costuma conferir varios seguidos —, com
+                     * `noopener` porque `_blank` sem ele entrega `window.opener`
+                     * ao destino.
+                     */}
+                    {arquivo && linha[arquivo.nome] ? (
+                      <a
+                        href={`/admin/arquivo/${tabela.slug}/${String(linha.id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                      >
+                        {verboDe(arquivo.aceita)}
+                      </a>
+                    ) : null}
                     {!tabela.semFormulario && (
                       <Link
                         href={comParametros({

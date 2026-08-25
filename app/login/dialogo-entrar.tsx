@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { IconeFechar } from "../(app)/portal/_componentes/icones";
 import { FormularioLogin } from "./formulario";
 
@@ -96,26 +96,29 @@ export function BotaoEntrar({ className = "" }: { className?: string }) {
  * fechar, foco preso dentro e o resto da pagina inerte, sem escrever nada
  * disso. E ele sobe para a *top layer*, entao ignora o `overflow-hidden` da
  * capa — que, numa `div` comum, recortaria o dialogo.
+ *
+ * Ele recebe só o `proximo`, que o formulario usa para devolver a pessoa a
+ * pagina que ela tentou abrir. O aviso de sessao vencida saiu daqui: ele mora na
+ * capa, e mostrar o mesmo texto nos dois lugares o faria aparecer duas vezes na
+ * tela — e ser anunciado duas vezes por quem ouve, porque os dois eram
+ * `role="status"`.
  */
-export function DialogoEntrar({
-  proximo,
-  expirou,
-}: {
-  proximo?: string;
-  expirou?: string;
-}) {
+export function DialogoEntrar({ proximo }: { proximo?: string }) {
   const dialogo = useRef<HTMLDialogElement>(null);
 
   /*
-   * Abre sozinho quando a pessoa nao chegou aqui por vontade propria: sessao
-   * vencida ou tentativa de abrir uma pagina interna. Nos dois casos ha um
-   * recado a dar e um caminho a retomar — deixar isso atras de um clique seria
-   * esconder a resposta da pergunta que ela acabou de fazer.
+   * **Ele só abre no clique.**
+   *
+   * Havia aqui um `useEffect` que o abria na carga quando a URL trazia
+   * `expirou` ou `proximo`. O `proximo` derrubava a ideia: o `proxy.ts` o
+   * acrescenta em *todo* desvio para o login, e a raiz do site redireciona para
+   * `/portal`, que é protegido. Ou seja, **toda primeira visita** chegava em
+   * `/login?proximo=/portal` e recebia o modal na cara antes de ler a capa.
+   *
+   * O recado de sessao vencida, que era o motivo legitimo de abrir sozinho,
+   * passou para a propria capa — ver `AvisoDeSessao` em `page.tsx`. Ele é
+   * lido sem abrir nada, e a pessoa entra quando quiser.
    */
-  const abrirNaCarga = Boolean(expirou || proximo);
-  useEffect(() => {
-    if (abrirNaCarga) dialogo.current?.showModal();
-  }, [abrirNaCarga]);
 
   return (
     <>
@@ -146,32 +149,26 @@ export function DialogoEntrar({
             <IconeFechar className="h-4.5 w-4.5" />
           </button>
 
-          {/* O logo abre o cartao: ele fecha o topo do bloco e evita que o
-              branco comece no vazio. */}
+          {/*
+           * O nome abre o cartao: ele fecha o topo do bloco e evita que o branco
+           * comece no vazio.
+           *
+           * Arquivo diferente do da capa, e nao o mesmo com uma classe: o creme
+           * do letreiro rende 1,1:1 sobre branco — sumiria. Na versao de fundo
+           * claro o creme do "AMAAN" virou a tinta da marca; o ouro do
+           * "INCORPORADORA" ficou como é, porque ele lê nos dois fundos.
+           */}
           <Image
-            src="/logo.png"
-            alt=""
-            width={1080}
-            height={1080}
-            className="h-12 w-12 rounded-xl ring-1 ring-tinta/10"
+            src="/logonome-fundo-claro.png"
+            alt="Amaan Incorporadora"
+            width={1452}
+            height={394}
+            className="h-8 w-auto"
           />
 
           <h2 className="mt-6 text-2xl font-semibold tracking-tight text-tinta">
             Entrar na sua conta
           </h2>
-
-          {expirou && (
-            /* Ouro, e nao vermelho: sessao vencida nao é erro de quem entra, é
-               o relogio do sistema. Vermelho aqui leria como senha errada, que
-               é outra mensagem e vem de dentro do formulario. */
-            <p
-              role="status"
-              className="mt-6 rounded-xl bg-ouro/15 px-4 py-3 text-sm leading-relaxed text-tinta ring-1 ring-ouro/40"
-            >
-              Sua sessão expirou por inatividade. Entre novamente para continuar
-              de onde parou.
-            </p>
-          )}
 
           <FormularioLogin proximo={proximo} />
 

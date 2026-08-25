@@ -1,4 +1,4 @@
--- Meu ARI — o credito passa a exigir contrato, e a dispensar o investidor
+-- Amaan Invest — o credito passa a exigir contrato, e a dispensar o investidor
 --
 -- Segunda parte de `db/contrato-aditivos.sql`, aplicada depois de conferir que
 -- todos os creditos acharam o contrato deles (zero orfaos).

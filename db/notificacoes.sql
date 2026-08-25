@@ -1,4 +1,4 @@
--- Meu ARI — caixa de notificacoes
+-- Amaan Invest — caixa de notificacoes
 --
 -- Duas tabelas, e nao uma, por causa do aviso geral: `notificacoes.usuario_id`
 -- em branco significa "para todos", e uma linha compartilhada nao tem onde

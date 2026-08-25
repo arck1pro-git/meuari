@@ -5,7 +5,7 @@ import { getContratosParaSimular } from "@/lib/portal/dados";
 import { Simulador } from "./_componentes/simulador";
 
 export const metadata: Metadata = {
-  title: "Simulador ARI · Meu ARI",
+  title: "Simulador · Amaan Invest",
 };
 
 // Le a sessao e os contratos de quem entrou: nada de resposta guardada.
@@ -46,7 +46,7 @@ export default async function SimuladorPage() {
           quem ja sabe passa por cima dela sem esbarrar. */}
       <div className="mb-4 animate-surgir text-center">
         <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance text-black">
-          Simulador ARI
+          Simulador
         </h1>
         <p className="mx-auto mt-1.5 max-w-xs text-[0.8125rem] leading-relaxed text-balance text-neutral-500">
           Veja como um novo aporte impacta sua renda mensal.

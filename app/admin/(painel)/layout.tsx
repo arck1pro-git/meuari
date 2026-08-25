@@ -6,7 +6,7 @@ import { sair } from "../acoes";
 import { BarraAdmin } from "./barra-admin";
 
 export const metadata: Metadata = {
-  title: "Administracao · Meu ARI",
+  title: "Administracao · Amaan Invest",
   // A area nao deve aparecer em busca nenhuma.
   robots: { index: false, follow: false },
 };

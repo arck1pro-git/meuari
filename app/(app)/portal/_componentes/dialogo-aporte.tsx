@@ -45,7 +45,7 @@ export function DialogoDeAporte({
         />
 
         <p className="mt-7 text-sm leading-relaxed text-neutral-600">
-          No app <span className="font-semibold text-tinta">Meu ARI</span> não é
+          No app <span className="font-semibold text-tinta">Amaan Invest</span> não é
           permitido ou possível realizar transações bancárias. Para realizar um
           novo aporte, iremos te redirecionar para nosso comercial via WhatsApp.
           Você aceita?

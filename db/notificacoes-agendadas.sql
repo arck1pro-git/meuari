@@ -1,4 +1,4 @@
--- Meu ARI — avisos que se repetem
+-- Amaan Invest — avisos que se repetem
 --
 -- `notificacoes` guarda o aviso que ja aconteceu: uma linha, uma aparicao na
 -- caixinha do sino. O que se repete nao cabe la — um aviso semanal viraria

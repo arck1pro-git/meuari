@@ -7,7 +7,7 @@ import { IconeSetaEsquerda } from "../_componentes/icones";
 import { ListaHistorico } from "../_componentes/lista-historico";
 
 export const metadata: Metadata = {
-  title: "Histórico · Portal do Investidor Ari",
+  title: "Histórico · Amaan Invest",
 };
 
 // Tudo vem do banco a cada visita, e a sessao decide de quem sao os dados.

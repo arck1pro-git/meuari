@@ -1,4 +1,4 @@
--- Meu ARI — `contratos.tipo` sai do formulario e ganha um padrao
+-- Amaan Invest — `contratos.tipo` sai do formulario e ganha um padrao
 --
 -- O campo era texto livre, digitado a cada contrato, e virava a legenda do
 -- cartao no historico do investidor. Em tres contratos ele tinha tres grafias —

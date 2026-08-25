@@ -1,5 +1,5 @@
 /**
- * Service worker do Meu ARI — so o necessario para push.
+ * Service worker do Amaan Invest — so o necessario para push.
  *
  * Nao guarda nada em cache de proposito: o portal é todo dinamico (saldo,
  * creditos, URLs assinadas que expiram) e servir uma copia velha disso seria
@@ -43,7 +43,7 @@ self.addEventListener("fetch", (evento) => {
 
 self.addEventListener("push", (evento) => {
   // O corpo pode vir como JSON ou texto puro, dependendo de quem enviou.
-  let dados = { titulo: "Meu ARI", corpo: "", url: "/portal" };
+  let dados = { titulo: "Amaan Invest", corpo: "", url: "/portal" };
   try {
     dados = { ...dados, ...(evento.data ? evento.data.json() : {}) };
   } catch {
@@ -51,13 +51,20 @@ self.addEventListener("push", (evento) => {
   }
 
   /*
-   * Sem `badge`.
+   * Sem `badge` e sem `icon` — o aviso mostra um logo so.
    *
-   * Ele nao é um segundo icone: é a silhueta monocromatica que o sistema
-   * encolhe para um disco de ~24px — na barra de status do Android, e no canto
-   * do balao no Windows. Passar ali o logo colorido de 192px dava um circulo
-   * borrado ao lado do icone de verdade, que era o que sujava o aviso. Sem a
-   * propriedade, o navegador usa a marca dele e sobra so o nosso icone.
+   * `badge` é a silhueta monocromatica que o sistema encolhe para um disco de
+   * ~24px, na barra de status do Android. Passar ali o logo colorido de 192px
+   * dava um circulo borrado ao lado do icone de verdade.
+   *
+   * `icon` saiu depois, e por um motivo parecido: o Android o usa como *large
+   * icon*, a miniatura no canto **direito** do aviso. Com o app instalado, o
+   * lado esquerdo ja mostra o icone do proprio app — entao o mesmo logo
+   * aparecia duas vezes no mesmo balao, uma em cada ponta.
+   *
+   * A troca tem um custo, e ele é no computador: la nao ha icone de app
+   * instalado a esquerda, e sem `icon` o aviso sai com a marca do navegador em
+   * vez da nossa. Vale a pena porque quem recebe isto é investidor no celular.
    *
    * `lang` e `dir` porque o texto é em portugues: eles orientam a leitura por
    * voz e a direcao do balao.
@@ -65,7 +72,6 @@ self.addEventListener("push", (evento) => {
   evento.waitUntil(
     self.registration.showNotification(dados.titulo, {
       body: dados.corpo,
-      icon: "/icons/app-192.png",
       lang: "pt-BR",
       dir: "ltr",
       data: { url: dados.url },

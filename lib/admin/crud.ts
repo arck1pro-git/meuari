@@ -55,8 +55,13 @@ export function textoDeDuplicado(restricao?: string): string {
  * do registro de tabelas — nunca da URL ou do formulario —, nao ha entrada do
  * usuario nesse caminho. Esta funcao é a ultima trava: se algum dia um nome
  * chegar de fora, ela interrompe em vez de montar a consulta.
+ *
+ * Exportada porque a rota que serve o arquivo de um registro
+ * (`app/admin/arquivo/[tabela]/[id]`) monta SQL pelo mesmo criterio — tabela e
+ * coluna saidas do registro — e precisa da mesma trava. Copiar a regex la seria
+ * ter duas versoes da unica defesa contra identificador vindo de fora.
  */
-function ident(nome: string): string {
+export function ident(nome: string): string {
   if (!/^[a-z_][a-z0-9_]*$/.test(nome)) {
     throw new Error(`Identificador recusado: ${nome}`);
   }

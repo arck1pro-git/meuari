@@ -1,4 +1,4 @@
--- Meu ARI — os nomes das frentes, como eles sao ditos na obra
+-- Amaan Invest — os nomes das frentes, como eles sao ditos na obra
 --
 -- Correcao de `db/etapas-grupo.sql`, que criou a coluna com os nomes que a tela
 -- usava no rascunho: Estrutura, Burocracia, Outros. Na obra elas se chamam

@@ -1,4 +1,4 @@
--- Meu ARI — o contrato passa a ser o contrato, e o aporte seguinte vira aditivo
+-- Amaan Invest — o contrato passa a ser o contrato, e o aporte seguinte vira aditivo
 --
 -- Ate aqui `contratos` guardava um *aporte* por linha: o primeiro e todos os
 -- seguintes, lado a lado, sem nada dizendo que os seis ultimos entraram dentro

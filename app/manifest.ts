@@ -13,8 +13,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Meu ARI · Portal do Investidor",
-    short_name: "Meu ARI",
+    name: "Amaan Invest · Portal do Investidor",
+    short_name: "Amaan Invest",
     description:
       "Acompanhe seus aportes, o que você recebe todo mês e o andamento das obras.",
     start_url: "/portal",
@@ -30,14 +30,31 @@ export default function manifest(): MetadataRoute.Manifest {
     /*
      * Dois arquivos por tamanho, e nao um com "any maskable".
      *
-     * O Android recorta um circulo de 80% do quadrado no icone `maskable`, e a
-     * palavra ARI do logo chega perto demais dessa borda. A versao com folga é
-     * o mesmo logo a 76% sobre a mesma tinta — sem diferenca visivel, porque o
-     * fundo é da mesma cor, e com a zona segura respeitada.
+     * O Android recorta um circulo de 80% do quadrado no icone `maskable`, e
+     * alguns lancadores apertam mais. Os quatro sao a roseta do `logo.png`
+     * centrada sobre a mesma tinta do `theme_color`, mudando so o tamanho do
+     * desenho: 72% nos `any`, que aparecem inteiros, e 64% nos `maskable`, bem
+     * dentro da zona segura. Como o fundo é o mesmo nos quatro, o recorte nao
+     * deixa emenda a vista.
+     *
+     * O logo é linha fina e clara, e por isso nao vai transparente: sobre o
+     * branco que o sistema poria atras ele desaparece. A tinta é o que o faz
+     * existir — e é a mesma cor da barra do app, entao icone e cabecalho se
+     * reconhecem.
      */
     icons: [
-      { src: "/icons/app-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/app-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      {
+        src: "/icons/app-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/app-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         src: "/icons/app-192-mascara.png",
         sizes: "192x192",
