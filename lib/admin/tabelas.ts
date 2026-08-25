@@ -570,6 +570,26 @@ export const TABELAS: Tabela[] = [
         tipo: "numero",
         ajuda: "A ordem da obra, nao a do cadastro. Menor aparece primeiro.",
       },
+      /*
+       * O papel que sustenta o percentual — laudo, ART, medicao, relatorio.
+       *
+       * Bucket `docs`, o mesmo dos documentos do empreendimento: etapa pertence
+       * a uma obra, e o comprovante dela é da mesma familia dos outros papeis
+       * daquela obra. Ficaria errado no `scp`, que é o bucket de contrato — la
+       * dentro tudo é documento de investidor.
+       *
+       * Sem `aceita`, de proposito, e igual ao campo da tabela `documentos`:
+       * cai na lista padrao de `lib/upload.ts`, que aceita PDF e tambem foto.
+       * Medicao de obra chega dos dois jeitos, e exigir PDF obrigaria quem esta
+       * no canteiro a converter a foto antes de anexar.
+       */
+      {
+        nome: "documento",
+        rotulo: "Documento da etapa",
+        tipo: "arquivo",
+        bucket: BUCKETS.documentos,
+        ajuda: "Laudo, ART, medição ou relatório. Opcional.",
+      },
       { nome: "observacao", rotulo: "Observacao", tipo: "area" },
     ],
   },

@@ -186,6 +186,151 @@ export function GraficoDeEntradas({ pontos }: { pontos: PontoDaEntrada[] }) {
   );
 }
 
+export type FatiaDoInvestidor = { nome: string; valor: number };
+
+export type PontoDoPagamento = {
+  competencia: string;
+  realizado: number;
+  projetado: number;
+  total: number;
+  investidores: FatiaDoInvestidor[];
+};
+
+/**
+ * Quantos nomes cabem no balao antes de ele virar uma lista de rolagem.
+ *
+ * Nao é um numero de design: é o teto acima do qual o balao fica mais alto que o
+ * proprio grafico (16rem) e passa a cobrir o que a pessoa esta olhando. Com a
+ * carteira de hoje — 14 investidores no mes de pico — nenhum mes chega la, e o
+ * balao mostra todo mundo. O corte existe para quando chegar.
+ */
+const NOMES_NO_BALAO = 16;
+
+/**
+ * Quanto sai por mes na modalidade `mensal`, ate o ultimo contrato vencer.
+ *
+ * O gemeo de `GraficoDeEntradas`, virado ao contrario: la é o dinheiro que
+ * entra, aqui o que sai. Mesma forma de barra de proposito — as duas respondem
+ * "quanto, em que mes", e trocar a forma faria parecer que sao perguntas
+ * diferentes.
+ *
+ * **A serie atravessa o presente**, e é o que distingue este grafico de todos os
+ * outros do painel: os meses a esquerda de hoje sao creditos lancados, os a
+ * direita sao a estimativa da mesma formula que o lancamento usa. Um contrato de
+ * 36 meses é caixa comprometido por tres anos, e o painel nao dizia isso em
+ * lugar nenhum.
+ *
+ * As duas cores nao sao duas grandezas empilhadas: cada mes tem uma ou outra,
+ * nunca as duas. Elas dividem o `stackId` so para ocupar a mesma coluna — o que
+ * a cor separa é *ja aconteceu* de *ainda vai acontecer*.
+ */
+export function GraficoDePagamentos({
+  pontos,
+}: {
+  pontos: PontoDoPagamento[];
+}) {
+  const dados = pontos.map((ponto) => ({
+    ...ponto,
+    rotulo: formatarCompetenciaCurta(ponto.competencia),
+  }));
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          accessibilityLayer
+          data={dados}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+        >
+          {/*
+           * `interval` calculado, e nao `preserveStartEnd`: sao quase quatro
+           * anos de colunas, e deixar o Recharts decidir sozinho enfileira
+           * rotulos ate eles se tocarem. Um a cada seis meses da uma marca por
+           * semestre, que é a leitura util num horizonte deste tamanho.
+           */}
+          <XAxis dataKey="rotulo" {...EIXO} interval={5} />
+          <YAxis
+            {...EIXO}
+            width={72}
+            tickFormatter={formatarMoedaCurta}
+            tickCount={4}
+          />
+
+          <Tooltip
+            cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
+            content={({ active, payload }) => {
+              const ponto = payload?.[0]?.payload as
+                (PontoDoPagamento & { rotulo: string }) | undefined;
+              if (!active || !ponto) return null;
+
+              const mostrados = ponto.investidores.slice(0, NOMES_NO_BALAO);
+              const restantes = ponto.investidores.slice(NOMES_NO_BALAO);
+              const sobra = restantes.reduce((s, i) => s + i.valor, 0);
+
+              return (
+                <Balao
+                  titulo={`${ponto.rotulo} · ${
+                    ponto.projetado > 0 ? "previsto" : "pago"
+                  }`}
+                >
+                  <ValorDoBalao>{formatarMoeda(ponto.total)}</ValorDoBalao>
+
+                  {ponto.investidores.length === 0 ? (
+                    <p className="mt-1 text-[0.6875rem] text-neutral-400">
+                      Nenhum crédito neste mês
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-0.5 border-t border-zinc-100 pt-1.5">
+                      {mostrados.map((investidor) => (
+                        <li
+                          key={investidor.nome}
+                          className="flex items-baseline justify-between gap-4 text-[0.6875rem]"
+                        >
+                          {/* `max-w` com `truncate`: nome comprido nao pode
+                              empurrar o valor para fora do balao. */}
+                          <span className="max-w-40 truncate text-neutral-500">
+                            {investidor.nome}
+                          </span>
+                          <span className="shrink-0 font-medium text-tinta tabular-nums">
+                            {formatarMoeda(investidor.valor)}
+                          </span>
+                        </li>
+                      ))}
+                      {restantes.length > 0 && (
+                        <li className="flex items-baseline justify-between gap-4 pt-0.5 text-[0.6875rem] text-neutral-400">
+                          <span>e mais {restantes.length}</span>
+                          <span className="shrink-0 tabular-nums">
+                            {formatarMoeda(sobra)}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </Balao>
+              );
+            }}
+          />
+
+          <Bar
+            dataKey="realizado"
+            stackId="pagamento"
+            fill={COR.marinho}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={40}
+          />
+          <Bar
+            dataKey="projetado"
+            stackId="pagamento"
+            fill={COR.ceu}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={40}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export type PontoDaCurva = {
   competencia: string;
   valor: number;
@@ -553,173 +698,11 @@ export function GraficoDoCaptado({
   );
 }
 
-export type BarraDeObra = {
-  nome: string;
-  capital: number;
-  contratos: number;
-  porMes: number;
-  /** Meta de captacao. `null` quando ninguem definiu — dado so do /admin. */
-  meta: number | null;
-  progresso: number | null;
-};
-
 /**
- * Captacao por obra, em barras deitadas: o que entrou e o que falta para a meta.
- *
- * Deitadas porque o rotulo é nome de empreendimento: em pé, "Tourmaline Tower"
- * ou vira meia palavra ou sai na diagonal. A altura acompanha a quantidade de
- * obras — barra fina em tela cheia parece defeito, e barra gorda em duas obras
- * parece outra coisa.
- *
- * **Empilhada, e nao duas barras lado a lado.** A barra inteira é a meta, e a
- * parte cheia é o captado: o vao que sobra *é* o que falta, e se le sem
- * legenda. Em barras agrupadas o olho compara dois comprimentos e precisa fazer
- * a subtracao sozinho.
- *
- * O eixo é absoluto, e nao percentual: assim duas obras com metas diferentes
- * aparecem com larguras diferentes, que é a verdade — uma obra de 6 milhoes a
- * 50% e uma de 1 milhao a 50% nao sao a mesma coisa para quem capta.
- *
- * Obra sem meta vira barra só de captado, sem vao: nao ha o que faltar quando
- * nao ha alvo.
- */
-export function GraficoDeObras({ obras }: { obras: BarraDeObra[] }) {
-  const altura = Math.max(140, obras.length * 52 + 24);
-
-  const dados = obras.map((obra) => ({
-    ...obra,
-    // O que completa a barra ate a meta. Nunca negativo: captado acima da meta
-    // fecha a barra, e o excedente aparece no tooltip e no percentual.
-    falta: obra.meta ? Math.max(0, obra.meta - obra.capital) : 0,
-  }));
-
-  return (
-    <div style={{ height: altura }} className="w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          accessibilityLayer
-          data={dados}
-          layout="vertical"
-          margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
-        >
-          <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="nome"
-            {...EIXO}
-            width={148}
-            tick={{ fill: COR.tinta, fontSize: 12, fontWeight: 600 }}
-          />
-
-          <Tooltip
-            // O realce padrao é um retangulo cinza na faixa inteira, que aqui
-            // cobre o nome da obra junto.
-            cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
-            content={({ active, payload }) => {
-              const obra = payload?.[0]?.payload as BarraDeObra | undefined;
-              if (!active || !obra) return null;
-
-              return (
-                <Balao titulo={obra.nome}>
-                  <ValorDoBalao>{formatarMoeda(obra.capital)}</ValorDoBalao>
-                  {obra.meta ? (
-                    <p className="text-[0.6875rem] text-neutral-500 tabular-nums">
-                      {formatarPercentual(obra.progresso ?? 0, 1)} de{" "}
-                      {formatarMoeda(obra.meta)}
-                    </p>
-                  ) : (
-                    <p className="text-[0.6875rem] text-neutral-400">
-                      Sem meta definida
-                    </p>
-                  )}
-                  <p className="text-[0.6875rem] text-neutral-500 tabular-nums">
-                    {obra.contratos}{" "}
-                    {obra.contratos === 1 ? "contrato" : "contratos"} ·{" "}
-                    {formatarMoeda(obra.porMes)} por mês
-                  </p>
-                </Balao>
-              );
-            }}
-          />
-
-          {/* A ordem importa: o captado primeiro, encostado no eixo. */}
-          <Bar
-            dataKey="capital"
-            stackId="obra"
-            fill={COR.marinho}
-            maxBarSize={22}
-          />
-          <Bar
-            dataKey="falta"
-            stackId="obra"
-            fill={COR.tinta}
-            fillOpacity={0.1}
-            radius={[0, 4, 4, 0]}
-            maxBarSize={22}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-/**
- * A participacao de cada modalidade no capital, numa barra só.
- *
- * Nao é grafico do Recharts: sao duas divs. Uma barra empilhada de duas fatias
- * nao precisa de eixo, de escala nem de tooltip — o rotulo ao lado ja diz tudo
- * —, e chamar a biblioteca para desenhar dois retangulos seria trocar CSS por
- * SVG sem ganhar nada.
- */
-export function BarraDeModalidades({
-  fatias,
-}: {
-  /* `modalidade`, e nao `cor`: pelo mesmo motivo da rosca — hex vindo do
-     servidor nao atravessa a fronteira do `"use client"`. */
-  fatias: { nome: string; valor: number; modalidade: "mensal" | "final" }[];
-}) {
-  const total = fatias.reduce((soma, f) => soma + f.valor, 0);
-  if (total <= 0) return null;
-
-  return (
-    <div>
-      <div
-        aria-hidden
-        className="flex h-2 overflow-hidden rounded-full bg-zinc-100"
-      >
-        {fatias.map((fatia) => (
-          <div
-            key={fatia.nome}
-            style={{
-              width: `${(fatia.valor / total) * 100}%`,
-              backgroundColor: COR_DA_MODALIDADE[fatia.modalidade],
-            }}
-          />
-        ))}
-      </div>
-
-      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-        {fatias.map((fatia) => (
-          <li key={fatia.nome} className="flex items-center gap-2 text-xs">
-            <span
-              aria-hidden
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: COR_DA_MODALIDADE[fatia.modalidade] }}
-            />
-            <span className="text-neutral-500">{fatia.nome}</span>
-            <span className="font-semibold tabular-nums text-tinta">
-              {formatarPercentual(fatia.valor / total, 1)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/**
- * As cores das duas modalidades. **Fonte unica** — a rosca, a barra empilhada e
- * o pontinho da tabela leem daqui.
+ * As cores das duas modalidades. **Fonte unica** — a rosca e o pontinho da
+ * tabela leem daqui. (A barra empilhada que tambem lia saiu com o bloco
+ * redundante; o pontinho da tabela usa as classes do Tailwind, e nao este
+ * objeto, porque vive num componente de servidor.)
  *
  * **Sao as mesmas de "Captado por origem", por escolha de quem desenha a tela.**
  * Nao sao copias dos valores: apontam para `COR.marinho` e `COR.ceu`, os mesmos

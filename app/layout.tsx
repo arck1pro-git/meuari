@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Portal do Investidor · Amaan Invest",
   description:
-    "Acompanhe seus aportes, sua participacao nos resultados e a transparencia da obra do empreendimento Ari.",
+    "Acompanhe seus aportes, sua participação nos resultados e o andamento das obras.",
 };
 
 export default function RootLayout({

@@ -16,13 +16,13 @@ import {
   formatarPercentual,
 } from "@/lib/portal/formato";
 import { IconeSetaDireita } from "@/app/(app)/portal/_componentes/icones";
+import { pagamentosMensais } from "@/lib/admin/pagamentos";
 import { CabecalhoDaSecao } from "./_componentes/cabecalho";
 import { SeletorDeInvestidor } from "./_componentes/seletor-investidor";
 import {
-  BarraDeModalidades,
   GraficoDaCaptacao,
   GraficoDeEntradas,
-  GraficoDeObras,
+  GraficoDePagamentos,
   GraficoDoCaptado,
   GraficoDoInvestidor,
 } from "./_componentes/graficos";
@@ -81,9 +81,10 @@ export default async function AdminPage({
   const { i, m } = await searchParams;
   const hoje = await dataDeReferencia();
 
-  const [painel, investidores] = await Promise.all([
+  const [painel, investidores, pagamentos] = await Promise.all([
     montarPainel(hoje),
     investidoresComContrato(),
+    pagamentosMensais(hoje),
   ]);
 
   const modalidade = modalidadeDaUrl(m);
@@ -185,6 +186,41 @@ export default async function AdminPage({
         </Bloco>
       </div>
 
+      {/*
+       * O contrario do bloco de cima, e por isso logo abaixo dele: um mostra o
+       * dinheiro entrando, o outro o mesmo dinheiro saindo em participacao.
+       *
+       * Este é o unico do painel que passa de hoje. A metade da direita nao é
+       * historico — é compromisso: contrato de 36 meses ja assinado é caixa
+       * reservado ate 2029, e ate aqui isso nao aparecia em tela nenhuma.
+       */}
+      <div className="escalonar mt-6">
+        <Bloco
+          titulo="Pagamentos do mensal"
+          apoio="O que sai por mês até o último contrato vencer. Passe o mouse para ver quanto cabe a cada investidor."
+          acessorio={
+            <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
+                Pago
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-ceu" />
+                Previsto
+              </span>
+            </span>
+          }
+        >
+          {pagamentos.length === 0 ? (
+            <p className="py-20 text-center text-sm text-neutral-500">
+              Nenhum contrato na modalidade mensal.
+            </p>
+          ) : (
+            <GraficoDePagamentos pontos={pagamentos} />
+          )}
+        </Bloco>
+      </div>
+
       {/* Logo abaixo do movimento do mes: ela é a unica peca do painel que
           responde com um numero contra outro — quanto entrou de quanto se quer.
           O resto é composição do que ja entrou. */}
@@ -281,7 +317,7 @@ export default async function AdminPage({
           titulo="Captado por modalidade"
           apoio="Quanto do capital rende por mês e quanto rende no resgate."
         >
-          {/* As cores sao as mesmas da barra e da tabela de modalidades, logo
+          {/* As cores sao as mesmas do pontinho da tabela de modalidades, logo
               abaixo: a mesma coisa com duas cores em blocos vizinhos lê como
               duas coisas diferentes. */}
           <GraficoDoCaptado
@@ -389,23 +425,24 @@ export default async function AdminPage({
         </div>
       )}
 
-      <div className="escalonar mt-4 grid gap-4">
+      {/* Sozinho na linha: o `grid gap-4` daqui existia para dividir o espaco
+          com o bloco de captacao por obra, que saiu. */}
+      <div className="escalonar mt-4">
         <Bloco
           titulo="Por modalidade de contrato"
           apoio="Quanto há em cada tipo, e quanto ele movimenta num mês cheio."
         >
-          <BarraDeModalidades
-            fatias={painel.modalidades.map((m) => ({
-              nome: MODALIDADES[m.modalidade].nome,
-              valor: m.capital,
-              modalidade: m.modalidade,
-            }))}
-          />
-
-          {/* Tabela, e nao cartoes: sao seis numeros por modalidade, e o que se
-              faz com eles é comparar coluna por coluna. Em cartoes, "capital"
-              de um fica a duas alturas do "capital" do outro. */}
-          <div className="-mx-1 mt-5 overflow-x-auto px-1">
+          {/*
+           * Tabela, e nao cartoes: sao seis numeros por modalidade, e o que se
+           * faz com eles é comparar coluna por coluna. Em cartoes, "capital" de
+           * um fica a duas alturas do "capital" do outro.
+           *
+           * Havia uma barra empilhada acima dela, dividindo o capital entre as
+           * duas modalidades. Saiu por ser a terceira vez que a tela dizia a
+           * mesma coisa: a rosca de "Captado por modalidade" ja mostra essa
+           * divisao, e a coluna Capital desta tabela a mostra em numero.
+           */}
+          <div className="-mx-1 overflow-x-auto px-1">
             <table className="w-full min-w-[36rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left">
@@ -427,28 +464,6 @@ export default async function AdminPage({
               </tbody>
             </table>
           </div>
-        </Bloco>
-
-        <Bloco
-          titulo="Captação por obra"
-          apoio="A barra inteira é a meta; a parte cheia é o que já entrou."
-          acessorio={
-            <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
-                Captado
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  aria-hidden
-                  className="h-2 w-2 rounded-full bg-tinta/10"
-                />
-                Falta
-              </span>
-            </span>
-          }
-        >
-          <GraficoDeObras obras={painel.obras} />
         </Bloco>
       </div>
     </>

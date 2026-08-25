@@ -32,7 +32,7 @@ import {
  */
 
 /** O prazo de quem nao tem prazo registrado — o mesmo padrao do simulador. */
-const PRAZO_PADRAO = 36;
+export const PRAZO_PADRAO = 36;
 
 export type PontoDoContrato = {
   /** Competencia `AAAA-MM`. */
@@ -83,11 +83,11 @@ type AporteDoInvestidor = AporteMensal & {
   contratoData: DataISO;
 };
 
-function competenciaDe(iso: DataISO): string {
+export function competenciaDe(iso: DataISO): string {
   return iso.slice(0, 7);
 }
 
-function mesSeguinte(competencia: string): string {
+export function mesSeguinte(competencia: string): string {
   const [ano, mes] = competencia.split("-").map(Number);
   return mes === 12
     ? `${ano + 1}-01`
@@ -112,8 +112,12 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0");
  * As duas versoes anteriores desta funcao mediam dias — o dia 28 fixo, depois a
  * vespera do aniversario — e ambas existiam so para acertar o rateio das pontas.
  * Sem rateio, o problema todo desaparece.
+ *
+ * Exportada para `lib/admin/pagamentos.ts` usar a mesma. Copiar a regra la seria
+ * ter duas definicoes de onde um contrato termina, e foi exatamente esse numero
+ * que ja saiu errado tres vezes antes de assentar aqui.
  */
-function fimDoPrazoDe(assinatura: DataISO, meses: number): string {
+export function fimDoPrazoDe(assinatura: DataISO, meses: number): string {
   const [ano, mes] = assinatura.split("-").map(Number);
   const total = ano * 12 + (mes - 1) + Math.max(0, meses - 1);
   return `${Math.floor(total / 12)}-${doisDigitos((total % 12) + 1)}`;
@@ -182,13 +186,10 @@ export async function serieDoInvestidor(
    * Competencia, e nao data: com o rendimento por mes fechado, o dia da
    * assinatura nao decide mais nada. Ver `fimDoPrazoDe`.
    */
-  const fimDoPrazo = aportes.reduce(
-    (maior, a) => {
-      const fim = fimDoPrazoDe(a.contratoData, a.prazoMeses ?? PRAZO_PADRAO);
-      return fim > maior ? fim : maior;
-    },
-    competenciaDe(aportes[0].contratoData),
-  );
+  const fimDoPrazo = aportes.reduce((maior, a) => {
+    const fim = fimDoPrazoDe(a.contratoData, a.prazoMeses ?? PRAZO_PADRAO);
+    return fim > maior ? fim : maior;
+  }, competenciaDe(aportes[0].contratoData));
 
   const pontos =
     modalidade === "mensal"

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { FormularioLogin } from "./formulario";
 
 export const metadata: Metadata = {
-  title: "Entrar · Administracao",
+  title: "Entrar · Administração · Amaan Invest",
   robots: { index: false, follow: false },
 };
 
