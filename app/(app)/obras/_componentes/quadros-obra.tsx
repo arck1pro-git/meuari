@@ -38,7 +38,7 @@ const QUADROS = [
 export function QuadrosDaObra({ etapas }: { etapas: Etapa[] }) {
   if (etapas.length === 0) {
     return (
-      <p className="sombra-cartao rounded-[20px] bg-white px-6 py-10 text-center text-sm text-neutral-500">
+      <p className="sombra-cartao rounded-[20px] md:rounded-lg bg-white px-6 py-10 text-center text-sm text-neutral-500">
         O andamento dos projetos ainda não foi publicado.
       </p>
     );
@@ -67,7 +67,7 @@ export function QuadrosDaObra({ etapas }: { etapas: Etapa[] }) {
              * ocupa 82% e a vizinha aparece pela beirada — é ela que diz que ha
              * mais para o lado. No desktop as duas cabem juntas.
              */
-            className="sombra-cartao w-[82%] shrink-0 snap-start rounded-[20px] bg-white p-4 sm:w-[calc((100%-1rem)/2)]"
+            className="sombra-cartao w-[82%] shrink-0 snap-start rounded-[20px] md:rounded-lg bg-white p-4 sm:w-[calc((100%-1rem)/2)]"
           >
             <header className="mb-3.5 flex items-baseline justify-between gap-2 px-1">
               <div className="min-w-0">

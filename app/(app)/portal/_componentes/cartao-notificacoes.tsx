@@ -88,7 +88,7 @@ export function CartaoDeNotificacoes() {
      */
     <div
       aria-label="Ativar notificações"
-      className="sombra-cartao fixed inset-x-4 top-[3.75rem] z-40 flex animate-surgir items-center gap-4 rounded-2xl border border-tinta/12 bg-white p-4 sm:inset-x-8 sm:top-[4.25rem] sm:p-5 md:inset-x-auto md:top-6 md:right-8 md:w-[26rem]"
+      className="sombra-cartao fixed inset-x-4 top-[3.75rem] z-40 flex animate-surgir items-center gap-4 rounded-2xl md:rounded-lg border border-tinta/12 bg-white p-4 sm:inset-x-8 sm:top-[4.25rem] sm:p-5 md:inset-x-auto md:top-6 md:right-8 md:w-[26rem]"
     >
       <Image
         src="/icons/3dicons-bell-dynamic-color.png"

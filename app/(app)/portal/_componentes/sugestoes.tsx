@@ -55,7 +55,7 @@ export async function Sugestoes() {
                   e nao um vazio. */}
               <Link
                 href={`/portal/sugestoes/${artigo.id}`}
-                className="sombra-cartao hover:sombra-cartao-alta group relative block aspect-3/2 overflow-hidden rounded-2xl bg-tinta transition-shadow duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+                className="sombra-cartao hover:sombra-cartao-alta group relative block aspect-3/2 overflow-hidden rounded-2xl md:rounded-lg bg-tinta transition-shadow duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
               >
                 {/* `<img>` e nao `next/image`: a capa vem de um host externo
                     que nao controlamos, e o otimizador recusa origem que nao

@@ -128,7 +128,16 @@ export default async function PortalPage({
      * encosta na borda do monitor —, e o cabecalho perdeu o `max-w` dele no
      * mesmo movimento, entao as duas faixas comecam e terminam juntas.
      */
-    <main className="w-full flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
+    /*
+     * O mesmo cinza de `/obras` e `/simulador`, agora na tela inteira.
+     *
+     * Ele ja era a superficie das outras duas secoes, e aqui aparecia so em
+     * dois retangulos no desktop — a coluna da obra e o bloco do simulador —,
+     * justamente para lembrar de onde aquele conteudo vinha. Com a carteira
+     * tambem em cinza, as tres secoes do app passam a ter o mesmo chao, e o
+     * branco volta a significar uma coisa so: cartao.
+     */
+    <main className="w-full flex-1 bg-[#F7F8FA] px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
       {/*
        * Primeiro no documento, mas nao no fluxo: o cartao é `fixed` e paira
        * sobre a tela. Fica aqui em cima porque esta ordem é a que o leitor de
@@ -242,11 +251,12 @@ export default async function PortalPage({
              * onde isso mora é justamente esta — o saldo em cima, o rendimento
              * no meio, e no pé a pergunta que segue de tudo isso.
              *
-             * O fundo cinza é o mesmo da coluna da obra: aqui ele separa a
-             * ferramenta da leitura que vem acima.
+             * O `bg-[#F7F8FA]` saiu daqui: a tela inteira passou a ser cinza,
+             * e a classe pintava a mesma cor do proprio fundo. O `p-4` fica —
+             * era ele, e nao a cor, que dava o respiro em volta do simulador.
              */}
             {paraSimular.length > 0 && (
-              <section className="mt-10 hidden rounded-[20px] bg-[#F7F8FA] p-4 lg:block">
+              <section className="mt-10 hidden rounded-[20px] p-4 md:rounded-lg lg:block">
                 <div className="mb-4 text-center">
                   <h2 className="sr-only">Simulador</h2>
                   <p className="mx-auto max-w-xs text-[0.8125rem] leading-relaxed text-balance text-neutral-500">
@@ -279,9 +289,36 @@ export default async function PortalPage({
          * principal da tela.
          */}
         {obra && (
-          <div className="hidden rounded-[20px] bg-[#F7F8FA] p-4 lg:block lg:w-[25rem] lg:shrink-0 xl:w-[31rem] 2xl:w-[36rem]">
+          /*
+           * Sem `bg-[#F7F8FA]`, pelo mesmo motivo do bloco do simulador: a cor
+           * agora vem da pagina.
+           *
+           * **O recuo de cima é o alinhamento com o cartao de saldo**, e por
+           * isso ele nao é `p-4` como os outros tres lados. As duas colunas
+           * comecam na mesma linha (`lg:items-start`), mas o que ha no topo de
+           * cada uma é diferente:
+           *
+           * - sem seletor de empreendimento, a esquerda abre direto no cartao
+           *   de saldo. Qualquer recuo aqui em cima jogaria a foto para baixo
+           *   dele — daí `lg:pt-0`;
+           * - com seletor, a esquerda abre 52px mais baixo. Sao os 32px da
+           *   pastilha (`py-1.5` sobre `text-sm`), mais 4px do `pb-1` da fila,
+           *   mais os 16px do `mb-4` do bloco. `lg:pt-13` é exatamente esse
+           *   valor.
+           *
+           * O numero é copia de uma medida que mora em `SeletorDeEmpreendimento`
+           * — se o desenho daquele bloco mudar, este recuo precisa mudar junto,
+           * e nao ha compilador que cobre isso. Hoje o caso nem se apresenta:
+           * ha um empreendimento no banco, e o seletor so aparece a partir de
+           * dois.
+           */
+          <div
+            className={`hidden rounded-[20px] px-4 pb-4 md:rounded-lg lg:block lg:w-[25rem] lg:shrink-0 xl:w-[31rem] 2xl:w-[36rem] ${
+              empreendimentos.length > 1 ? "lg:pt-13" : "lg:pt-0"
+            }`}
+          >
             <div className="escalonar space-y-5">
-              <section className="sombra-cartao overflow-hidden rounded-[20px] bg-white">
+              <section className="sombra-cartao overflow-hidden rounded-[20px] md:rounded-lg bg-white">
                 <HeroObra obra={obra} />
               </section>
 

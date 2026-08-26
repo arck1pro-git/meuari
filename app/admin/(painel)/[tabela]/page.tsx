@@ -21,6 +21,7 @@ import { EnviarAgora } from "../_componentes/enviar-agora";
 import { Folha } from "../_componentes/folha";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { BotaoExcluir } from "./botao-excluir";
+import { RedefinirSenha } from "./redefinir-senha";
 import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
 
@@ -109,6 +110,8 @@ export default async function TabelaPage({
     editar?: string;
     /** `1` abre o formulario de criar. Ver `href` mais abaixo. */
     novo?: string;
+    /** O id do investidor cuja senha vai ser redefinida, em Investidores. */
+    senha?: string;
     /** `1` abre o painel de lancamento do mes, em Recebimentos. */
     lancar?: string;
     /** `1` abre o formulario de aviso imediato, em Notificacoes. */
@@ -131,6 +134,7 @@ export default async function TabelaPage({
   const {
     editar,
     novo,
+    senha,
     lancar,
     enviar,
     agendar,
@@ -178,6 +182,7 @@ export default async function TabelaPage({
     const atual: Record<string, string | undefined> = {
       editar,
       novo,
+      senha,
       lancar,
       enviar,
       agendar,
@@ -207,6 +212,24 @@ export default async function TabelaPage({
       ? opcoesDoFiltro(tabela, campoReferencia)
       : Promise.resolve([]),
   ]);
+
+  /*
+   * Quem vai ter a senha redefinida — achado na lista que ja veio, e nao numa
+   * consulta nova.
+   *
+   * Duas coisas de graca: uma ida a menos ao banco, e a checagem de escopo. A
+   * listagem de Investidores ja aplica `tipo = 'investidor'` (o `onde` do
+   * registro), entao um id que nao esteja nela nao é encontrado aqui e a folha
+   * nao abre — sem consulta extra e sem revelar que aquele id existe.
+   *
+   * Vale como conveniencia, e nao como a guarda: quem barra de verdade é o
+   * `where` da propria acao, porque Server Action responde a POST direto, sem
+   * passar por esta pagina.
+   */
+  const investidorDaSenha =
+    senha && tabela.tabela === "usuarios"
+      ? linhas.find((l: Linha) => String(l.id) === senha)
+      : undefined;
 
   return (
     <>
@@ -449,6 +472,27 @@ export default async function TabelaPage({
         </Folha>
       )}
 
+      {/*
+       * A folha de redefinir senha, na mesma gramatica das outras: sobe por
+       * cima, e fechar volta para a listagem com o filtro intacto.
+       *
+       * `investidorDaSenha` sai da lista ja carregada, e nao de uma consulta
+       * nova: a linha esta ali. Se o id da URL nao for de ninguem que a
+       * listagem mostra, a folha simplesmente nao abre — o mesmo silencio que
+       * um `editar` invalido produz.
+       */}
+      {investidorDaSenha && (
+        <Folha
+          titulo="Redefinir senha"
+          fechar={comParametros({ senha: null })}
+        >
+          <RedefinirSenha
+            id={String(investidorDaSenha.id)}
+            nome={String(investidorDaSenha.nome ?? "este investidor")}
+          />
+        </Folha>
+      )}
+
       {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
           dentro do cartao em vez de empurrar a pagina inteira de lado. */}
       <div className="sombra-cartao mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
@@ -560,10 +604,29 @@ export default async function TabelaPage({
                         {verboDe(arquivo.aceita)}
                       </a>
                     ) : null}
+                    {/*
+                     * Só em Investidores: é a unica tabela com senha, e o
+                     * recorte da listagem (`onde`) ja garante que aqui só ha
+                     * investidor. A acao repete essa condicao no `where`, para
+                     * um id colado na URL nao alcancar um administrador.
+                     */}
+                    {tabela.tabela === "usuarios" && (
+                      <Link
+                        href={comParametros({
+                          senha: String(linha.id),
+                          editar: null,
+                          novo: null,
+                        })}
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-50"
+                      >
+                        Senha
+                      </Link>
+                    )}
                     {!tabela.semFormulario && (
                       <Link
                         href={comParametros({
                           editar: String(linha.id),
+                          senha: null,
                           novo: null,
                         })}
                         className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"

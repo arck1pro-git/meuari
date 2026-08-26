@@ -18,7 +18,7 @@ export function Esqueleto({ blocos = 3 }: { blocos?: number }) {
       {Array.from({ length: blocos }, (_, i) => (
         <div
           key={i}
-          className="h-32 rounded-2xl bg-tinta/[0.06]"
+          className="h-32 rounded-2xl md:rounded-lg bg-tinta/[0.06]"
           // O primeiro bloco é mais alto: no /portal ele é o cartao do saldo
           // mais o grafico, que juntos ocupam bem mais que um cartao de lista.
           style={i === 0 ? { height: "13rem" } : undefined}

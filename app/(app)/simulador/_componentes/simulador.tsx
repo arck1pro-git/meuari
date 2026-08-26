@@ -241,7 +241,7 @@ export function Simulador({ contratos }: { contratos: ContratoParaSimular[] }) {
        */}
       {fase === "entrada" ? (
         <form onSubmit={calcular} className="animate-aparecer">
-          <section className="sombra-cartao rounded-[20px] bg-white p-6 sm:p-8">
+          <section className="sombra-cartao rounded-[20px] md:rounded-lg bg-white p-6 sm:p-8">
             <label htmlFor="aporte" className="block">
               <Rotulo icone={<CifraoTresD />}>
                 Quanto você quer aportar?
@@ -320,7 +320,7 @@ export function Simulador({ contratos }: { contratos: ContratoParaSimular[] }) {
         <section
           role="status"
           aria-live="polite"
-          className="degrade-cabecalho sombra-cartao animate-aparecer rounded-[20px] p-6 text-white sm:p-8"
+          className="degrade-cabecalho sombra-cartao animate-aparecer rounded-[20px] md:rounded-lg p-6 text-white sm:p-8"
         >
           <Rotulo escuro>Calculando a sua simulação</Rotulo>
           <p className="mt-2 text-[0.8125rem] text-white/70">
@@ -342,7 +342,7 @@ export function Simulador({ contratos }: { contratos: ContratoParaSimular[] }) {
            */}
           <section
             aria-live="polite"
-            className="degrade-cabecalho sombra-cartao animate-surgir rounded-[20px] p-6 text-white sm:p-8"
+            className="degrade-cabecalho sombra-cartao animate-surgir rounded-[20px] md:rounded-lg p-6 text-white sm:p-8"
           >
             <Rotulo escuro>
               {mensal ? "Você recebe por mês" : "Você recebe no vencimento"}

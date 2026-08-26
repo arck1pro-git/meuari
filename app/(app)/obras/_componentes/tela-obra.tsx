@@ -45,7 +45,7 @@ export function TelaDaObra({
       {obras.length > 1 && <SeletorDeObra obras={obras} atual={obra.id} />}
 
       <div className="escalonar">
-        <section className="sombra-cartao overflow-hidden rounded-[20px] bg-white">
+        <section className="sombra-cartao overflow-hidden rounded-[20px] md:rounded-lg bg-white">
           <HeroObra obra={obra} />
         </section>
 

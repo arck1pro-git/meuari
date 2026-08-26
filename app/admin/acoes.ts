@@ -6,8 +6,11 @@ import {
   autenticar,
   abrirSessao,
   fecharSessao,
+  gerarHash,
+  SENHA_MINIMA,
   sessaoValida,
 } from "@/lib/auth";
+import { consultar } from "@/lib/db";
 import { agendar, removerAgendamento } from "@/lib/admin/agendamentos";
 import {
   atualizar,
@@ -510,4 +513,97 @@ export async function acaoExcluir(slug: string, id: string) {
   });
 
   revalidatePath(`/admin/${slug}`);
+}
+
+/**
+ * O que a folha de redefinir senha recebe de volta.
+ *
+ * Tipado, e nao uma string em que `"ok"` significasse sucesso — mesmo motivo de
+ * `ResultadoDaSenha` em `app/(app)/perfil/acoes.ts`.
+ */
+export type ResultadoDaRedefinicao = { ok: true } | { erro: string };
+
+/**
+ * O administrador define a senha de um investidor.
+ *
+ * **Existe para o primeiro acesso e para o esquecimento.** Nao ha canal de
+ * e-mail no projeto, entao a senha nova é combinada por fora — WhatsApp,
+ * telefone — e digitada aqui. É a solucao que a operacao ja usa; o que faltava
+ * era um lugar proprio para ela, com as garantias abaixo.
+ *
+ * Isto ja era possivel pelo campo "Senha" do formulario de edicao, e continua
+ * sendo. A diferenca é que la a troca se mistura a uma edicao qualquer de
+ * cadastro, e aqui ela é uma acao declarada — que registra o que é, confere a
+ * confirmacao e derruba as sessoes.
+ *
+ * ---
+ *
+ * **O id vem do formulario, e nao preso por `bind`.** Foi tentado com
+ * `acaoRedefinirSenha.bind(null, id)`, que é o arranjo mais natural, e ele
+ * **trava a resposta**: a folha é re-renderizada dentro da resposta da propria
+ * acao, e o `useActionState` com acao ligada por `bind` naquele mesmo
+ * componente nunca fecha o fluxo. O sintoma foi um POST que ficava aberto ate o
+ * cliente desistir — a acao rodava inteira e devolvia, e a resposta é que nao
+ * terminava. Com o id num campo escondido, o mesmo POST responde em 0,7 s.
+ *
+ * **Só investidor.** O id, portanto, chega da requisicao — e é por isso que o
+ * `where` repete `tipo = 'investidor'`, o mesmo recorte da listagem (`onde`, no
+ * registro da tabela). Sem ele, um id de administrador colado no formulario
+ * redefiniria a senha de outro administrador por uma tela que nao mostra
+ * administradores. Nao é capacidade nova: quem administra ja abre a folha de
+ * qualquer investidor pela listagem. O que a condicao garante é que o alcance
+ * do formulario nao passe do alcance da tela.
+ *
+ * **Derruba as sessoes daquela pessoa.** `sessao_versao + 1` invalida todo
+ * cookie dela — inclusive o do aparelho onde ela talvez esteja agora. É o certo:
+ * se a senha foi redefinida porque a conta pode ter sido acessada por outra
+ * pessoa, deixar a sessao antiga de pé anula o motivo da redefinicao.
+ *
+ * **Nao ha ex-senha para conferir**, e é a diferenca em relacao a troca feita
+ * pelo proprio investidor: quem redefine aqui nao sabe a senha atual, e é
+ * justamente por isso que a tela existe. A guarda é `exigirAdmin`.
+ */
+export async function acaoRedefinirSenha(
+  _anterior: ResultadoDaRedefinicao | null,
+  dados: FormData,
+): Promise<ResultadoDaRedefinicao> {
+  await exigirAdmin();
+
+  const id = String(dados.get("id") ?? "");
+  const nova = String(dados.get("nova") ?? "");
+  const confirmacao = String(dados.get("confirmacao") ?? "");
+
+  if (nova.length < SENHA_MINIMA) {
+    return {
+      erro: `A senha precisa de pelo menos ${SENHA_MINIMA} caracteres.`,
+    };
+  }
+  if (nova !== confirmacao) {
+    return { erro: "A confirmação não bate com a senha digitada." };
+  }
+
+  const [linha] = await consultar<{ nome: string }>(
+    `update usuarios
+        set senha_hash = $1, sessao_versao = sessao_versao + 1
+      where id = $2 and tipo = 'investidor'
+      returning nome`,
+    [await gerarHash(nova), id],
+  );
+  if (!linha) return { erro: "Investidor não encontrado." };
+
+  /*
+   * `campo`, e nunca o valor — o `peneirar` de `lib/auditoria.ts` apagaria de
+   * qualquer jeito. `por` distingue esta linha da que o proprio investidor
+   * gera ao trocar no /perfil: as duas sao `atualizar` sobre `usuarios`, e sem
+   * a distincao ninguem sabe depois quem mexeu.
+   */
+  await registrar({
+    acao: "atualizar",
+    alvoTabela: "usuarios",
+    alvoId: id,
+    detalhe: { campo: "senha", por: "administrador", investidor: linha.nome },
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { ok: true };
 }

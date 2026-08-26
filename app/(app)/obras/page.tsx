@@ -35,11 +35,11 @@ export default async function ObrasPage() {
 
   if (obras.length === 0) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
+      <main className="mx-auto w-full max-w-5xl flex-1 bg-[#F7F8FA] px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         <h1 className="mb-5 animate-surgir text-base font-bold tracking-tight text-black">
           Obras
         </h1>
-        <p className="sombra-cartao animate-surgir rounded-2xl bg-white px-6 py-10 text-center text-sm text-neutral-500 [animation-delay:60ms]">
+        <p className="sombra-cartao animate-surgir rounded-2xl md:rounded-lg bg-white px-6 py-10 text-center text-sm text-neutral-500 [animation-delay:60ms]">
           Você ainda não tem aporte em nenhum empreendimento.
         </p>
       </main>

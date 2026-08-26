@@ -443,7 +443,23 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
             <div
               role="group"
               aria-label="Locais da obra"
-              className="absolute inset-x-0 top-0 z-10 flex max-h-28 flex-wrap gap-2 overflow-y-auto bg-linear-to-b from-tinta/70 to-transparent px-4 pt-4 pr-28 pb-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              /*
+               * `pointer-events-none` na barra, `pointer-events-auto` em cada
+               * atalho — e é isto que faz os botoes do canto voltarem a
+               * funcionar.
+               *
+               * A barra é `inset-x-0`, entao a caixa dela cobre a largura
+               * inteira, inclusive o canto onde moram o baixar e o fechar. O
+               * `pr-28` afasta os atalhos daquele canto, mas **padding nao tira
+               * a area do elemento**: a barra continuava sendo a camada de cima
+               * ali (`z-10`) e engolia os dois cliques. O sintoma era exato —
+               * nem o X nem o baixar respondiam, e nada no console.
+               *
+               * Sem eventos, a barra volta a ser só pintura, e o toque atravessa
+               * para quem esta embaixo. É o mesmo arranjo das camadas
+               * decorativas do cabecalho.
+               */
+              className="pointer-events-none absolute inset-x-0 top-0 z-10 flex max-h-28 flex-wrap gap-2 overflow-y-auto bg-linear-to-b from-tinta/70 to-transparent px-4 pt-4 pr-28 pb-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {/*
                * "Todas" é um atalho como os outros, e nao um "limpar filtro"
@@ -552,7 +568,7 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
             disabled={baixando}
             aria-label="Baixar esta foto"
             title="Baixar"
-            className="absolute top-4 right-16 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-progress disabled:opacity-50"
+            className="absolute top-4 z-20 right-16 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-progress disabled:opacity-50"
           >
             <IconeBaixar className="h-5 w-5" />
           </button>
@@ -561,7 +577,7 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
             type="button"
             onClick={fechar}
             aria-label="Fechar"
-            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="absolute top-4 z-20 right-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <IconeFechar className="h-5 w-5" />
           </button>
@@ -634,7 +650,9 @@ function Atalho({
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap backdrop-blur-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+      // `pointer-events-auto` devolve o clique só a pastilha: a barra em volta
+      // é `pointer-events-none` para nao tapar os botoes do canto.
+      className={`pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap backdrop-blur-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
         ativo
           ? "bg-white text-tinta"
           : "bg-white/15 text-white hover:bg-white/30"

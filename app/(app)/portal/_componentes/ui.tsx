@@ -33,7 +33,7 @@ export function Cartao({
       // em `globals.css`); virou `azul` puro e cheio. A borda continua o
       // `marinho` cheio — o mesmo contorno de sempre, so que agora sobre um
       // miolo de uma cor so.
-      className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl border p-5 transition-shadow duration-300 sm:p-8 ${
+      className={`sombra-cartao hover:sombra-cartao-alta scroll-mt-24 rounded-2xl md:rounded-lg border p-5 transition-shadow duration-300 sm:p-8 ${
         escuro
           ? "border-marinho bg-azul text-white"
           : "border-tinta/12 bg-white"

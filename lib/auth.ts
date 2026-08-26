@@ -23,6 +23,10 @@ export {
   type DadosDaSessao,
 } from "./sessao";
 
+// A regra de tamanho mora em `lib/senha.ts`, que nao é `server-only` — o
+// formulario do perfil roda no navegador e le o mesmo numero.
+export { SENHA_MINIMA } from "./senha";
+
 const scrypt = promisify(scryptCb) as (
   senha: string,
   sal: Buffer,

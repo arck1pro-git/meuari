@@ -61,7 +61,7 @@ export default async function SimuladorPage() {
          * e participacao existentes, e sem eles a tela viraria uma calculadora
          * de numeros inventados.
          */
-        <div className="sombra-cartao flex animate-surgir flex-col items-center rounded-[20px] bg-white px-6 py-10 text-center [animation-delay:60ms]">
+        <div className="sombra-cartao flex animate-surgir flex-col items-center rounded-[20px] md:rounded-lg bg-white px-6 py-10 text-center [animation-delay:60ms]">
           <Image
             src="/icons/3dicons-rocket-dynamic-color.png"
             alt=""

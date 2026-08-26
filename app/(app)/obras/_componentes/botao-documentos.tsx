@@ -73,7 +73,7 @@ export function BotaoDocumentos({
          * caixa centrada no desktop — o mesmo dialogo, duas formas, porque o
          * polegar alcanca a base e o mouse nao precisa disso.
          */
-        className="folha-documentos mt-auto mb-0 max-h-[85dvh] w-full max-w-lg border-0 bg-white p-0 text-tinta shadow-[0_-12px_40px_-12px_rgba(0,20,73,0.45)] backdrop:bg-tinta/60 backdrop:backdrop-blur-sm open:animate-subir-folha sm:m-auto sm:rounded-[20px] max-sm:rounded-t-[20px]"
+        className="folha-documentos mt-auto mb-0 max-h-[85dvh] w-full max-w-lg border-0 bg-white p-0 text-tinta shadow-[0_-12px_40px_-12px_rgba(0,20,73,0.45)] backdrop:bg-tinta/60 backdrop:backdrop-blur-sm open:animate-subir-folha sm:m-auto sm:rounded-lg max-sm:rounded-t-[20px]"
       >
         <div className="flex items-center justify-between gap-4 border-b border-tinta/[0.08] px-6 py-4">
           <h2 className="text-base font-bold tracking-tight text-tinta">

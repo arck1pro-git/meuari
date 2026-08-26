@@ -47,14 +47,33 @@ export function Cabecalho({
      * retrato do /perfil e os cartoes do simulador. O que mudou foi so quem a
      * usa aqui.
      */
-    <header className="sticky top-0 z-50 isolate animate-surgir rounded-b-2xl bg-tinta text-white">
+    /*
+     * **No desktop a faixa é reta e chapada.** Sem canto arredondado e sem
+     * nenhuma das camadas de brilho — só `tinta`.
+     *
+     * O canto de baixo existe para o formato de aplicativo: num telefone a
+     * faixa é um bloco que termina, e o arredondado o separa do conteudo. Numa
+     * tela larga ela atravessa 1900px de ponta a ponta, e o mesmo raio de 16px
+     * vira um detalhe perdido nas duas extremidades — lê como falha de
+     * alinhamento, e nao como acabamento.
+     *
+     * Os brilhos seguem o mesmo raciocinio: no celular a faixa ocupa boa parte
+     * da tela e o movimento a torna viva; esticada num monitor ela é uma regua
+     * de 60px de altura, e um degrade passeando ali é ruido permanente no
+     * campo de visao de quem esta lendo numero logo abaixo. É a mesma razao
+     * que ja tirou o degrade da coluna do /admin.
+     */
+    <header className="sticky top-0 z-50 isolate animate-surgir rounded-b-2xl bg-tinta text-white md:rounded-b-none">
       {/* Camadas decorativas: sem z-index proprio, ficam acima do fundo da
           faixa e abaixo do conteudo, que sobe com `relative`. O
           `overflow-hidden` fica nesta caixa, e nao no <header>: no header ele
-          tambem recortaria o painel que abre abaixo do sino. */}
+          tambem recortaria o painel que abre abaixo do sino.
+
+          `md:hidden` desliga as tres de uma vez — é o bloco inteiro que sai do
+          desktop, e nao cada brilho por sua conta. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-2xl"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-2xl md:hidden"
       >
         <div className="absolute inset-0 animate-deriva brilho-ciano" />
         {/* O gemeo no canto oposto. Atraso proprio para os dois nao subirem e

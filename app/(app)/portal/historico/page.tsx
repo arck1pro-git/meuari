@@ -45,7 +45,11 @@ export default async function HistoricoPage({
     : undefined;
 
   return (
-      <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
+    // O mesmo cinza do /portal: o historico é a tela cheia daquele bloco, e nao
+    // outra secao — mudar de chao ao clicar em "ver tudo" leria como sair do
+    // lugar. Comentario de linha porque `return (` só aceita um elemento, e um
+    // `{/* */}` aqui contaria como o primeiro.
+      <main className="mx-auto w-full max-w-5xl flex-1 bg-[#F7F8FA] px-5 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-12">
         {/* A volta leva ao /portal com o mesmo filtro, para a pessoa cair de
             novo na tela que deixou. */}
         <Link
