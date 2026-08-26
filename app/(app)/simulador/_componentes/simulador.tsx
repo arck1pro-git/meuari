@@ -9,12 +9,7 @@ import {
   IconeSubindo,
 } from "@/app/(app)/portal/_componentes/icones";
 import { formatarMoedaCurta, formatarPercentual } from "@/lib/portal/formato";
-import {
-  APORTE_MAXIMO,
-  APORTE_MINIMO,
-  simular,
-  type ContratoParaSimular,
-} from "@/lib/portal/simulacao";
+import { simular, type ContratoParaSimular } from "@/lib/portal/simulacao";
 
 /**
  * O simulador do aditivo: quanto rende um aporte novo no contrato que a pessoa
@@ -187,8 +182,6 @@ export function Simulador({ contratos }: { contratos: ContratoParaSimular[] }) {
   const s = useMemo(() => simular({ contrato, aporte }), [contrato, aporte]);
 
   const mensal = s.forma === "mensal";
-  const foraDaFaixa =
-    aporte > 0 && (aporte < APORTE_MINIMO || aporte > APORTE_MAXIMO);
 
   /*
    * O "a mais" do badge, que muda com a forma: no mensal é a parcela nova que
@@ -292,15 +285,21 @@ export function Simulador({ contratos }: { contratos: ContratoParaSimular[] }) {
               </span>
             </label>
 
-            {/* Aviso, e nao trava: quem digitou 30 mil quer ver o numero, e a
-                tela diz que a conversa comeca em 50. */}
-            {foraDaFaixa && (
-              <p className="mt-4 text-xs leading-relaxed text-amber-700">
-                Aportes de {formatarMoedaCurta(APORTE_MINIMO)} a{" "}
-                {formatarMoedaCurta(APORTE_MAXIMO)}. Fora dessa faixa, fale com
-                o comercial — a simulação continua valendo como referência.
-              </p>
-            )}
+            {/*
+             * Aqui havia a tarja ambar dizendo "Aportes de 50 mil a 1 milhao.
+             * Fora dessa faixa, fale com o comercial".
+             *
+             * Ela saiu por pedido de quem administra. Nunca foi trava — o
+             * calculo aceitava qualquer valor e continua aceitando —, entao
+             * remove-la nao muda numero nenhum da tela: muda só o que a tela
+             * diz enquanto a pessoa digita.
+             *
+             * `APORTE_MINIMO` e `APORTE_MAXIMO` continuam em
+             * `lib/portal/simulacao.ts`, onde a regra de produto mora. Nao ha
+             * mais quem os leia; ficam la porque a faixa continua valendo como
+             * politica comercial, e apaga-los seria jogar fora o registro dela
+             * junto com a tarja.
+             */}
 
             <button
               type="submit"

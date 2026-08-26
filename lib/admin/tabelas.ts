@@ -52,6 +52,19 @@ export type Campo = {
   /** Para `arquivo`: o que o seletor de arquivo aceita, ex. "application/pdf". */
   aceita?: string;
   ajuda?: string;
+  /**
+   * O campo existe no formulario, mas sem nada para preencher: vai como
+   * `<input type="hidden">` e o valor chega de outro lugar.
+   *
+   * O caso é `imagens.nome`, que passou a acompanhar o nome do arquivo enviado.
+   * A coluna continua sendo `NOT NULL` no banco e continua obrigatoria aqui —
+   * `paresDoFormulario` confere igual —, entao ela **precisa** seguir viajando
+   * no formulario. O que sumiu foi a pergunta, e nao o dado.
+   *
+   * Nao confundir com tirar o campo do registro: sem ele em `campos`, a coluna
+   * deixaria de ser escrita e o `insert` bateria no `NOT NULL`.
+   */
+  oculto?: boolean;
 };
 
 export type Tabela = {
@@ -522,13 +535,7 @@ export const TABELAS: Tabela[] = [
     tabela: "etapas",
     rotuloNovo: "Nova etapa",
     rotuloRef: "nome",
-    colunas: [
-      "nome",
-      "empreendimento_id",
-      "percentual",
-      "concluida_em",
-      "ordem",
-    ],
+    colunas: ["nome", "empreendimento_id", "percentual", "concluida_em"],
     filtros: ["empreendimento_id"],
     campos: [
       {
@@ -564,12 +571,23 @@ export const TABELAS: Tabela[] = [
         tipo: "data",
         ajuda: "Deixe vazio enquanto a etapa estiver em andamento.",
       },
-      {
-        nome: "ordem",
-        rotulo: "Ordem",
-        tipo: "numero",
-        ajuda: "A ordem da obra, nao a do cadastro. Menor aparece primeiro.",
-      },
+      /*
+       * A "Ordem" saiu daqui.
+       *
+       * Era um numero digitado a mao, e sempre o proximo da fila: as catorze
+       * etapas cadastradas ate hoje tinham 1 a 14, na mesma sequencia em que
+       * foram criadas. Pedir esse numero é pedir que alguem conte de cabeca o
+       * que o banco ja sabe — e um dia alguem repete o 7 e duas etapas empatam.
+       *
+       * A ordem passou a ser a de cadastro (`criado_em`), que reproduz
+       * exatamente a ordem que estava gravada. A coluna `etapas.ordem` continua
+       * no banco, dormente, como `etapas.grupo`: os valores antigos ficam
+       * guardados caso um dia se queira reordenar sem ser pela data.
+       *
+       * **A consequencia, e é honesto registrar:** etapa nova entra sempre no
+       * fim. Uma etapa esquecida que pertence ao comeco da obra nao tem, hoje,
+       * como ser puxada para la pela tela.
+       */
       /*
        * O papel que sustenta o percentual — laudo, ART, medicao, relatorio.
        *
@@ -599,7 +617,8 @@ export const TABELAS: Tabela[] = [
     tabela: "imagens",
     rotuloNovo: "Nova imagem",
     rotuloRef: "nome",
-    colunas: ["nome", "empreendimento_id", "criado_em"],
+    colunas: ["nome", "empreendimento_id", "local_id", "criado_em"],
+    filtros: ["empreendimento_id", "local_id"],
     campos: [
       {
         nome: "empreendimento_id",
@@ -608,7 +627,40 @@ export const TABELAS: Tabela[] = [
         aponta: "empreendimentos",
         obrigatorio: true,
       },
-      { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
+      /*
+       * O nome da foto **é o nome do arquivo**, e por isso nao se digita.
+       *
+       * Era um campo de texto obrigatorio logo acima do seletor de arquivo, e
+       * cadastrar uma foto era escrever duas vezes a mesma coisa: escolher
+       * `fachada-torre-a.png` e inventar um nome para ela. Chegou a ser
+       * preenchido automaticamente quando estava vazio, e a pergunta continuava
+       * na tela sem ter resposta propria — entao saiu.
+       *
+       * Continua sendo coluna, obrigatoria, e continua viajando no formulario:
+       * `CampoArquivo` escreve nele ao enviar o arquivo. Ver `oculto`.
+       */
+      { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true, oculto: true },
+      /*
+       * O local é opcional de proposito.
+       *
+       * Obra sem local nenhum cadastrado continua funcionando como sempre —
+       * uma fila unica de fotos —, e obrigar o campo travaria o cadastro de
+       * toda imagem ate alguem parar para inventar os lugares. Foto sem local
+       * cai em "Todas" na ampliacao, que é onde ela ja estava.
+       *
+       * A lista mostra os locais de **todas** as obras, com o nome da obra
+       * junto (ver `rotuloSql` em `locais`): o formulario nao tem como saber
+       * qual empreendimento foi escolhido no campo acima sem virar formulario
+       * dependente, e a legenda composta resolve a confusao sem isso.
+       */
+      {
+        nome: "local_id",
+        rotulo: "Local",
+        tipo: "referencia",
+        aponta: "locais",
+        ajuda:
+          "Onde a foto foi tirada. Deixe vazio para ela ficar só na fila geral.",
+      },
       {
         nome: "url",
         rotulo: "Imagem",
@@ -617,6 +669,53 @@ export const TABELAS: Tabela[] = [
         aceita: "image/*",
         obrigatorio: true,
       },
+    ],
+  },
+  {
+    /*
+     * Os locais da obra: "Fachada", "Piscina", "Apartamento modelo".
+     *
+     * Cadastro pequeno e de vida longa — sao cinco ou seis por obra, escritos
+     * uma vez e usados por dezenas de fotos. Tela propria, e nao um campo de
+     * texto dentro de Imagens, porque é isso que impede "Fachada" e "fachada"
+     * de virarem dois lugares. Ver a nota em `db/imagens-locais.sql`.
+     */
+    slug: "locais",
+    rotulo: "Locais da obra",
+    tabela: "locais",
+    rotuloNovo: "Novo local",
+    rotuloRef: "nome",
+    /*
+     * A obra entra na legenda porque a lista é global: no seletor de Imagens,
+     * "Fachada" sozinha nao diz de qual das obras é, e ha uma "Fachada" em cada
+     * uma. Vai literal para o SQL, e a tabela fica sem apelido — é a mesma
+     * regra do `rotuloSql` de `contratos`.
+     */
+    rotuloSql: `locais.nome || ' · ' ||
+                (select e.nome from empreendimentos e where e.id = locais.empreendimento_id)`,
+    colunas: ["nome", "empreendimento_id", "criado_em"],
+    filtros: ["empreendimento_id"],
+    campos: [
+      {
+        nome: "empreendimento_id",
+        rotulo: "Empreendimento",
+        tipo: "referencia",
+        aponta: "empreendimentos",
+        obrigatorio: true,
+      },
+      {
+        nome: "nome",
+        rotulo: "Local",
+        tipo: "texto",
+        obrigatorio: true,
+        ajuda: 'Ex.: "Fachada", "Piscina", "Apartamento modelo".',
+      },
+      /*
+       * Sem "Ordem", pelo mesmo motivo das etapas: os atalhos da galeria saem
+       * na ordem em que os locais foram cadastrados, que é a ordem em que
+       * alguem os pensou. Numero digitado a mao para dizer "este é o terceiro"
+       * é trabalho que a data de criacao ja faz.
+       */
     ],
   },
   /*

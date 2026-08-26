@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   IconeGaleria,
   IconeInvestimento,
+  IconeLocal,
   IconeMais,
   IconeObra,
   IconePasta,
@@ -64,6 +65,9 @@ const ICONES: Record<string, React.ComponentType<{ className?: string }>> = {
   documentos: IconePasta,
   etapas: IconePorcentagem,
   imagens: IconeGaleria,
+  // Alfinete de mapa: o local onde a foto foi tirada. Vizinho de `imagens` na
+  // coluna, e o par de icones diz a relacao — a galeria e o lugar dentro dela.
+  locais: IconeLocal,
 };
 
 type Secao = { slug: string; rotulo: string };
@@ -98,16 +102,28 @@ export function BarraAdmin({
           aria-label="Seções do painel"
           className="min-h-0 flex-1 overflow-y-auto px-2 pt-4 pb-3 [scrollbar-width:thin] md:px-3"
         >
-          {/* Fora dos grupos, e sozinha: o Dashboard nao é uma tabela, e o
-              `agrupar` trabalha sobre os slugs de `TABELAS`. Em cima porque é a
-              tela de chegada. */}
-          <ul>
+          {/* Fora dos grupos: nem o Dashboard nem os Acessos sao tabelas, e o
+              `agrupar` trabalha sobre os slugs de `TABELAS`. Em cima porque as
+              duas sao telas de leitura — o painel abre numa, e a outra responde
+              a pergunta vizinha: como o portal esta sendo usado. */}
+          <ul className="space-y-1">
             <li>
               <ItemDaColuna
                 href="/admin"
                 rotulo="Dashboard"
                 Icone={IconePainel}
                 aberta={naInicial}
+              />
+            </li>
+            <li>
+              <ItemDaColuna
+                href="/admin/acessos"
+                rotulo="Acessos"
+                Icone={IconeAcessos}
+                /* Igualdade estrita como nas outras secoes, e o filtro nao
+                   atrapalha: `usePathname` devolve só o caminho, entao
+                   `?d=7&u=…` nao entra na comparacao. */
+                aberta={rota === "/admin/acessos"}
               />
             </li>
           </ul>
@@ -241,6 +257,31 @@ function IconePainel({ className = "h-5 w-5" }) {
       <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
       <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
       <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+/**
+ * Pulso: os Acessos. Local, como os outros dois — só o painel usa.
+ *
+ * Uma linha de atividade, e nao um olho nem um relogio. O olho lê como
+ * vigilancia, que nao é o que a tela faz; o relogio ja é a leitura do
+ * `IconeRelogio` do portal. O pulso diz "movimento ao longo do tempo", que é o
+ * assunto: quando as pessoas entram e por quanto tempo ficam.
+ */
+function IconeAcessos({ className = "h-5 w-5" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M3 12h3.5l2.5-6 3.5 12 2.5-6H21" />
     </svg>
   );
 }

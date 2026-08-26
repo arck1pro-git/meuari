@@ -475,8 +475,9 @@ export async function acaoExcluir(slug: string, id: string) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
 
+  let apagados: string[] = [];
   try {
-    await excluir(tabela, id);
+    apagados = await excluir(tabela, id);
   } catch (erro) {
     /*
      * Nao é falha do sistema: é o banco cumprindo o `ON DELETE RESTRICT`, que
@@ -494,7 +495,19 @@ export async function acaoExcluir(slug: string, id: string) {
     redirect(`/admin/${slug}?erro=vinculo&onde=${encodeURIComponent(onde)}`);
   }
 
-  await registrar({ acao: "excluir", alvoTabela: tabela.tabela, alvoId: id });
+  await registrar({
+    acao: "excluir",
+    alvoTabela: tabela.tabela,
+    alvoId: id,
+    /*
+     * O que saiu do bucket junto, quando saiu alguma coisa.
+     *
+     * Vale mais que o resto da linha: registro de banco alguem reconstroi a
+     * partir da auditoria, e objeto de Storage nao volta. Se um dia a pergunta
+     * for "onde foi parar aquela foto", é isto que responde.
+     */
+    ...(apagados.length > 0 ? { detalhe: { arquivosApagados: apagados } } : {}),
+  });
 
   revalidatePath(`/admin/${slug}`);
 }

@@ -724,3 +724,69 @@ export const COR_DA_MODALIDADE = {
   /** O tom claro, como os aditivos. */
   final: COR.ceu,
 } as const;
+
+export type FaixaDoRelogio = { hora: number; aberturas: number };
+
+/**
+ * A que horas o portal é aberto — as 24 horas do dia, no fuso de Brasilia.
+ *
+ * As barras existem para uma pergunta pratica: quando avisar. O portal manda
+ * notificacao, e o horario em que as pessoas ja estao olhando é diferente do
+ * horario em que é comodo disparar.
+ *
+ * **As 24 faixas aparecem sempre, inclusive as vazias.** O eixo aqui é o
+ * relogio, e nao a lista do que aconteceu: omitir as horas sem acesso faria a
+ * madrugada encostar na manha e a tarde parecer continua quando nao foi.
+ *
+ * O rotulo do eixo vai de tres em tres. Vinte e quatro numeros de 11px numa
+ * faixa dessa largura se sobrepoem, e o que se le num grafico de horario é a
+ * forma — a manha contra a noite —, nao o valor exato de cada hora, que o balao
+ * entrega no ponteiro.
+ */
+export function GraficoDeHoras({ faixas }: { faixas: FaixaDoRelogio[] }) {
+  return (
+    <div className="h-56 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          accessibilityLayer
+          data={faixas}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+        >
+          <XAxis
+            dataKey="hora"
+            {...EIXO}
+            interval={2}
+            tickFormatter={(hora: number) => `${hora}h`}
+          />
+          <YAxis {...EIXO} width={36} allowDecimals={false} tickCount={4} />
+
+          <Tooltip
+            cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
+            content={({ active, payload }) => {
+              const faixa = payload?.[0]?.payload as FaixaDoRelogio | undefined;
+              if (!active || !faixa) return null;
+
+              return (
+                <Balao
+                  titulo={`Entre ${faixa.hora}h e ${(faixa.hora + 1) % 24}h`}
+                >
+                  <ValorDoBalao>
+                    {faixa.aberturas}{" "}
+                    {faixa.aberturas === 1 ? "tela aberta" : "telas abertas"}
+                  </ValorDoBalao>
+                </Balao>
+              );
+            }}
+          />
+
+          <Bar
+            dataKey="aberturas"
+            fill={COR.marinho}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={28}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import type { Notificacao } from "@/lib/portal/notificacoes";
 import { Cabecalho } from "./cabecalho";
 import { Navegacao } from "./navegacao";
+import { Telemetria } from "./telemetria";
 
 /**
  * A moldura das telas de quem entrou: navegacao em volta, conteudo no meio.
@@ -67,6 +68,12 @@ export function Moldura({
 
   return (
     <div className="flex flex-1 flex-col">
+      {/* Aqui, e nao numa pagina, pelo mesmo motivo que faz esta moldura
+          existir: ela nao remonta na troca de rota, entao o efeito de dentro
+          dispara uma vez por navegacao — nem duas, nem nenhuma. Nao desenha
+          nada. */}
+      <Telemetria />
+
       {/* O cabecalho vale para todas as telas de dentro, inclusive o simulador
           — que ja foi tela cheia sem ele. Trocar de secao nao deve trocar a
           moldura. */}

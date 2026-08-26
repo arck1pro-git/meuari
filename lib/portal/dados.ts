@@ -1,6 +1,6 @@
 import "server-only";
 import { consultar } from "@/lib/db";
-import { assinarVarias, BUCKETS, type Bucket } from "@/lib/storage";
+import { assinarVarias, BUCKETS } from "@/lib/storage";
 
 /**
  * Camada de dados do Portal do Investidor — agora lendo do Postgres.
@@ -46,6 +46,80 @@ export type Arquivo = {
   data: DataISO;
 };
 
+/**
+ * Uma foto da obra: um `Arquivo` que sabe de onde é.
+ *
+ * O local vem junto da foto, e nao numa lista separada de locais, por um motivo
+ * pratico: a galeria monta os atalhos do topo a partir das proprias fotos, entao
+ * local cadastrado que ainda nao tem foto nenhuma simplesmente nao aparece —
+ * atalho que leva a uma fila vazia é pior do que atalho nenhum.
+ *
+ * `null` é o estado normal, e nao pendencia: obra sem locais cadastrados
+ * continua com a fila unica de sempre.
+ */
+export type Foto = Arquivo & {
+  /**
+   * A mesma foto numa largura maior, para a ampliacao.
+   *
+   * `url` é a versao de cartao e continua sendo a que se usa sem pensar; esta
+   * só é buscada quando a tela cheia abre. Ver `CARTAO` e `CHEIA`.
+   */
+  ampliada: string;
+  /**
+   * `desde` é a data de cadastro do local, e existe só para ordenar os atalhos
+   * da galeria — nao é para aparecer em tela. Os locais saem na ordem em que
+   * foram criados, que é a ordem em que alguem os pensou; havia uma coluna
+   * `ordem` digitada a mao e ela saiu pelo mesmo motivo que a das etapas. Ver a
+   * nota em `lib/admin/tabelas.ts`.
+   */
+  local: { id: string; nome: string; desde: string } | null;
+};
+
+/** A forma crua que a consulta devolve, antes de o local virar um objeto. */
+type LinhaDeFoto = Arquivo & {
+  localId: string | null;
+  localNome: string | null;
+  localDesde: string | null;
+};
+
+/**
+ * Junta as tres colunas do `left join` num campo só.
+ *
+ * Na tela o local é uma coisa ou nao é — e tres campos que so fazem sentido
+ * juntos, todos podendo ser nulos por conta propria, sao tres oportunidades de
+ * alguem checar o errado.
+ */
+function comLocal<T extends LinhaDeFoto>({
+  localId,
+  localNome,
+  localDesde,
+  ...resto
+}: T): Omit<T, "localId" | "localNome" | "localDesde"> & Foto {
+  return {
+    ...resto,
+    local:
+      localId && localNome
+        ? { id: localId, nome: localNome, desde: localDesde ?? "" }
+        : null,
+  } as Omit<T, "localId" | "localNome" | "localDesde"> & Foto;
+}
+
+/*
+ * As colunas de uma foto com o local ao lado.
+ *
+ * Uma constante para as duas consultas — a da lista de obras e a da obra
+ * unica — porque elas tem de devolver exatamente a mesma forma: é o mesmo
+ * `Foto` que alimenta o mesmo carrossel nas duas telas.
+ *
+ * `left join` e nao `join`: foto sem local continua na lista. Um `join` comum
+ * faria as fotos antigas desaparecerem da galeria no dia em que o primeiro
+ * local fosse cadastrado.
+ */
+const COLUNAS_DA_FOTO = `i.id, i.nome, i.url,
+        to_char(i.criado_em at time zone $2, 'YYYY-MM-DD') as data,
+        l.id as "localId", l.nome as "localNome",
+        to_char(l.criado_em, 'YYYY-MM-DD"T"HH24:MI:SS.US') as "localDesde"`;
+
 export type Empreendimento = {
   id: string;
   nome: string;
@@ -60,7 +134,7 @@ export type Empreendimento = {
   /** A entrega — que nao é o inicio das obras. */
   previsaoEntrega: DataISO | null;
   documentos: Arquivo[];
-  imagens: Arquivo[];
+  imagens: Foto[];
 };
 
 /**
@@ -308,23 +382,39 @@ export async function getEmpreendimentos(
 
   const ids = empreendimentos.map((e) => e.id);
 
-  // Uma consulta por tabela, e nao uma por empreendimento: `= any($1)` traz
-  // tudo de uma vez e o agrupamento acontece aqui. O nome da tabela sai da
-  // lista literal abaixo — nunca de requisicao —, que é o que permite
-  // interpola-lo no texto do SQL.
-  const [documentos, imagens] = await Promise.all(
-    ["documentos", "imagens"].map((tabela) =>
-      consultar<Arquivo & { empreendimentoId: string }>(
-        `select id, nome, url,
-                to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data,
-                empreendimento_id as "empreendimentoId"
-           from ${tabela}
-          where empreendimento_id = any($1)
-          order by criado_em desc, nome`,
-        [ids, FUSO],
-      ),
+  /*
+   * Uma consulta por tabela, e nao uma por empreendimento: `= any($1)` traz
+   * tudo de uma vez e o agrupamento acontece aqui.
+   *
+   * As duas eram a mesma consulta, montada num `map` sobre `["documentos",
+   * "imagens"]`. Deixaram de ser quando a foto ganhou o local: a de imagens tem
+   * um `left join` que a de documentos nao tem. Escritas por extenso porque
+   * agora sao mesmo duas coisas — parametrizar a diferenca sairia mais longo
+   * que as duas juntas.
+   */
+  const [documentos, imagens] = await Promise.all([
+    consultar<Arquivo & { empreendimentoId: string }>(
+      `select id, nome, url,
+              to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data,
+              empreendimento_id as "empreendimentoId"
+         from documentos
+        where empreendimento_id = any($1)
+        order by criado_em desc, nome`,
+      [ids, FUSO],
     ),
-  );
+    consultar<LinhaDeFoto & { empreendimentoId: string }>(
+      // A ordem continua sendo a da fila: mais recente primeiro. Ordenar por
+      // local aqui mudaria o carrossel da tela da obra, que mostra "as fotos
+      // mais novas" e nao "as fotos agrupadas" — a divisao por local é da
+      // ampliacao, e acontece la.
+      `select ${COLUNAS_DA_FOTO}, i.empreendimento_id as "empreendimentoId"
+         from imagens i
+         left join locais l on l.id = i.local_id
+        where i.empreendimento_id = any($1)
+        order by i.criado_em desc, i.nome`,
+      [ids, FUSO],
+    ),
+  ]);
 
   /*
    * Cada lista vira URL utilizavel aqui, e nao no componente: o componente é
@@ -334,7 +424,7 @@ export async function getEmpreendimentos(
    */
   // Documento vai pela rota auditada; foto continua assinada aqui.
   const comDocumentos = pelaRota(documentos);
-  const comImagens = await resolver(imagens, BUCKETS.imagens);
+  const comImagens = await resolverFotos(imagens);
 
   const dos = <T extends { empreendimentoId: string }>(
     lista: T[],
@@ -344,7 +434,7 @@ export async function getEmpreendimentos(
   return empreendimentos.map((e) => ({
     ...e,
     documentos: dos(comDocumentos, e.id),
-    imagens: dos(comImagens, e.id),
+    imagens: dos(comImagens, e.id).map(comLocal),
   }));
 }
 
@@ -352,13 +442,13 @@ export async function getEmpreendimentos(
  * Documento de obra apontando para `/arquivo/obra/{id}`, em vez de URL assinada.
  *
  * O mesmo motivo de `getAportes`: a rota confere a posse outra vez, registra
- * quem abriu e assina por 60 segundos. Aqui nao ha o filtro que `resolver` faz —
- * sem assinar, nao ha como saber de antemao se o arquivo ainda esta no bucket. É
- * troca consciente: um item que sumiu do Storage aparece na lista e dá 404 no
- * clique, em vez de desaparecer em silencio. Some com o nome na tela é pior,
- * porque o investidor viu aquele documento na semana passada.
+ * quem abriu e assina por 60 segundos. Aqui nao ha o filtro que `resolverFotos`
+ * faz — sem assinar, nao ha como saber de antemao se o arquivo ainda esta no
+ * bucket. É troca consciente: um item que sumiu do Storage aparece na lista e dá
+ * 404 no clique, em vez de desaparecer em silencio. Some com o nome na tela é
+ * pior, porque o investidor viu aquele documento na semana passada.
  *
- * **Foto continua assinada direto** (`resolver`, abaixo): uma galeria com
+ * **Foto continua assinada direto** (`resolverFotos`, abaixo): uma galeria com
  * dezenas de imagens passando por redirecionamento seria uma ida a mais por
  * foto, e foto de obra nao tem o peso de um contrato.
  */
@@ -368,26 +458,67 @@ function pelaRota<T extends Arquivo>(lista: T[]): T[] {
     .map((item) => ({ ...item, url: `/arquivo/obra/${item.id}` }));
 }
 
-/**
- * Troca o caminho guardado no banco pela URL que o navegador consegue abrir.
- *
- * O que nao tem endereco utilizavel some da lista: melhor a secao vir menor do
- * que um item quebrado, com nome e sem arquivo.
+/*
+ * Havia aqui um `resolver` generico, que assinava uma lista de arquivos de
+ * qualquer bucket. Ele tinha dois chamadores, os dois de foto, e os dois
+ * passaram para `resolverFotos` quando a foto ganhou duas larguras. Sem
+ * chamador, saiu: helper generico com um caso de uso só é abstracao esperando
+ * para divergir do unico lugar que a usa.
  */
-async function resolver<T extends Arquivo>(
-  lista: T[],
-  bucket: Bucket,
-): Promise<T[]> {
-  if (lista.length === 0) return lista;
 
-  const assinadas = await assinarVarias(
-    bucket,
-    lista.map((item) => item.url),
-  );
+/**
+ * As duas larguras em que uma foto é entregue.
+ *
+ * **Nenhuma tela recebe o original.** O bucket guarda render de arquitetura em
+ * PNG — os sete que havia somavam 20 MB, e o navegador baixava os 20 MB para
+ * desenhar um quadrado de 400px no celular. O Supabase redimensiona e converte
+ * para WebP na borda; medido neste mesmo bucket, o PNG de 6,75 MB volta com
+ * 122 KB em 1080px.
+ *
+ * Duas, e nao uma, porque as duas telas pedem coisas diferentes:
+ *
+ * - `CARTAO` serve o carrossel da obra, que desenha a foto num quadrado. 1080px
+ *   cobre a coluna inteira num monitor comum e ainda sobra para a tela retina
+ *   do celular.
+ * - `CHEIA` serve a ampliacao, que ocupa a tela toda.
+ *
+ * **1600 é o teto util, e nao um numero redondo:** os originais tem por volta
+ * dessa largura, entao pedir 2000 devolveu exatamente o mesmo arquivo de 1600
+ * na medicao. Acima disso paga-se banda por pixel que nao existe.
+ *
+ * Sao duas assinaturas em lote — duas idas ao Storage por tela, e nao duas por
+ * foto.
+ */
+const CARTAO = { largura: 1080, qualidade: 68 } as const;
+const CHEIA = { largura: 1600, qualidade: 72 } as const;
+
+/**
+ * O mesmo que `resolver`, para foto: assina nas duas larguras.
+ *
+ * `url` continua sendo a que qualquer tela pode usar sem pensar — é a menor.
+ * `ampliada` só é buscada pelo navegador quando a ampliacao abre, via `srcset`;
+ * ver `Carrossel`.
+ */
+async function resolverFotos<T extends LinhaDeFoto>(
+  lista: T[],
+): Promise<(T & { ampliada: string })[]> {
+  if (lista.length === 0) return [];
+
+  const caminhos = lista.map((item) => item.url);
+  const [cartao, cheia] = await Promise.all([
+    assinarVarias(BUCKETS.imagens, caminhos, { transformar: CARTAO }),
+    assinarVarias(BUCKETS.imagens, caminhos, { transformar: CHEIA }),
+  ]);
 
   return lista
-    .map((item) => ({ ...item, url: assinadas.get(item.url) ?? null }))
-    .filter((item): item is T => Boolean(item.url));
+    .map((item) => ({
+      ...item,
+      url: cartao.get(item.url) ?? null,
+      // Se só a versao grande falhar, a foto ainda aparece: a ampliacao cai no
+      // `src`, que é a menor. Perder nitidez é melhor que perder a foto.
+      ampliada: cheia.get(item.url) ?? cartao.get(item.url) ?? null,
+    }))
+    .filter((item): item is T & { ampliada: string } => Boolean(item.url));
 }
 
 /** Quem é a pessoa, para a tela de perfil. */
@@ -505,10 +636,14 @@ export async function getObra(
         order by criado_em desc, nome`,
       [base.id, FUSO],
     ),
-    consultar<Arquivo>(
-      `select id, nome, url, to_char(criado_em at time zone $2, 'YYYY-MM-DD') as data
-         from imagens where empreendimento_id = $1
-        order by criado_em desc, nome`,
+    // A mesma forma da consulta da lista de obras — as duas alimentam o mesmo
+    // carrossel, entao dividem `COLUNAS_DA_FOTO`.
+    consultar<LinhaDeFoto>(
+      `select ${COLUNAS_DA_FOTO}
+         from imagens i
+         left join locais l on l.id = i.local_id
+        where i.empreendimento_id = $1
+        order by i.criado_em desc, i.nome`,
       [base.id, FUSO],
     ),
     /*
@@ -516,13 +651,22 @@ export async function getObra(
      * da rota logo abaixo, na montagem — a coluna nunca chega ao navegador. Ver
      * a nota no tipo `Etapa`.
      */
+    /*
+     * A ordem é a de cadastro.
+     *
+     * `etapas.ordem` era um numero digitado no /admin e vinha na frente da data
+     * neste `order by`. Saiu porque era sempre a propria sequencia de cadastro,
+     * escrita a mao: as catorze etapas de hoje tem 1 a 14, e ordenar por
+     * `criado_em` devolve exatamente a mesma fila. A coluna continua no banco,
+     * dormente. Ver a nota em `lib/admin/tabelas.ts`.
+     */
     consultar<Etapa>(
       `select id, nome, percentual::float8 as percentual,
               to_char(concluida_em, 'YYYY-MM-DD') as "concluidaEm",
               observacao,
               documento
          from etapas where empreendimento_id = $1
-        order by ordem, criado_em`,
+        order by criado_em`,
       [base.id],
     ),
     /*
@@ -546,12 +690,12 @@ export async function getObra(
 
   // Documento vai pela rota auditada; foto continua assinada aqui.
   const comDocumentos = pelaRota(documentos);
-  const comImagens = await resolver(imagens, BUCKETS.imagens);
+  const comImagens = await resolverFotos(imagens);
 
   return {
     ...base,
     documentos: comDocumentos,
-    imagens: comImagens,
+    imagens: comImagens.map(comLocal),
     /*
      * O caminho no bucket sai daqui e o link da rota entra no lugar. A troca
      * é nesta linha, e nao no SQL, pelo mesmo motivo de `pelaRota`: a coluna

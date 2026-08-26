@@ -85,6 +85,18 @@ async function CampoDoFormulario({
 }) {
   const valor = valorInicial(campo, linha);
 
+  /*
+   * Campo sem pergunta: viaja no formulario e nao ocupa lugar na tela.
+   *
+   * Quem preenche é outro campo — hoje só o `CampoArquivo`, que escreve o nome
+   * do arquivo em `imagens.nome`. O `defaultValue` cobre a edicao de um
+   * registro que ja tem valor e cujo arquivo nao foi trocado: sem ele, salvar
+   * sem mexer na foto apagaria o nome.
+   */
+  if (campo.oculto) {
+    return <input type="hidden" name={campo.nome} defaultValue={valor} />;
+  }
+
   // Dinheiro e participacao tem componente proprio: eles se formatam ao sair do
   // campo, o que exige estado no cliente. Ver `CampoNumero`.
   if (campo.tipo === "dinheiro" || campo.tipo === "percentual") {

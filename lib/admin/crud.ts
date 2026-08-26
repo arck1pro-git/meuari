@@ -1,6 +1,7 @@
 import "server-only";
 import { gerarHash } from "../auth";
 import { consultar } from "../db";
+import { apagar } from "../storage";
 import { acharTabela, type Campo, type Tabela } from "./tabelas";
 
 export type Linha = Record<string, unknown>;
@@ -371,8 +372,52 @@ export async function atualizar(
   );
 }
 
-export async function excluir(t: Tabela, id: string): Promise<void> {
+/**
+ * Apaga a linha e, junto, os arquivos que só ela usava.
+ *
+ * Ate aqui o "Excluir" tirava o registro do banco e deixava o objeto no bucket.
+ * O resultado era silencioso e sem fim: as sete fotos apagadas de uma obra
+ * continuavam la, somando 20 MB que nenhuma linha do banco apontava. Ninguem
+ * descobre isso pela tela — só listando o bucket.
+ *
+ * **A ordem importa, e é esta.** A linha sai primeiro; o arquivo depois.
+ *
+ * - Se o `delete` falhar — e ele falha por vinculo, que é o caso comum de
+ *   `ON DELETE RESTRICT` —, nada foi apagado do bucket e o registro continua
+ *   inteiro. Na ordem inversa, o arquivo teria sido destruido e sobraria um
+ *   registro apontando para o vazio, que é bem pior que um orfao.
+ * - Se o `apagar` falhar, a linha ja saiu e sobra um objeto sem dono. É o
+ *   estado de antes desta funcao — ruim, mas conhecido, e ele nao impede a
+ *   exclusao de acontecer. Mesma escolha de `lib/auditoria.ts`: o trabalho
+ *   principal nunca é derrubado pelo acessorio.
+ *
+ * Devolve os caminhos que sairam do bucket, para a auditoria registrar o que
+ * foi destruido — um objeto de Storage nao volta.
+ */
+export async function excluir(t: Tabela, id: string): Promise<string[]> {
+  const comArquivo = t.campos.filter((c) => c.tipo === "arquivo" && c.bucket);
+
+  // Lido **antes** do delete: depois dele nao ha mais linha para consultar.
+  const linha = comArquivo.length > 0 ? await obter(t, id) : undefined;
+
   await consultar(`delete from ${ident(t.tabela)} where id = $1`, [id]);
+
+  const apagados: string[] = [];
+  for (const campo of comArquivo) {
+    const valor = linha?.[campo.nome];
+    if (typeof valor !== "string" || !valor) continue;
+
+    try {
+      // `apagar` ignora sozinho o que nao é caminho de bucket — link externo e
+      // arquivo de `public/`, do tempo anterior ao Storage, passam batido.
+      await apagar(campo.bucket!, valor);
+      apagados.push(valor);
+    } catch (erro) {
+      console.error(`[crud] ${t.tabela}/${id}: nao apagou ${valor} do bucket:`, erro);
+    }
+  }
+
+  return apagados;
 }
 
 /** As colunas que um formulario alteraria — sem os valores. Para a auditoria. */

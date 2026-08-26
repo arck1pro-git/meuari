@@ -19,7 +19,9 @@ export const GRUPOS: { titulo: string; slugs: string[] }[] = [
   { titulo: "Investimento", slugs: ["contratos", "aditivos", "recebimentos"] },
   {
     titulo: "Obra",
-    slugs: ["empreendimentos", "etapas", "imagens", "documentos"],
+    // "Locais" logo depois de "Imagens" porque é onde ele é usado: o local só
+    // existe para ser escolhido no cadastro de uma foto.
+    slugs: ["empreendimentos", "etapas", "imagens", "locais", "documentos"],
   },
   { titulo: "Comunicação", slugs: ["notificacoes"] },
 ];

@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { consultar } from "./db";
-import { lerSessao, type Sessao } from "./sessao";
+import { lerSessao, type DadosDaSessao, type Sessao } from "./sessao";
 
 /*
  * A sessao propriamente dita mora em `lib/sessao.ts`, que nao toca no banco —
@@ -20,6 +20,7 @@ export {
   inicioDe,
   COOKIE_SESSAO,
   type Sessao,
+  type DadosDaSessao,
 } from "./sessao";
 
 const scrypt = promisify(scryptCb) as (
@@ -143,10 +144,16 @@ type LinhaUsuario = {
   sessao_versao: number;
 };
 
+/*
+ * `DadosDaSessao`, e nao `Sessao`: o `sid` da visita é sorteado em
+ * `abrirSessao`. Conferir a senha e abrir a sessao sao dois momentos — quem
+ * autentica ainda nao sabe se o cookie chegara a ser emitido (o /admin, por
+ * exemplo, ainda recusa quem nao é administrador depois desta linha).
+ */
 export async function autenticar(
   email: string,
   senha: string,
-): Promise<Sessao | null> {
+): Promise<DadosDaSessao | null> {
   const [usuario] = await consultar<LinhaUsuario>(
     "select id, nome, tipo, senha_hash, sessao_versao from usuarios where lower(email) = lower($1)",
     [email],

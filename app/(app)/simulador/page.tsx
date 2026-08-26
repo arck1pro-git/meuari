@@ -70,8 +70,8 @@ export default async function SimuladorPage() {
             className="h-20 w-20 animate-boiar drop-shadow-[0_12px_18px_rgba(0,20,73,0.3)]"
           />
           <p className="mt-6 max-w-sm text-sm leading-relaxed text-balance text-neutral-500">
-            A simulação parte do seu contrato — capital e participação. Assim
-            que o seu primeiro aporte entrar, ela aparece aqui.
+            A simulação parte do seu contrato: capital e participação. Assim que
+            o seu primeiro aporte entrar, ela aparece aqui.
           </p>
         </div>
       )}
