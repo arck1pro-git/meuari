@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Foto } from "@/lib/portal/dados";
 import {
+  IconeBaixar,
   IconeExpandir,
   IconeFechar,
   IconeSetaDireita,
@@ -103,6 +104,9 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
 
   /** Em que foto a proxima abertura deve comecar. */
   const abrirEm = useRef(0);
+
+  /** Enquanto os bytes da foto vem, o botao de baixar fica travado. */
+  const [baixando, setBaixando] = useState(false);
 
   const locais = useMemo(() => locaisDas(fotos), [fotos]);
 
@@ -248,6 +252,60 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
     janela.current?.close();
   }
 
+  /**
+   * Baixa a foto que esta na tela.
+   *
+   * **Um `<a download>` apontando para a URL nao resolveria.** O arquivo mora no
+   * Supabase, que é outra origem, e o atributo `download` é ignorado em link
+   * para fora do site — o navegador abriria a imagem numa aba em vez de
+   * salva-la. Por isso os bytes sao buscados aqui e viram um `blob:` da propria
+   * pagina, que é mesma origem e obedece o `download`.
+   *
+   * O que se baixa é **a versao que esta sendo vista** (`ampliada`, 1600px), e
+   * nao o arquivo de origem do bucket. Duas razoes: é o que a pessoa escolheu
+   * ver, e ela ja esta no cache do navegador — o download sai instantaneo, sem
+   * baixar nada de novo.
+   *
+   * No iPhone, dentro do app instalado, o sistema as vezes abre a imagem em vez
+   * de salvar. Nao ha o que fazer daqui, e a saida continua existindo: a foto
+   * abre e o toque longo oferece "Salvar em Fotos".
+   */
+  async function baixar() {
+    const foto = visiveis[naAmpliacao];
+    if (!foto || baixando) return;
+
+    setBaixando(true);
+    let endereco: string | null = null;
+    try {
+      const resposta = await fetch(foto.ampliada);
+      if (!resposta.ok) throw new Error(String(resposta.status));
+      const conteudo = await resposta.blob();
+
+      endereco = URL.createObjectURL(conteudo);
+      const link = document.createElement("a");
+      link.href = endereco;
+      // O nome que a pessoa ve na tela, com a extensao do que veio de fato.
+      link.download = `${foto.nome}.${conteudo.type === "image/webp" ? "webp" : "jpg"}`;
+      link.click();
+    } catch {
+      /*
+       * Rede caiu, ou a URL assinada venceu com a ampliacao aberta ha muito
+       * tempo. Abrir numa aba é a saida que sempre funciona — dali o navegador
+       * oferece salvar, e a pessoa nao fica com um botao que nao faz nada.
+       */
+      window.open(foto.ampliada, "_blank", "noopener");
+    } finally {
+      // Depois do clique: revogar antes tiraria o endereco debaixo do download
+      // que acabou de comecar. A copia em `const` é para o TypeScript — dentro
+      // do `setTimeout` ele nao garante mais que `endereco` continua preenchido.
+      if (endereco) {
+        const paraSoltar = endereco;
+        setTimeout(() => URL.revokeObjectURL(paraSoltar), 10_000);
+      }
+      setBaixando(false);
+    }
+  }
+
   return (
     <div className="relative">
       <div
@@ -366,15 +424,26 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
            * centralizada na tela: uma barra empurrando de cima descentraria a
            * imagem em toda obra que tem locais.
            *
-           * `pr-16` abre o espaco do botao de fechar, que mora no mesmo canto.
-           * Sem isso o ultimo atalho fica embaixo dele — e o toque escolheria
-           * fechar quando a intencao era trocar de lugar.
+           * **`flex-wrap` e nao rolagem horizontal.** A fila era uma so linha
+           * que rolava de lado, e num celular isso escondia metade dos lugares
+           * atras de um gesto que nada anunciava. Quebrando em linhas, todos
+           * aparecem de uma vez.
+           *
+           * **`pr-28` é a coluna proibida.** Os dois botoes do canto — baixar e
+           * fechar — ocupam ~104px a partir da direita. O recuo vale para
+           * *todas* as linhas, e nao so para a primeira: é o que garante que
+           * nenhum atalho fique sobre nem sob o X. Sem ele, o toque fecharia a
+           * ampliacao quando a intencao era trocar de lugar.
+           *
+           * `max-h` com rolagem vertical é o teto: com muitos locais a fila
+           * pararia de ser indice e viraria parede em cima da foto. Duas linhas
+           * cabem inteiras; da terceira em diante, rola.
            */}
           {locais.length > 0 && (
             <div
               role="group"
               aria-label="Locais da obra"
-              className="absolute inset-x-0 top-0 z-10 flex gap-2 overflow-x-auto bg-linear-to-b from-tinta/70 to-transparent px-4 pt-4 pb-10 pr-16 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="absolute inset-x-0 top-0 z-10 flex max-h-28 flex-wrap gap-2 overflow-y-auto bg-linear-to-b from-tinta/70 to-transparent px-4 pt-4 pr-28 pb-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {/*
                * "Todas" é um atalho como os outros, e nao um "limpar filtro"
@@ -473,6 +542,20 @@ export function Carrossel({ fotos }: { fotos: Foto[] }) {
               />
             </>
           )}
+
+          {/* Baixar e fechar, no mesmo canto e no mesmo desenho. O baixar vem
+              primeiro na ordem de leitura e fica a esquerda do X — o X é o
+              ultimo botao da linha porque é o que encerra. */}
+          <button
+            type="button"
+            onClick={baixar}
+            disabled={baixando}
+            aria-label="Baixar esta foto"
+            title="Baixar"
+            className="absolute top-4 right-16 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-progress disabled:opacity-50"
+          >
+            <IconeBaixar className="h-5 w-5" />
+          </button>
 
           <button
             type="button"

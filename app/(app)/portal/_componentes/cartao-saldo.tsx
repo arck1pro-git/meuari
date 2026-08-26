@@ -29,7 +29,12 @@ export function CartaoSaldo({
     // cartao e a segunda, mais aberta, faz a queda. O spread negativo segura as
     // laterais, entao a sombra le como peso na base e nao como halo em volta.
     // Tingida de `tinta` — preto puro sobre branco esverdeia a borda.
-    <div className="sombra-cartao hover:sombra-cartao-alta mx-auto w-full max-w-sm animate-surgir rounded-2xl bg-white px-5 py-4 ring-1 ring-tinta/10 transition-shadow duration-300 md:flex md:max-w-none md:items-center md:justify-between md:gap-10 md:px-8 md:py-6 [animation-delay:90ms]">
+    // `lg:mb-7` repoe um espaco que some sozinho: logo abaixo deste cartao vem
+    // o botao "Simule um novo aporte", com `mt-7 mb-7`, e ele é `lg:hidden` —
+    // no desktop o simulador ja fecha a coluna da carteira. Sem o botao, o
+    // cartao encostava direto no bloco de aportes. O `7` é o mesmo do botao,
+    // para o vao nao mudar de tamanho na virada do breakpoint.
+    <div className="sombra-cartao hover:sombra-cartao-alta mx-auto w-full max-w-sm animate-surgir rounded-2xl bg-white px-5 py-4 ring-1 ring-tinta/10 transition-shadow duration-300 md:flex md:max-w-none md:items-center md:justify-between md:gap-10 md:px-8 md:py-6 lg:mb-7 [animation-delay:90ms]">
       {/*
        * `contents` no mobile: o invólucro nao existe para o layout, e as duas
        * partes seguem empilhadas como sempre. A partir do desktop ele vira

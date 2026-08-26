@@ -65,7 +65,16 @@ export function Navegacao({
                 // continua marinho: é ela que carrega o contraste do estado
                 // ativo, e o ouro sobre branco rende 1,5:1 — bom de ver,
                 // fraco de ler.
-                className={`relative flex flex-1 items-center justify-center py-2.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azul [&_svg]:h-7 [&_svg]:w-7 [&_svg]:stroke-[2.5] ${
+                // `py-3.5` e nao `py-2.5`: é daqui que sai a altura da barra —
+                // ela nao tem altura propria, é o icone de 28px mais o respiro
+                // de cima e de baixo. Oito pixels a mais no total, o bastante
+                // para a faixa nao parecer apertada sem virar tarja.
+                //
+                // A geometria do botao do simulador nao muda junto: ele é
+                // ancorado na borda **de cima** da barra (`-top-8`), entao
+                // cresce para baixo com ela e continua com os mesmos 24px
+                // dentro.
+                className={`relative flex flex-1 items-center justify-center py-3.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azul [&_svg]:h-7 [&_svg]:w-7 [&_svg]:stroke-[2.5] ${
                   selecionada
                     ? "text-ouro"
                     : "text-neutral-400 hover:text-marinho/70"
