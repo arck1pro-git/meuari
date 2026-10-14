@@ -116,7 +116,7 @@ export type PontoDaCaptacao = {
   competencia: string;
   /** O que entrou neste mes — `entradas + aditivos`. */
   valor: number;
-  /** Só a entrada de contratos assinados neste mes. */
+  /** Só o aporte de entrada dos contratos, quando caiu neste mes. */
   entradas: number;
   /** Só os aportes feitos em contrato que ja existia. */
   aditivos: number;

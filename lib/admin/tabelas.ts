@@ -65,6 +65,15 @@ export type Campo = {
    * deixaria de ser escrita e o `insert` bateria no `NOT NULL`.
    */
   oculto?: boolean;
+  /**
+   * O valor que o campo traz ao **criar**. Na edicao vale o que esta gravado.
+   *
+   * Existe para o caso em que a resposta é quase sempre a mesma e a tela ja
+   * diz qual é: o "Tipo" de quem se cadastra na tela de Investidores. Nao serve
+   * para chutar dado de negocio — modalidade e participacao continuam em
+   * branco, para ninguem salvar um contrato sem ter pensado nelas.
+   */
+  padrao?: string;
 };
 
 export type Tabela = {
@@ -144,6 +153,49 @@ export type Tabela = {
    * mesmo cuidado dos nomes de tabela. O valor, esse sim, vai parametrizado.
    */
   filtros?: string[];
+  /**
+   * O `order by` da listagem. Sem ele, `criado_em desc` — o ultimo cadastrado
+   * no topo.
+   *
+   * Vai **literal** para o SQL, como `onde` e `rotuloSql`, e por isso mora aqui
+   * e em lugar nenhum mais. Nada de requisicao entra nesta string.
+   */
+  ordem?: string;
+  /**
+   * O nome de **um** registro, para os titulos e as perguntas da tela: "Editar
+   * contrato", "Excluir esta etapa?", "Imagem excluída.".
+   *
+   * Por extenso pelo mesmo motivo do `rotuloNovo`: o artigo e a concordancia
+   * dependem do genero, e "Editar registro" num formulario de contrato nao diz
+   * o que esta sendo editado.
+   */
+  singular?: string;
+  /** `true` quando o singular pede "esta" e "excluída" — etapa, imagem. */
+  feminino?: boolean;
+  /**
+   * O titulo das colunas da listagem que **nao** sao campo do formulario — as
+   * calculadas (`colunasSql`) e as de sistema (`criado_em`). As que sao campo
+   * usam o `rotulo` dele, e por isso nao se repetem aqui.
+   *
+   * Antes a listagem mostrava o nome da coluna do banco, em maiusculas:
+   * `USUARIO_ID`, `NA_OPERACAO`, `CRIADO_EM`.
+   */
+  cabecalhos?: Record<string, string>;
+  /**
+   * O que a celula diz quando a coluna esta vazia. Sem isto, um travessao.
+   *
+   * Em algumas colunas o vazio tem significado, e o travessao o escondia: o
+   * aviso sem investidor foi para **todos**, o aditivo sem taxa **segue a do
+   * contrato**, a etapa sem data **ainda esta em andamento**.
+   */
+  vazios?: Record<string, string>;
+  /** Colunas de 0 a 100 desenhadas como barra, e nao como numero solto. */
+  progresso?: string[];
+  /**
+   * Colunas de estado curto, desenhadas como pastilha. `ok` pinta de verde,
+   * `alerta` de ambar; o resto sai neutro.
+   */
+  selos?: Record<string, { ok?: string[]; alerta?: string[] }>;
 };
 
 export const TABELAS: Tabela[] = [
@@ -172,8 +224,16 @@ export const TABELAS: Tabela[] = [
      */
     onde: "tipo = 'investidor'",
     // `tipo` saiu: com o filtro acima ela seria a mesma palavra em toda linha.
-    colunas: ["nome", "na_operacao", "email", "senha_definida", "criado_em"],
+    colunas: ["nome", "email", "na_operacao", "senha_definida", "criado_em"],
     colunasMoeda: ["na_operacao"],
+    singular: "investidor",
+    cabecalhos: {
+      na_operacao: "Na operação",
+      senha_definida: "Acesso",
+      criado_em: "Cadastro",
+    },
+    // Quem nunca definiu senha nao consegue entrar — é o que a pastilha avisa.
+    selos: { senha_definida: { ok: ["definida"], alerta: ["sem senha"] } },
     /*
      * A senha nao tem valor a mostrar: `senha_hash` guarda o resultado de um
      * scrypt, que é de mao unica. O que a listagem responde é se ha senha —
@@ -208,6 +268,9 @@ export const TABELAS: Tabela[] = [
         tipo: "escolha",
         obrigatorio: true,
         opcoes: ["investidor", "administrador"],
+        // A tela é a de Investidores: perguntar a cada cadastro o que ela ja
+        // diz era um clique a mais, e um "—" que impedia salvar.
+        padrao: "investidor",
       },
       {
         nome: "senha",
@@ -232,6 +295,10 @@ export const TABELAS: Tabela[] = [
       "previsao_entrega",
     ],
     colunasMoeda: ["meta_captacao"],
+    singular: "empreendimento",
+    // Sem meta, a obra fica fora do progresso do Dashboard — vale dizer.
+    vazios: { meta_captacao: "Sem meta" },
+    selos: { status: { ok: ["Entregue"] } },
     campos: [
       { nome: "nome", rotulo: "Nome", tipo: "texto", obrigatorio: true },
       {
@@ -263,7 +330,7 @@ export const TABELAS: Tabela[] = [
         nome: "uf",
         rotulo: "Estado",
         tipo: "texto",
-        ajuda: "Sigla de duas letras, maiuscula: SC, SP, PR.",
+        ajuda: "Sigla de duas letras, maiúscula: SC, SP, PR.",
       },
       {
         nome: "status",
@@ -276,14 +343,14 @@ export const TABELAS: Tabela[] = [
       },
       {
         nome: "previsao_inicio_obras",
-        rotulo: "Previsao de inicio das obras",
+        rotulo: "Previsão de início das obras",
         tipo: "data",
       },
       {
         nome: "previsao_entrega",
-        rotulo: "Previsao de entrega",
+        rotulo: "Previsão de entrega",
         tipo: "data",
-        ajuda: "A entrega das chaves — nao é o inicio das obras.",
+        ajuda: "A entrega das chaves — não é o início das obras.",
       },
     ],
   },
@@ -311,10 +378,21 @@ export const TABELAS: Tabela[] = [
       "valor",
       "taxa",
       "modalidade",
+      "prazo_meses",
     ],
+    singular: "contrato",
+    // Sem prazo gravado, a conta usa o padrao de 36 meses — ver `PRAZO_PADRAO`
+    // em `lib/admin/investidor.ts`.
+    vazios: { prazo_meses: "Padrão" },
     // Um investidor tem varios aportes, e a pergunta de sempre é "o que fulano
-    // tem". Sem filtro, a lista é a mistura de todo mundo em ordem de criacao.
+    // tem". Sem filtro, a lista é a mistura de todo mundo em ordem de aporte.
     filtros: ["usuario_id"],
+    /*
+     * Na ordem dos aportes, do primeiro ao mais recente — e nao na de cadastro,
+     * que mistura contrato antigo lancado hoje com o que entrou ontem. Empate de
+     * data desempata pela criacao, a ordem em que foram digitados.
+     */
+    ordem: "data, criado_em",
     campos: [
       {
         nome: "usuario_id",
@@ -331,10 +409,17 @@ export const TABELAS: Tabela[] = [
         obrigatorio: true,
       },
       {
+        /*
+         * A data do aporte, e nao a da assinatura. É dela que a conta parte: o
+         * rendimento comeca no mes em que o dinheiro entra, e o prazo conta dali
+         * (ver `fimDoPrazoDe`). Assinatura e aporte costumam cair em dias
+         * diferentes, e com o rotulo antigo era a assinatura que se digitava.
+         */
         nome: "data",
-        rotulo: "Data de assinatura",
+        rotulo: "Data do aporte",
         tipo: "data",
         obrigatorio: true,
+        ajuda: "O dia em que o dinheiro entrou — não o da assinatura.",
       },
       {
         nome: "valor",
@@ -386,7 +471,7 @@ export const TABELAS: Tabela[] = [
   },
   {
     /*
-     * Cada aporte feito depois da assinatura. Ele entra **dentro** do contrato
+     * Cada aporte feito depois do de entrada. Ele entra **dentro** do contrato
      * — nao é um contrato novo —, e por isso o unico vinculo que tem é com ele.
      */
     slug: "aditivos",
@@ -396,6 +481,10 @@ export const TABELAS: Tabela[] = [
     rotuloRef: "data",
     colunas: ["contrato_id", "data", "valor", "taxa", "observacao"],
     filtros: ["contrato_id"],
+    singular: "aditivo",
+    // Na mesma ordem dos contratos: os aportes, do primeiro ao mais recente.
+    ordem: "data, criado_em",
+    vazios: { taxa: "Mesma do contrato" },
     campos: [
       {
         nome: "contrato_id",
@@ -427,7 +516,7 @@ export const TABELAS: Tabela[] = [
         bucket: BUCKETS.contratos,
         aceita: "application/pdf",
       },
-      { nome: "observacao", rotulo: "Observacao", tipo: "texto" },
+      { nome: "observacao", rotulo: "Observação", tipo: "texto" },
     ],
   },
   {
@@ -442,6 +531,9 @@ export const TABELAS: Tabela[] = [
     rotuloRef: "data",
     colunas: ["contrato_id", "data", "valor", "observacao"],
     filtros: ["contrato_id"],
+    singular: "recebimento",
+    // Extrato: o credito mais recente no topo, como em qualquer conta.
+    ordem: "data desc, criado_em desc",
     campos: [
       /*
        * Só o contrato. Investidor e empreendimento saiam daqui como colunas
@@ -459,14 +551,14 @@ export const TABELAS: Tabela[] = [
       },
       {
         nome: "data",
-        rotulo: "Data do credito",
+        rotulo: "Data do crédito",
         tipo: "data",
         obrigatorio: true,
       },
       { nome: "valor", rotulo: "Valor", tipo: "dinheiro", obrigatorio: true },
       {
         nome: "observacao",
-        rotulo: "Observacao",
+        rotulo: "Observação",
         tipo: "texto",
         ajuda:
           "Aparece no toque da barra, no grafico do investidor. Use para o que fugiu da conta do ciclo.",
@@ -486,6 +578,10 @@ export const TABELAS: Tabela[] = [
     rotuloRef: "titulo",
     colunas: ["titulo", "usuario_id", "criado_em"],
     semFormulario: true,
+    singular: "notificação",
+    feminino: true,
+    cabecalhos: { criado_em: "Enviada em" },
+    vazios: { usuario_id: "Todos os investidores" },
     campos: [
       {
         nome: "usuario_id",
@@ -494,7 +590,7 @@ export const TABELAS: Tabela[] = [
         aponta: "usuarios",
         ajuda: "Em branco = aviso geral, para todos os investidores.",
       },
-      { nome: "titulo", rotulo: "Titulo", tipo: "texto", obrigatorio: true },
+      { nome: "titulo", rotulo: "Título", tipo: "texto", obrigatorio: true },
       { nome: "corpo", rotulo: "Texto", tipo: "area" },
       {
         nome: "url",
@@ -511,6 +607,10 @@ export const TABELAS: Tabela[] = [
     rotuloNovo: "Novo documento",
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "criado_em"],
+    singular: "documento",
+    cabecalhos: { criado_em: "Publicado em" },
+    // Com varias obras, a pergunta é "o que ja subiu para esta".
+    filtros: ["empreendimento_id"],
     campos: [
       {
         nome: "empreendimento_id",
@@ -537,6 +637,16 @@ export const TABELAS: Tabela[] = [
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "percentual", "concluida_em"],
     filtros: ["empreendimento_id"],
+    singular: "etapa",
+    feminino: true,
+    /*
+     * A ordem de cadastro, a mesma em que o investidor ve as etapas na tela da
+     * obra (ver a nota sobre "Ordem" logo abaixo). Do ultimo para o primeiro,
+     * como era, a lista do painel saia de cabeca para baixo em relacao a ela.
+     */
+    ordem: "criado_em",
+    progresso: ["percentual"],
+    vazios: { concluida_em: "Em andamento" },
     campos: [
       {
         nome: "empreendimento_id",
@@ -550,11 +660,11 @@ export const TABELAS: Tabela[] = [
         rotulo: "Etapa",
         tipo: "texto",
         obrigatorio: true,
-        ajuda: 'Ex.: "Fundacao", "Estrutura", "Alvenaria".',
+        ajuda: 'Ex.: "Fundação", "Estrutura", "Alvenaria".',
       },
       {
         nome: "percentual",
-        rotulo: "Concluido (%)",
+        rotulo: "Concluído (%)",
         tipo: "numero",
         obrigatorio: true,
         ajuda: "De 0 a 100. Aceita casa decimal: 37,5.",
@@ -567,7 +677,7 @@ export const TABELAS: Tabela[] = [
        */
       {
         nome: "concluida_em",
-        rotulo: "Concluida em",
+        rotulo: "Concluída em",
         tipo: "data",
         ajuda: "Deixe vazio enquanto a etapa estiver em andamento.",
       },
@@ -608,7 +718,7 @@ export const TABELAS: Tabela[] = [
         bucket: BUCKETS.documentos,
         ajuda: "Laudo, ART, medição ou relatório. Opcional.",
       },
-      { nome: "observacao", rotulo: "Observacao", tipo: "area" },
+      { nome: "observacao", rotulo: "Observação", tipo: "area" },
     ],
   },
   {
@@ -619,6 +729,11 @@ export const TABELAS: Tabela[] = [
     rotuloRef: "nome",
     colunas: ["nome", "empreendimento_id", "local_id", "criado_em"],
     filtros: ["empreendimento_id", "local_id"],
+    singular: "imagem",
+    feminino: true,
+    cabecalhos: { criado_em: "Enviada em" },
+    // Foto sem local cai na fila geral da galeria — ver a nota em `local_id`.
+    vazios: { local_id: "Fila geral" },
     campos: [
       {
         nome: "empreendimento_id",
@@ -695,6 +810,7 @@ export const TABELAS: Tabela[] = [
                 (select e.nome from empreendimentos e where e.id = locais.empreendimento_id)`,
     colunas: ["nome", "empreendimento_id", "criado_em"],
     filtros: ["empreendimento_id"],
+    singular: "local",
     campos: [
       {
         nome: "empreendimento_id",

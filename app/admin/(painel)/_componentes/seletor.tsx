@@ -237,7 +237,11 @@ export function Seletor({
           name={nome}
           value={valor}
           required={obrigatorio}
-          readOnly
+          /* `onChange` vazio, e **nao** `readOnly`: pela especificacao do HTML,
+             campo somente leitura fica fora da validacao. O `required` dele nao
+             barrava nada, e um contrato saia sem investidor ate o servidor
+             recusar. */
+          onChange={() => {}}
           onFocus={() => gatilho.current?.focus()}
         />
       )}

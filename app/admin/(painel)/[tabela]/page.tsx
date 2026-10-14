@@ -1,29 +1,46 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  CAMPO_DO_FILTRO,
   listar,
+  MOTIVOS,
   obter,
   opcoesDeReferencia,
   opcoesDoFiltro,
+  TETO_DA_LISTAGEM,
   textoDeDuplicado,
   type Linha,
+  type Motivo,
 } from "@/lib/admin/crud";
-import { acharTabela, type Tabela } from "@/lib/admin/tabelas";
+import { pendentesDoCiclo } from "@/lib/admin/lancamentos";
+import { acharTabela, TABELAS, type Tabela } from "@/lib/admin/tabelas";
 import { formatarMoeda } from "@/lib/portal/formato";
+import { IconeMais } from "@/app/(app)/portal/_componentes/icones";
 import { acaoExcluir } from "../../acoes";
 import {
   investidoresParaAviso,
   PainelDeAgendamentos,
 } from "../_componentes/agendamentos";
+import { AvisoPassageiro } from "../_componentes/aviso";
 import { FormularioDeAgendamento } from "../_componentes/formulario-agendamento";
-import { CabecalhoDaSecao, Contagem } from "../_componentes/cabecalho";
+import {
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO,
+  CabecalhoDaSecao,
+} from "../_componentes/cabecalho";
 import { EnviarAgora } from "../_componentes/enviar-agora";
 import { Folha } from "../_componentes/folha";
+import { GRUPOS } from "../_componentes/grupos";
 import { PainelDeLancamentos } from "../_componentes/lancamentos";
 import { BotaoExcluir } from "./botao-excluir";
 import { RedefinirSenha } from "./redefinir-senha";
 import { FiltroDaListagem } from "./filtro";
 import { Formulario } from "./formulario";
+import {
+  TabelaDeRegistros,
+  type ColunaDaTabela,
+  type LinhaDaTabela,
+} from "./tabela-registros";
 
 export const dynamic = "force-dynamic";
 
@@ -44,35 +61,235 @@ async function mapaDeRotulos(tabela: Tabela) {
   return mapa;
 }
 
+/* ------------------------------------------------------------ celulas -- */
+
 /**
- * O valor de uma celula, pronto para ler.
+ * Como cada coluna se desenha. Sai do tipo do campo no registro, e nao de uma
+ * lista por tabela: o "Valor" do contrato, do aditivo e do credito sao o mesmo
+ * dinheiro, e a regra de formatar real mora num lugar só.
  *
- * `moeda` formata em reais no padrao daqui — ponto no milhar, virgula no
- * decimal: `3.025.000,00`. Sem ela, o driver do Postgres entrega `numeric` como
- * a string crua do banco (`"3025000.00"`), que é o formato de quem escreve SQL e
- * nao o de quem le dinheiro.
- *
- * A conta fica aqui e nao no SQL de proposito: `to_char` do Postgres decide o
- * separador de milhar por `lc_numeric`, que no servidor nao é o do Brasil — a
- * mesma consulta sairia `3,025,000.00` em produção e certa aqui.
+ * Ate aqui so as colunas listadas em `colunasMoeda` saiam formatadas. O resto
+ * ia cru do banco: `50000.00` no valor do contrato, `0.02300` na participacao.
  */
-function exibir(
+type Formato =
+  | "moeda"
+  | "percentual"
+  | "data"
+  | "numero"
+  | "referencia"
+  | "escolha"
+  | "progresso"
+  | "selo"
+  | "texto";
+
+function formatoDe(tabela: Tabela, coluna: string): Formato {
+  const campo = tabela.campos.find((c) => c.nome === coluna);
+  if (tabela.progresso?.includes(coluna)) return "progresso";
+  if (tabela.selos?.[coluna]) return "selo";
+  if (tabela.colunasMoeda?.includes(coluna) || campo?.tipo === "dinheiro") {
+    return "moeda";
+  }
+  if (campo?.tipo === "percentual") return "percentual";
+  if (campo?.tipo === "data") return "data";
+  if (campo?.tipo === "numero") return "numero";
+  if (campo?.tipo === "referencia") return "referencia";
+  if (campo?.tipo === "escolha") return "escolha";
+  return "texto";
+}
+
+/** O titulo da coluna: o rotulo do campo, ou o declarado no registro. */
+function cabecalhoDe(tabela: Tabela, coluna: string): string {
+  return (
+    tabela.campos.find((c) => c.nome === coluna)?.rotulo ??
+    tabela.cabecalhos?.[coluna] ??
+    (coluna === "criado_em" ? "Criado em" : coluna)
+  );
+}
+
+/** "Fundação" e "fundacao" sao a mesma busca — a mesma regra do cliente. */
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+const doisDigitos = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Coluna `date` chega como `Date` a meia-noite **local** do servidor. As partes
+ * locais devolvem o dia gravado; um `toLocaleDateString` com outro fuso o
+ * empurraria para a vespera.
+ */
+function partesDaData(data: Date) {
+  const iso = `${data.getFullYear()}-${doisDigitos(data.getMonth() + 1)}-${doisDigitos(data.getDate())}`;
+  const texto = `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)}/${data.getFullYear()}`;
+  return { iso, texto };
+}
+
+/** "2,6%" — sem os zeros que o `numeric(6,5)` do banco carrega. */
+function percentual(decimal: number): string {
+  return `${Number((decimal * 100).toFixed(3)).toLocaleString("pt-BR", {
+    maximumFractionDigits: 3,
+  })}%`;
+}
+
+const comInicial = (texto: string) =>
+  texto.charAt(0).toUpperCase() + texto.slice(1);
+
+type Celula = {
+  no: React.ReactNode;
+  /** O que a celula diz, em texto — para a busca e para o contexto. */
+  texto: string;
+  ordem: string | number | null;
+};
+
+function celula(
+  tabela: Tabela,
+  coluna: string,
   valor: unknown,
   rotulos: Map<string, string>,
-  moeda = false,
-): string {
-  if (valor === null || valor === undefined) return "—";
-  if (valor instanceof Date) return valor.toLocaleDateString("pt-BR");
-
-  if (moeda) {
-    // O driver devolve `numeric` como texto para nao perder precisao.
-    const n = Number(valor);
-    return Number.isFinite(n) ? formatarMoeda(n) : String(valor);
+): Celula {
+  if (valor === null || valor === undefined || valor === "") {
+    const vazio = tabela.vazios?.[coluna];
+    return {
+      no: <span className="text-neutral-400">{vazio ?? "—"}</span>,
+      texto: vazio ?? "",
+      ordem: null,
+    };
   }
 
-  const texto = String(valor);
-  return rotulos.get(texto) ?? texto;
+  const formato = formatoDe(tabela, coluna);
+
+  if (valor instanceof Date) {
+    if (formato === "data") {
+      const { iso, texto } = partesDaData(valor);
+      return { no: <span className="tabular-nums">{texto}</span>, texto, ordem: iso };
+    }
+    // Carimbo de hora (`criado_em`): o dia de Brasilia, e nao o do servidor.
+    const texto = valor.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    });
+    return {
+      no: <span className="text-neutral-600 tabular-nums">{texto}</span>,
+      texto,
+      ordem: valor.getTime(),
+    };
+  }
+
+  // O driver devolve `numeric` como texto, para nao perder precisao.
+  const numero = Number(valor);
+
+  if (formato === "moeda" && Number.isFinite(numero)) {
+    const texto = formatarMoeda(numero);
+    return { no: texto, texto, ordem: numero };
+  }
+
+  if (formato === "percentual" && Number.isFinite(numero)) {
+    const texto = percentual(numero);
+    return { no: texto, texto, ordem: numero };
+  }
+
+  if (formato === "numero" && Number.isFinite(numero)) {
+    const texto = numero.toLocaleString("pt-BR");
+    return { no: texto, texto, ordem: numero };
+  }
+
+  /*
+   * O percentual da etapa como barra: a lista de etapas se le de relance pelo
+   * comprimento, e "37,5" sozinho pede para ser comparado de cabeca com os
+   * vizinhos.
+   */
+  if (formato === "progresso" && Number.isFinite(numero)) {
+    const texto = `${numero.toLocaleString("pt-BR")}%`;
+    const cheio = numero >= 100;
+    return {
+      no: (
+        <span className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-zinc-100"
+          >
+            <span
+              className={`block h-full rounded-full ${cheio ? "bg-verde" : "bg-marinho"}`}
+              style={{ width: `${Math.min(100, Math.max(0, numero))}%` }}
+            />
+          </span>
+          <span className="w-12 font-medium tabular-nums text-tinta">
+            {texto}
+          </span>
+        </span>
+      ),
+      texto,
+      ordem: numero,
+    };
+  }
+
+  const bruto = String(valor);
+
+  if (formato === "selo") {
+    const regra = tabela.selos?.[coluna];
+    const tom = regra?.ok?.includes(bruto)
+      ? "bg-emerald-50 text-verde ring-emerald-200"
+      : regra?.alerta?.includes(bruto)
+        ? "bg-amber-50 text-amber-800 ring-amber-200"
+        : "bg-zinc-50 text-neutral-600 ring-zinc-200";
+    const texto = comInicial(bruto);
+    return {
+      no: (
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${tom}`}
+        >
+          {texto}
+        </span>
+      ),
+      texto,
+      ordem: normalizar(texto),
+    };
+  }
+
+  if (formato === "referencia") {
+    const texto = rotulos.get(bruto) ?? bruto;
+    return { no: texto, texto, ordem: normalizar(texto) };
+  }
+
+  if (formato === "escolha") {
+    const texto = comInicial(bruto);
+    return { no: texto, texto, ordem: normalizar(texto) };
+  }
+
+  /*
+   * Texto livre — observacao, titulo de aviso — corta numa largura e mostra o
+   * resto no `title`. Sem teto, uma observacao comprida esticava a coluna e
+   * empurrava as acoes para fora da tela.
+   */
+  return {
+    no: (
+      <span className="block max-w-[22rem] truncate" title={bruto}>
+        {bruto}
+      </span>
+    ),
+    texto: bruto,
+    ordem: normalizar(bruto),
+  };
 }
+
+/**
+ * De quem é o registro, em uma linha: as primeiras colunas da listagem.
+ *
+ * "Douglas · Turmalina Tower · 10/09/2025" diz qual contrato é, no titulo da
+ * edicao e na pergunta de excluir. As colunas da frente sao as que o registro
+ * escolheu para identificar a linha — é por isso que estao na frente.
+ */
+function contextoDe(celulas: Celula[]): string {
+  return celulas
+    .slice(0, 3)
+    .map((c) => c.texto)
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/* ------------------------------------------------------------- acoes -- */
 
 /**
  * O campo de arquivo da tabela, se houver um.
@@ -95,6 +312,29 @@ function campoDeArquivo(tabela: Tabela) {
  */
 function verboDe(aceita: string | undefined) {
   return aceita?.startsWith("image/") ? "Ver imagem" : "Ver documento";
+}
+
+/** As acoes da linha: link discreto, que ganha fundo no hover. */
+const ACAO =
+  "rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-50 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul";
+
+/** A frase da recusa que voltou na URL — montada aqui, nunca lida dela. */
+function textoDaRecusa(
+  tabela: Tabela,
+  erro?: string,
+  onde?: string,
+  campo?: string,
+  motivo?: string,
+): { texto: string; campo?: string } | undefined {
+  if (erro === "duplicado") return { texto: textoDeDuplicado(onde) };
+  if (erro !== "invalido") return undefined;
+
+  const alvo = tabela.campos.find((c) => c.nome === campo);
+  const frase =
+    motivo && motivo in MOTIVOS ? MOTIVOS[motivo as Motivo] : MOTIVOS.formato;
+  return alvo
+    ? { texto: `${alvo.rotulo} ${frase}.`, campo: alvo.nome }
+    : { texto: `Um dos campos ${frase}.` };
 }
 
 export default async function TabelaPage({
@@ -124,6 +364,9 @@ export default async function TabelaPage({
     aviso?: string;
     erro?: string;
     onde?: string;
+    /** O campo e o motivo de um valor recusado. Ver `MOTIVOS`. */
+    campo?: string;
+    motivo?: string;
     entregues?: string;
     aparelhos?: string;
     /** Quantos investidores foram avisados ao publicar um documento. */
@@ -144,6 +387,8 @@ export default async function TabelaPage({
     aviso,
     erro,
     onde,
+    campo,
+    motivo,
     entregues,
     aparelhos,
     pessoas,
@@ -152,6 +397,9 @@ export default async function TabelaPage({
   // Slug desconhecido vira 404 — nunca chega ao SQL.
   const tabela = acharTabela(slug);
   if (!tabela) notFound();
+
+  const singular = tabela.singular ?? "registro";
+  const feminino = Boolean(tabela.feminino);
 
   // Resolvido uma vez, e nao por linha: o registro nao muda no meio da lista.
   const arquivo = campoDeArquivo(tabela);
@@ -196,22 +444,35 @@ export default async function TabelaPage({
     return `/admin/${slug}${query ? `?${query}` : ""}`;
   };
 
-  // O formulario aparece ao criar e ao editar. Fechado, sobra a listagem.
-  const formularioAberto = Boolean(novo) || Boolean(editar);
+  const [linhas, rotulos, emEdicao, opcoesDoSeletor, ciclo] = await Promise.all(
+    [
+      listar(tabela, filtro),
+      mapaDeRotulos(tabela),
+      editar ? obter(tabela, editar) : Promise.resolve(undefined),
+      /*
+       * `opcoesDoFiltro`, e nao `opcoesDeReferencia`: o seletor do topo so
+       * oferece o que tem linha. O formulario continua com a lista inteira —
+       * ver a nota da funcao em `lib/admin/crud.ts`.
+       */
+      campoReferencia
+        ? opcoesDoFiltro(tabela, campoReferencia)
+        : Promise.resolve([]),
+      // So Recebimentos mostra quantos faltam lancar.
+      tabela.slug === "recebimentos"
+        ? pendentesDoCiclo()
+        : Promise.resolve(null),
+    ],
+  );
 
-  const [linhas, rotulos, emEdicao, opcoesDoSeletor] = await Promise.all([
-    listar(tabela, filtro),
-    mapaDeRotulos(tabela),
-    editar ? obter(tabela, editar) : Promise.resolve(undefined),
-    /*
-     * `opcoesDoFiltro`, e nao `opcoesDeReferencia`: o seletor do topo so
-     * oferece o que tem linha. O formulario continua com a lista inteira — ver
-     * a nota da funcao em `lib/admin/crud.ts`.
-     */
-    campoReferencia
-      ? opcoesDoFiltro(tabela, campoReferencia)
-      : Promise.resolve([]),
-  ]);
+  /*
+   * O formulario aparece ao criar e ao editar. Fechado, sobra a listagem.
+   *
+   * Editar so abre se o registro existe: um id que nao é de ninguem (apagado
+   * em outra aba, colado errado) abria o formulario de *criar* com o titulo de
+   * editar — e salvar ali cadastrava uma linha nova.
+   */
+  const formularioAberto =
+    !tabela.semFormulario && (Boolean(novo) || Boolean(emEdicao));
 
   /*
    * Quem vai ter a senha redefinida — achado na lista que ja veio, e nao numa
@@ -231,6 +492,177 @@ export default async function TabelaPage({
       ? linhas.find((l: Linha) => String(l.id) === senha)
       : undefined;
 
+  /* -------------------------------------------------- a listagem -- */
+
+  const colunas: ColunaDaTabela[] = tabela.colunas.map((c) => {
+    const formato = formatoDe(tabela, c);
+    return {
+      chave: c,
+      rotulo: cabecalhoDe(tabela, c),
+      numero:
+        formato === "moeda" || formato === "percentual" || formato === "numero",
+    };
+  });
+
+  const linhasDaTabela: LinhaDaTabela[] = linhas.map((linha: Linha) => {
+    const id = String(linha.id);
+    const celulas = tabela.colunas.map((c) =>
+      celula(tabela, c, linha[c], rotulos),
+    );
+    const contexto = contextoDe(celulas);
+    const editarHref = comParametros({ editar: id, senha: null, novo: null });
+
+    /*
+     * A primeira celula abre a edicao. Era preciso caçar o "Editar" no fim da
+     * linha, a uma tabela inteira de distancia do nome que se estava lendo — e
+     * clicar no nome é o que se tenta primeiro.
+     */
+    const [primeira, ...resto] = celulas.map((c) => c.no);
+    const abertura = tabela.semFormulario ? (
+      <span className="font-medium text-tinta">{primeira}</span>
+    ) : (
+      <Link
+        href={editarHref}
+        className="font-semibold text-tinta underline-offset-2 transition-colors duration-200 hover:text-marinho hover:underline focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-azul"
+      >
+        {primeira}
+      </Link>
+    );
+
+    return {
+      id,
+      busca: normalizar(celulas.map((c) => c.texto).join(" ")),
+      ordem: celulas.map((c) => c.ordem),
+      celulas: [abertura, ...resto],
+      acoes: (
+        <>
+          {/*
+           * O arquivo anexado, quando ha um.
+           *
+           * So aparece na linha que tem: um "Ver documento" apagado em vinte
+           * contratos sem PDF seria uma promessa falsa vinte vezes, e a
+           * ausencia do botao ja é a resposta de que nao ha o que ver.
+           *
+           * `<a>` cru, e nao `<Link>`: o destino nao é uma pagina do app, é um
+           * 302 para o Storage. O `Link` faria prefetch dele, e cada prefetch
+           * gastaria uma assinatura de 60s e uma linha de auditoria dizendo que
+           * alguem abriu um contrato que ninguem abriu.
+           *
+           * Aba nova para a listagem nao se perder — quem confere documento
+           * costuma conferir varios seguidos —, com `noopener` porque `_blank`
+           * sem ele entrega `window.opener` ao destino.
+           */}
+          {arquivo && linha[arquivo.nome] ? (
+            <a
+              href={`/admin/arquivo/${tabela.slug}/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={ACAO}
+            >
+              {verboDe(arquivo.aceita)}
+            </a>
+          ) : null}
+          {/*
+           * Só em Investidores: é a unica tabela com senha, e o recorte da
+           * listagem (`onde`) ja garante que aqui só ha investidor. A acao
+           * repete essa condicao no `where`, para um id colado na URL nao
+           * alcancar um administrador.
+           */}
+          {tabela.tabela === "usuarios" && (
+            <Link
+              href={comParametros({ senha: id, editar: null, novo: null })}
+              className={ACAO}
+            >
+              Redefinir senha
+            </Link>
+          )}
+          {!tabela.semFormulario && (
+            <Link href={editarHref} className={ACAO}>
+              Editar
+            </Link>
+          )}
+          {/* Formulario proprio: excluir muda o servidor, entao precisa ser
+              POST, e nao um link que qualquer prefetch dispararia. */}
+          <form
+            action={acaoExcluir.bind(null, tabela.slug, id)}
+            className="inline"
+          >
+            {f && <input type="hidden" name={CAMPO_DO_FILTRO} value={f} />}
+            <BotaoExcluir
+              oQue={`${feminino ? "a" : "o"} ${singular}${
+                contexto ? ` “${contexto}”` : ""
+              }`}
+            />
+          </form>
+        </>
+      ),
+    };
+  });
+
+  /* ------------------------------------------------------ avisos -- */
+
+  const recusa = textoDaRecusa(tabela, erro, onde, campo, motivo);
+
+  /*
+   * O aviso passageiro de sucesso. O genero vem do registro: "Contrato
+   * criado", "Etapa criada".
+   */
+  const Singular = comInicial(singular);
+  const sucesso =
+    ok === "criado"
+      ? `${Singular} ${feminino ? "cadastrada" : "cadastrado"}.`
+      : ok === "salvo"
+        ? "Alterações salvas."
+        : ok === "excluido"
+          ? `${Singular} ${feminino ? "excluída" : "excluído"}.`
+          : null;
+
+  /** A tabela que segurou a exclusao, pelo nome que a coluna da esquerda usa. */
+  const ondeEsta =
+    TABELAS.find((t) => t.tabela === onde)?.rotulo.toLowerCase() ??
+    "outra tabela";
+
+  const grupo = GRUPOS.find((g) => g.slugs.includes(tabela.slug))?.titulo;
+
+  /*
+   * O vazio com a saida certa. Filtrado e vazio é uma situacao; tabela sem
+   * linha nenhuma é outra, e o caminho de cada uma é diferente.
+   */
+  const vazio = (
+    <div className="text-center">
+      <span className="block text-sm font-semibold text-tinta">
+        {filtro
+          ? "Nada com esse filtro."
+          : `${feminino ? "Nenhuma" : "Nenhum"} ${singular} ainda.`}
+      </span>
+      <span className="mt-1 block text-sm text-neutral-500">
+        {filtro
+          ? "Escolha outra opção no filtro, ou veja a lista inteira."
+          : tabela.semFormulario
+            ? "As linhas aparecem aqui conforme forem sendo criadas."
+            : `Comece ${feminino ? "pela primeira" : "pelo primeiro"}.`}
+      </span>
+      {filtro ? (
+        <Link
+          href={`/admin/${tabela.slug}`}
+          className={`${BOTAO_SECUNDARIO} mt-4`}
+        >
+          Ver todos
+        </Link>
+      ) : (
+        !tabela.semFormulario && (
+          <Link
+            href={comParametros({ novo: "1", editar: null })}
+            className={`${BOTAO_PRIMARIO} mt-4`}
+          >
+            <IconeMais className="h-4 w-4" />
+            {tabela.rotuloNovo ?? "Novo registro"}
+          </Link>
+        )
+      )}
+    </div>
+  );
+
   return (
     <>
       {/*
@@ -240,35 +672,28 @@ export default async function TabelaPage({
        */}
       <CabecalhoDaSecao
         titulo={tabela.rotulo}
+        grupo={grupo}
         acessorio={
           <>
-            {campoReferencia && (
-              <FiltroDaListagem
-                rotulo={campoReferencia.rotulo}
-                parametro="f"
-                opcoes={opcoesDoSeletor}
-                selecionado={f ?? ""}
-                destino={`/admin/${tabela.slug}`}
-                // Trocar de contrato nao fecha o formulario nem o painel.
-                atuais={{ editar, novo, lancar, mes }}
-              />
-            )}
-            <Contagem total={linhas.length} />
-
-            {/* Só em Recebimentos: é a unica tabela que tem o que lancar. O
-                painel é alto — um cartao por contrato —, e abria sempre,
-                empurrando a listagem para fora da tela. */}
-            {tabela.slug === "recebimentos" && (
+            {/*
+             * Recebimentos: lancar o ciclo é a tarefa do mes, e por isso é o
+             * botao cheio — com quantos faltam ao lado. O cadastro avulso
+             * continua existindo, para o credito que fugiu da regra, mas
+             * recuado.
+             */}
+            {ciclo && (
               <Link
-                href={comParametros({ lancar: lancar ? null : "1" })}
-                aria-pressed={Boolean(lancar)}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul ${
-                  lancar
-                    ? "border-marinho bg-marinho text-white hover:bg-azul"
-                    : "border-zinc-200 bg-white text-neutral-600 hover:border-zinc-300 hover:text-tinta"
-                }`}
+                href={comParametros({ lancar: "1" })}
+                className={
+                  ciclo.pendentes > 0 ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO
+                }
               >
-                Para lançar
+                Lançar créditos
+                {ciclo.pendentes > 0 && (
+                  <span className="rounded-full bg-white/20 px-1.5 text-xs font-bold tabular-nums">
+                    {ciclo.pendentes}
+                  </span>
+                )}
               </Link>
             )}
 
@@ -277,47 +702,33 @@ export default async function TabelaPage({
             {tabela.slug === "notificacoes" && (
               <>
                 <Link
-                  href={comParametros({ enviar: "1", agendar: null })}
-                  className="rounded-xl border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-200 hover:border-zinc-300 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
+                  href={comParametros({ agendar: "1", enviar: null })}
+                  className={BOTAO_SECUNDARIO}
                 >
-                  Enviar agora
+                  Agendar envio
                 </Link>
                 <Link
-                  href={comParametros({ agendar: "1", enviar: null })}
-                  className="rounded-xl bg-marinho px-3.5 py-1.5 text-xs font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
+                  href={comParametros({ enviar: "1", agendar: null })}
+                  className={BOTAO_PRIMARIO}
                 >
-                  Novo agendamento
+                  Enviar aviso agora
                 </Link>
               </>
             )}
 
             {!tabela.semFormulario && (
               <Link
-                href={
-                  formularioAberto
-                    ? comParametros({ novo: null, editar: null })
-                    : comParametros({ novo: "1", editar: null })
-                }
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 ${
-                  formularioAberto
-                    ? "border border-zinc-200 bg-white text-neutral-600 hover:border-zinc-300 hover:text-tinta"
-                    : "bg-marinho text-white hover:bg-azul"
-                }`}
+                href={comParametros({ novo: "1", editar: null })}
+                className={ciclo ? BOTAO_SECUNDARIO : BOTAO_PRIMARIO}
               >
-                {formularioAberto
-                  ? "Fechar"
-                  : (tabela.rotuloNovo ?? "Novo registro")}
+                <IconeMais className="h-4 w-4" />
+                {tabela.rotuloNovo ?? "Novo registro"}
               </Link>
             )}
           </>
         }
       />
 
-      {/*
-       * Recebimentos abre com o painel de lancamento do mes. Lancar é o jeito
-       * de criar uma linha nesta tabela — separado numa rota propria, obrigava
-       * a trocar de tela para conferir o que acabou de ser gravado.
-       */}
       {/*
        * O que falta lancar sobe numa folha por cima da tela, e nao mais como uma
        * secao empurrando a listagem para baixo. Sao duas leituras diferentes: a
@@ -338,11 +749,6 @@ export default async function TabelaPage({
       )}
 
       {/*
-       * Notificacoes abre com os dois jeitos de mandar — na hora e por
-       * repeticao —, nesta ordem. A tabela de baixo é o historico do que saiu
-       * por qualquer um dos dois.
-       */}
-      {/*
        * Notificacoes: as duas folhas de envio, e a lista do que ja esta
        * agendado. A lista fica na pagina — é dado, como a tabela de baixo; os
        * formularios sobem por cima, como todo "novo" do painel.
@@ -351,20 +757,21 @@ export default async function TabelaPage({
         <>
           {enviar && (
             <Folha
-              titulo="Enviar agora"
+              titulo="Enviar aviso agora"
               fechar={comParametros({ enviar: null })}
             >
-              <EnviarAgora />
+              <EnviarAgora fechar={comParametros({ enviar: null })} />
             </Folha>
           )}
 
           {agendar && (
             <Folha
-              titulo="Envio automático"
+              titulo="Agendar envio"
               fechar={comParametros({ agendar: null })}
             >
               <FormularioDeAgendamento
                 investidores={await investidoresParaAviso()}
+                fechar={comParametros({ agendar: null })}
               />
             </Folha>
           )}
@@ -381,30 +788,27 @@ export default async function TabelaPage({
        * que a pessoa precisa comecar.
        */}
       {erro === "vinculo" && (
-        <p className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+        <p
+          role="alert"
+          className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900"
+        >
           <span className="font-semibold">Não foi possível excluir.</span> Há
-          registros em{" "}
-          <span className="font-semibold">{onde ?? "outra tabela"}</span>{" "}
-          apontando para este — o banco recusa a exclusão para não levar essas
-          linhas junto. Apague ou reatribua esses registros primeiro.
+          registros em <span className="font-semibold">{ondeEsta}</span> que
+          dependem {feminino ? "desta" : "deste"} {singular}, e o banco recusa a
+          exclusão para não levar esses registros junto. Apague ou mude esses
+          registros primeiro.
         </p>
       )}
 
-      {/*
-       * Ja existe uma linha assim.
-       *
-       * Como o de vinculo acima, nao é falha de sistema: é uma restricao de
-       * unicidade fazendo o trabalho dela. O caso comum é lancar o credito do
-       * mes duas vezes, com uma aba aberta desde antes do primeiro lancamento —
-       * e ate aqui isso dava tela de erro 500.
-       *
-       * A frase sai de `textoDeDuplicado`, que traduz o nome da restricao. É a
-       * mesma fonte que a acao usou para decidir que o erro era tratavel.
-       */}
-      {erro === "duplicado" && (
-        <p className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+      {/* A recusa de um formulario mora dentro da folha (ver `Formulario`).
+          Aqui so cai a que voltou sem folha para abrir. */}
+      {recusa && !formularioAberto && (
+        <p
+          role="alert"
+          className="mt-6 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900"
+        >
           <span className="font-semibold">Não foi possível salvar.</span>{" "}
-          {textoDeDuplicado(onde)}
+          {recusa.texto}
         </p>
       )}
 
@@ -451,8 +855,16 @@ export default async function TabelaPage({
         </p>
       )}
 
-      {/* Tabela de registro nao tem formulario: ver `semFormulario` no
-          registro das tabelas. */}
+      {sucesso && (
+        <AvisoPassageiro
+          // `key` no texto: duas exclusoes seguidas tem a mesma frase, e sem
+          // remontar o segundo aviso nao apareceria.
+          key={`${ok}-${linhas.length}`}
+          texto={sucesso}
+          limpar={["ok"]}
+        />
+      )}
+
       {/*
        * O formulario sobe por cima de tudo, e nao mais acima da tabela.
        *
@@ -461,14 +873,31 @@ export default async function TabelaPage({
        * gramaticas. Fechar volta para a listagem com o filtro e o resto da URL
        * intactos — ver `comParametros`.
        */}
-      {!tabela.semFormulario && formularioAberto && (
+      {formularioAberto && (
         <Folha
           titulo={
-            editar ? "Editar registro" : (tabela.rotuloNovo ?? "Novo registro")
+            editar
+              ? `Editar ${singular}`
+              : (tabela.rotuloNovo ?? "Novo registro")
           }
           fechar={comParametros({ novo: null, editar: null })}
         >
-          <Formulario tabela={tabela} linha={emEdicao} />
+          <Formulario
+            tabela={tabela}
+            linha={emEdicao}
+            filtro={filtro}
+            contexto={
+              emEdicao
+                ? contextoDe(
+                    tabela.colunas.map((c) =>
+                      celula(tabela, c, emEdicao[c], rotulos),
+                    ),
+                  )
+                : undefined
+            }
+            recusa={recusa}
+            fechar={comParametros({ novo: null, editar: null })}
+          />
         </Folha>
       )}
 
@@ -493,169 +922,35 @@ export default async function TabelaPage({
         </Folha>
       )}
 
-      {/* A tabela é larga por natureza; o `overflow-x-auto` deixa ela rolar
-          dentro do cartao em vez de empurrar a pagina inteira de lado. */}
-      <div className="sombra-cartao mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-zinc-200 bg-zinc-50 text-xs text-neutral-500">
-            <tr>
-              {tabela.colunas.map((c) => (
-                <th
-                  key={c}
-                  className={`px-4 py-3 font-semibold tracking-wider whitespace-nowrap uppercase ${
-                    tabela.colunasMoeda?.includes(c) ? "text-right" : ""
-                  }`}
-                >
-                  {c}
-                </th>
-              ))}
-              {/* A coluna das acoes nao tem nome, mas tem funcao: sem o
-                  `sr-only` ela é uma celula vazia no cabecalho. */}
-              <th className="px-4 py-3 text-right">
-                <span className="sr-only">Ações</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
-            {linhas.length === 0 && (
-              <tr>
-                <td
-                  colSpan={tabela.colunas.length + 1}
-                  className="px-4 py-14 text-center"
-                >
-                  {/* Vazio com motivo: filtrado e vazio é outra situacao de
-                      "ainda nao ha nada", e a saida de cada uma é diferente. */}
-                  <span className="block text-sm font-medium text-tinta">
-                    {filtro
-                      ? "Nada com esse filtro."
-                      : "Nenhum registro ainda."}
-                  </span>
-                  <span className="mt-1 block text-sm text-neutral-500">
-                    {filtro ? (
-                      <Link
-                        href={`/admin/${tabela.slug}`}
-                        className="font-semibold text-marinho underline-offset-2 hover:underline"
-                      >
-                        Limpar o filtro
-                      </Link>
-                    ) : tabela.semFormulario ? (
-                      "As linhas aparecem aqui conforme forem sendo criadas."
-                    ) : (
-                      "Use o formulário acima para criar o primeiro."
-                    )}
-                  </span>
-                </td>
-              </tr>
-            )}
+      {/* Em Notificacoes a tabela é o historico, e vem depois dos envios
+          automaticos — sem um titulo, ela parecia continuacao deles. */}
+      {tabela.slug === "notificacoes" && (
+        <h2 className="mt-10 text-base font-bold tracking-tight text-tinta">
+          Histórico de envios
+        </h2>
+      )}
 
-            {linhas.map((linha: Linha) => (
-              <tr
-                key={String(linha.id)}
-                /* `group` para as acoes: elas ficam apagadas ate o ponteiro
-                   entrar na linha, o que tira 20 botoes vermelhos da vista sem
-                   escondê-los de quem navega por teclado — o `focus-within`
-                   traz os dois de volta. */
-                className="group transition-colors duration-200 hover:bg-indigo-50"
-              >
-                {tabela.colunas.map((c) => {
-                  const dinheiro = tabela.colunasMoeda?.includes(c) ?? false;
-                  return (
-                    <td
-                      key={c}
-                      /* Dinheiro alinhado a direita e em `tabular-nums`: é assim
-                         que a virgula de uma linha fica embaixo da da outra, e a
-                         coluna se compara de relance. */
-                      className={`px-4 py-3 whitespace-nowrap ${
-                        dinheiro ? "text-right font-medium tabular-nums" : ""
-                      }`}
-                    >
-                      {exibir(linha[c], rotulos, dinheiro)}
-                    </td>
-                  );
-                })}
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1 opacity-45 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
-                    {/*
-                     * O arquivo anexado, quando ha um.
-                     *
-                     * So aparece na linha que tem: um "Ver documento" apagado em
-                     * vinte contratos sem PDF seria uma promessa falsa vinte
-                     * vezes, e a ausencia do botao ja é a resposta de que nao ha
-                     * o que ver.
-                     *
-                     * `<a>` cru, e nao `<Link>`: o destino nao é uma pagina do
-                     * app, é um 302 para o Storage. O `Link` faria prefetch
-                     * dele, e cada prefetch gastaria uma assinatura de 60s e
-                     * uma linha de auditoria dizendo que alguem abriu um
-                     * contrato que ninguem abriu.
-                     *
-                     * Aba nova para a listagem nao se perder — quem confere
-                     * documento costuma conferir varios seguidos —, com
-                     * `noopener` porque `_blank` sem ele entrega `window.opener`
-                     * ao destino.
-                     */}
-                    {arquivo && linha[arquivo.nome] ? (
-                      <a
-                        href={`/admin/arquivo/${tabela.slug}/${String(linha.id)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-                      >
-                        {verboDe(arquivo.aceita)}
-                      </a>
-                    ) : null}
-                    {/*
-                     * Só em Investidores: é a unica tabela com senha, e o
-                     * recorte da listagem (`onde`) ja garante que aqui só ha
-                     * investidor. A acao repete essa condicao no `where`, para
-                     * um id colado na URL nao alcancar um administrador.
-                     */}
-                    {tabela.tabela === "usuarios" && (
-                      <Link
-                        href={comParametros({
-                          senha: String(linha.id),
-                          editar: null,
-                          novo: null,
-                        })}
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-50"
-                      >
-                        Senha
-                      </Link>
-                    )}
-                    {!tabela.semFormulario && (
-                      <Link
-                        href={comParametros({
-                          editar: String(linha.id),
-                          senha: null,
-                          novo: null,
-                        })}
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-                      >
-                        Editar
-                      </Link>
-                    )}
-                    {/* Formulario proprio: excluir muda o servidor, entao
-                        precisa ser POST, e nao um link que qualquer prefetch
-                        dispararia. */}
-                    <form
-                      action={acaoExcluir.bind(
-                        null,
-                        tabela.slug,
-                        String(linha.id),
-                      )}
-                      className="inline"
-                    >
-                      <BotaoExcluir
-                        oQue={`este registro de ${tabela.rotulo.toLowerCase()}`}
-                      />
-                    </form>
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <TabelaDeRegistros
+        colunas={colunas}
+        linhas={linhasDaTabela}
+        singular={singular}
+        plural={tabela.rotulo.toLowerCase()}
+        vazio={vazio}
+        cortada={linhas.length >= TETO_DA_LISTAGEM}
+        filtro={
+          campoReferencia ? (
+            <FiltroDaListagem
+              rotulo={campoReferencia.rotulo}
+              parametro="f"
+              opcoes={opcoesDoSeletor}
+              selecionado={f ?? ""}
+              destino={`/admin/${tabela.slug}`}
+              // Trocar de contrato nao fecha o formulario nem o painel.
+              atuais={{ editar, novo, lancar, mes }}
+            />
+          ) : undefined
+        }
+      />
     </>
   );
 }

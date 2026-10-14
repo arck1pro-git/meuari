@@ -1,11 +1,23 @@
-import { opcoesDeReferencia, type Linha } from "@/lib/admin/crud";
+import {
+  CAMPO_DO_FILTRO,
+  opcoesDeReferencia,
+  type Linha,
+} from "@/lib/admin/crud";
 import type { Campo, Tabela } from "@/lib/admin/tabelas";
 import { TETOS } from "@/lib/upload";
 import { acaoAtualizar, acaoCriar } from "../../acoes";
-import { BotaoEnviar } from "../_componentes/botao-enviar";
+import {
+  NotaDeObrigatorio,
+  RodapeDaFolha,
+} from "../_componentes/rodape-da-folha";
 import { Seletor } from "../_componentes/seletor";
 import { CampoArquivo } from "./campo-arquivo";
 import { CampoNumero } from "./campo-numero";
+
+/** "mensal" -> "Mensal". So na tela: o valor enviado continua o do banco. */
+function comInicial(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
 
 /* O mesmo desenho de campo do login: canto de 12px, borda discreta e o anel
    azul so no foco por teclado. */
@@ -78,12 +90,15 @@ async function CampoDoFormulario({
   campo,
   linha,
   slug,
+  inicial,
 }: {
   campo: Campo;
   linha?: Linha;
   slug: string;
+  /** O valor de partida ao criar — o do filtro aberto, ou o `padrao`. */
+  inicial?: string;
 }) {
-  const valor = valorInicial(campo, linha);
+  const valor = linha ? valorInicial(campo, linha) : (inicial ?? "");
 
   /*
    * Campo sem pergunta: viaja no formulario e nao ocupa lugar na tela.
@@ -154,7 +169,10 @@ async function CampoDoFormulario({
           <Seletor
             nome={campo.nome}
             rotuloAcessivel={campo.rotulo}
-            opcoes={(campo.opcoes ?? []).map((o) => ({ valor: o, rotulo: o }))}
+            opcoes={(campo.opcoes ?? []).map((o) => ({
+              valor: o,
+              rotulo: comInicial(o),
+            }))}
             valorInicial={valor}
             vazio="—"
             obrigatorio={campo.obrigatorio}
@@ -201,21 +219,53 @@ async function CampoDoFormulario({
         />
       )}
 
-      {campo.ajuda && (
+      {/* A ajuda da senha muda com o momento: "deixe em branco para manter a
+          atual" nao faz sentido para quem ainda nao tem senha nenhuma — e
+          ninguem avisava que, sem ela, a pessoa nao consegue entrar. */}
+      {campo.tipo === "senha" && !linha ? (
         <span className="mt-1 block text-xs text-neutral-400">
-          {campo.ajuda}
+          Opcional. Sem senha a pessoa não consegue entrar — dá para definir
+          depois, em “Redefinir senha”.
         </span>
+      ) : (
+        campo.ajuda && (
+          <span className="mt-1 block text-xs text-neutral-400">
+            {campo.ajuda}
+          </span>
+        )
       )}
     </label>
   );
 }
 
+/** Arquivo e texto longo ocupam a linha inteira; o resto divide em dois. */
+function ehLargo(campo: Campo): boolean {
+  return campo.tipo === "area" || campo.tipo === "arquivo";
+}
+
 export async function Formulario({
   tabela,
   linha,
+  filtro,
+  contexto,
+  recusa,
+  fechar,
 }: {
   tabela: Tabela;
   linha?: Linha;
+  /**
+   * O filtro aberto na listagem. Ao criar, ele ja preenche o campo — quem esta
+   * olhando os contratos de uma pessoa e clica em "Novo contrato" quer um
+   * contrato *dela*. E ele volta na URL depois de salvar, para a lista reabrir
+   * do mesmo jeito.
+   */
+  filtro?: { campo: string; valor: string };
+  /** De quem é o registro em edicao: "Douglas · Turmalina Tower". */
+  contexto?: string;
+  /** Por que a ultima tentativa foi recusada, ja em frase, e em qual campo. */
+  recusa?: { texto: string; campo?: string };
+  /** Para onde o "Cancelar" leva — a listagem, como estava. */
+  fechar: string;
 }) {
   const editando = Boolean(linha);
   // `bind` fixa o slug e o id no servidor: eles nao trafegam pelo formulario e
@@ -223,6 +273,8 @@ export async function Formulario({
   const acao = editando
     ? acaoAtualizar.bind(null, tabela.slug, String(linha!.id))
     : acaoCriar.bind(null, tabela.slug);
+
+  const singular = tabela.singular ?? "registro";
 
   return (
     /*
@@ -237,36 +289,75 @@ export async function Formulario({
      * Agora ele sobe por cima de tudo, e a listagem continua onde estava.
      */
     <form action={acao}>
+      {filtro && (
+        <input type="hidden" name={CAMPO_DO_FILTRO} value={filtro.valor} />
+      )}
+
       <header className="mb-5 pr-10">
-        <h2 className="text-base font-bold tracking-tight text-tinta">
+        <h2 className="text-lg font-bold tracking-tight text-tinta">
           {editando
-            ? "Editar registro"
+            ? `Editar ${singular}`
             : (tabela.rotuloNovo ?? "Novo registro")}
         </h2>
-        <p className="mt-0.5 text-sm text-neutral-500">
-          {editando ? "As alterações valem ao salvar." : `Em ${tabela.rotulo}.`}
-        </p>
+        {/* "Editar contrato" sozinho nao diz *qual*. Com dez linhas parecidas
+            na lista, abrir a errada é facil, e só se descobre depois de
+            salvar. */}
+        {editando && contexto && (
+          <p className="mt-0.5 truncate text-sm text-neutral-500">{contexto}</p>
+        )}
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/*
+       * A recusa mora **dentro** da folha.
+       *
+       * Ela era uma faixa na pagina, atras do fundo escurecido do modal: o
+       * formulario reabria para a pessoa corrigir, e o motivo ficava borrado
+       * por baixo dele.
+       */}
+      {recusa && (
+        <p
+          role="alert"
+          className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-800"
+        >
+          <span className="font-semibold">Não foi possível salvar.</span>{" "}
+          {recusa.texto}
+        </p>
+      )}
+
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
         {tabela.campos.map((campo) => (
-          <CampoDoFormulario
+          <div
             key={campo.nome}
-            campo={campo}
-            linha={linha}
-            slug={tabela.slug}
-          />
+            // O campo oculto nao ocupa celula: sem isto ele abria um buraco na
+            // grade, do tamanho de um campo vazio.
+            className={
+              campo.oculto ? "hidden" : ehLargo(campo) ? "sm:col-span-2" : ""
+            }
+          >
+            <CampoDoFormulario
+              campo={campo}
+              linha={linha}
+              slug={tabela.slug}
+              inicial={
+                filtro?.campo === campo.nome ? filtro.valor : campo.padrao
+              }
+            />
+            {recusa?.campo === campo.nome && (
+              <span className="mt-1 block text-xs font-medium text-red-700">
+                Confira este campo.
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
-      <div className="mt-6">
-        <BotaoEnviar
-          enviando="Salvando…"
-          className="w-full rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2 sm:w-auto"
-        >
-          {editando ? "Salvar" : "Criar"}
-        </BotaoEnviar>
-      </div>
+      <RodapeDaFolha
+        fechar={fechar}
+        enviando="Salvando…"
+        nota={<NotaDeObrigatorio />}
+      >
+        {editando ? "Salvar alterações" : `Cadastrar ${singular}`}
+      </RodapeDaFolha>
     </form>
   );
 }

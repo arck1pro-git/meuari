@@ -34,11 +34,16 @@ export function RedefinirSenha({
   return (
     <form action={acao} className="space-y-4">
       <input type="hidden" name="id" value={id} />
-      <p className="text-sm text-neutral-600">
-        Definindo a senha de{" "}
-        <span className="font-semibold text-tinta">{nome}</span>. As sessões
-        abertas dele em qualquer aparelho serão encerradas.
-      </p>
+      {/* O mesmo cabecalho das outras folhas: titulo, e de quem é. */}
+      <header className="pr-10">
+        <h2 className="text-lg font-bold tracking-tight text-tinta">
+          Redefinir senha
+        </h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          De <span className="font-semibold text-tinta">{nome}</span>. As
+          sessões abertas em qualquer aparelho serão encerradas.
+        </p>
+      </header>
 
       <label className="block">
         <span className="text-xs font-medium text-neutral-600">Senha nova</span>

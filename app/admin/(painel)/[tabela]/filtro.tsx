@@ -53,7 +53,7 @@ export function FiltroDaListagem({
 
   return (
     <span className="flex items-center gap-2">
-      <span className="shrink-0 text-xs font-semibold text-neutral-600">
+      <span className="shrink-0 text-xs font-semibold text-neutral-500">
         {rotulo}
       </span>
       {/* `key` no valor: o seletor guarda a escolha em estado proprio, e depois
@@ -66,7 +66,8 @@ export function FiltroDaListagem({
         valorInicial={selecionado}
         vazio="Todos"
         aoEscolher={trocar}
-        className="min-w-52 py-1.5"
+        // A altura da busca ao lado: os dois dividem a mesma barra.
+        className="min-w-56 py-2"
       />
     </span>
   );

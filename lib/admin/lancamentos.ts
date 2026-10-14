@@ -1,7 +1,8 @@
 import "server-only";
 import { consultar } from "@/lib/db";
-import type { DataISO } from "@/lib/portal/dados";
+import { dataDeReferencia, type DataISO } from "@/lib/portal/dados";
 import {
+  dataDoCredito,
   estimarCiclo,
   type AporteMensal,
   type Estimativa,
@@ -159,6 +160,36 @@ export async function estimativaDe(
   );
 
   return estimarCiclo(aportes, data);
+}
+
+/**
+ * Quantos contratos `mensal` ainda estao sem o credito do ciclo corrente.
+ *
+ * Uma contagem só, sem a estimativa de cada um: é o numero do selo na coluna da
+ * esquerda e do botao "Lançar créditos", e montar a folha inteira para contar
+ * as linhas dela custaria a conta do ciclo de todos os contratos a cada tela.
+ *
+ * O recorte é o do Dashboard — só investidores, só `mensal` —, para os dois
+ * lugares nunca darem numeros diferentes para a mesma pendencia.
+ */
+export async function pendentesDoCiclo(): Promise<{
+  data: DataISO;
+  pendentes: number;
+}> {
+  const data = dataDoCredito((await dataDeReferencia()).slice(0, 7));
+  const [linha] = await consultar<{ total: number }>(
+    `select count(*)::int as total
+       from contratos c
+       join usuarios u on u.id = c.usuario_id
+      where c.modalidade = 'mensal'
+        and u.tipo = 'investidor'
+        and not exists (
+              select 1 from recebimentos r
+               where r.contrato_id = c.id and r.data = $1
+            )`,
+    [data],
+  );
+  return { data, pendentes: linha?.total ?? 0 };
 }
 
 /** Ja existe credito para este contrato nesta data? */

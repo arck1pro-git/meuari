@@ -91,9 +91,14 @@ export function Indicador({
   destaque?: boolean;
 }) {
   return (
-    // O filete horizontal fecha a primeira fila no telefone, onde a grade cai
-    // para duas colunas e o `divide-x` do container nao alcanca.
-    <div className="border-b border-zinc-200 p-4 last:border-b-0 sm:border-b-0 sm:p-5">
+    /*
+     * No telefone a grade cai para duas colunas, e o `divide-x` do container
+     * (que so vale de `sm` para cima) nao alcanca. Os filetes daqui fecham a
+     * grade 2x2: horizontal so na primeira fila, vertical so na coluna da
+     * esquerda. Antes era `border-b` em todos menos o ultimo — a terceira
+     * celula ganhava um filete solto embaixo, e as colunas nao tinham divisa.
+     */
+    <div className="border-zinc-200 p-4 max-sm:odd:border-r max-sm:nth-[-n+2]:border-b sm:p-5">
       <dt className="text-[0.6875rem] font-semibold tracking-wider text-neutral-400 uppercase">
         {rotulo}
       </dt>
@@ -104,7 +109,10 @@ export function Indicador({
       >
         {valor}
       </dd>
-      <p className="mt-1 text-xs leading-snug text-neutral-500">{apoio}</p>
+      {/* `dd`, e nao `p`: dentro de um grupo do `<dl>` so cabem `dt` e `dd`.
+          O apoio é mais uma descricao do mesmo termo, e é isso que o `dd` diz
+          ao leitor de tela. */}
+      <dd className="mt-1 text-xs leading-snug text-neutral-500">{apoio}</dd>
     </div>
   );
 }

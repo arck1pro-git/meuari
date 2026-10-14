@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   investidoresComContrato,
   serieDoInvestidor,
@@ -8,24 +9,30 @@ import {
   type PainelDoAdmin,
   type ResumoDeModalidade,
 } from "@/lib/admin/painel";
-import { dataDeReferencia, type Modalidade } from "@/lib/portal/dados";
 import {
-  formatarCompetencia,
+  pagamentosMensais,
+  type PontoDoPagamento,
+} from "@/lib/admin/pagamentos";
+import {
+  dataDeReferencia,
+  type DataISO,
+  type Modalidade,
+} from "@/lib/portal/dados";
+import {
   formatarData,
   formatarMoeda,
   formatarPercentual,
 } from "@/lib/portal/formato";
-import { IconeSetaDireita } from "@/app/(app)/portal/_componentes/icones";
-import { pagamentosMensais } from "@/lib/admin/pagamentos";
+import { IconeConfere } from "@/app/(app)/portal/_componentes/icones";
 import { Bloco, Indicador } from "./_componentes/blocos";
-import { CabecalhoDaSecao } from "./_componentes/cabecalho";
-import { SeletorDeInvestidor } from "./_componentes/seletor-investidor";
+import { BlocoDoInvestidor } from "./_componentes/bloco-do-investidor";
+import { BOTAO_PRIMARIO, CabecalhoDaSecao } from "./_componentes/cabecalho";
+import { BlocoVazio } from "./_componentes/esqueleto";
 import {
   GraficoDaCaptacao,
   GraficoDeEntradas,
   GraficoDePagamentos,
   GraficoDoCaptado,
-  GraficoDoInvestidor,
 } from "./_componentes/graficos";
 
 // Os numeros da carteira, sempre do banco — nada de cache entre visitas.
@@ -76,36 +83,44 @@ function modalidadeDaUrl(bruto?: string): Modalidade {
 export default async function AdminPage({
   searchParams,
 }: {
-  /** `i` = investidor, `m` = modalidade. Ver `SeletorDeInvestidor`. */
+  /**
+   * `i` = investidor, `m` = modalidade — so a primeira abertura le daqui. As
+   * trocas seguintes acontecem no proprio bloco, sem navegar; ver
+   * `BlocoDoInvestidor`.
+   */
   searchParams: Promise<{ i?: string; m?: string }>;
 }) {
   const { i, m } = await searchParams;
   const hoje = await dataDeReferencia();
 
-  const [painel, investidores, pagamentos] = await Promise.all([
-    montarPainel(hoje),
-    investidoresComContrato(),
-    pagamentosMensais(hoje),
-  ]);
-
-  const modalidade = modalidadeDaUrl(m);
   /*
-   * O id da URL só vale se for de alguem que tem contrato: sem esta conferencia,
-   * um id inventado iria direto para a consulta. Sem escolha, abre no primeiro
-   * da lista — bloco vazio esperando um clique nao ensina nada.
+   * **Tudo comeca agora, e so o placar segura a tela.**
+   *
+   * Antes a pagina esperava as tres consultas juntas e, depois delas, a serie do
+   * investidor — e só entao desenhava alguma coisa. A projecao de pagamentos é a
+   * conta mais cara do painel (todo contrato mensal, mes a mes, ate 2029), e era
+   * ela quem decidia quando o total captado aparecia.
+   *
+   * Agora as tres partem juntas. O placar e os blocos da carteira (`painel`)
+   * saem assim que ele chega; pagamentos e investidor chegam depois, cada um no
+   * seu `<Suspense>`, com o esqueleto no lugar enquanto isso.
+   *
+   * O `catch` vazio nao engole erro: ele so marca a promessa como observada,
+   * para a carteira vazia — que retorna antes de esperar por elas — nao virar
+   * "rejeicao nao tratada" no log. Quem espera por elas mais abaixo recebe a
+   * falha normalmente, e a tela de erro do painel a mostra.
    */
-  const escolhido =
-    investidores.find((investidor) => investidor.id === i)?.id ??
-    investidores[0]?.id;
+  const pagamentos = pagamentosMensais(hoje);
+  const investidores = investidoresComContrato();
+  pagamentos.catch(() => {});
+  investidores.catch(() => {});
 
-  const serie = escolhido
-    ? await serieDoInvestidor(escolhido, modalidade, hoje)
-    : null;
+  const painel = await montarPainel(hoje);
 
   if (painel.quantosContratos === 0) {
     return (
       <>
-        <CabecalhoDaSecao titulo="Painel" />
+        <CabecalhoDaSecao titulo="Dashboard" />
         <p className="mt-6 animate-surgir rounded-xl border border-zinc-200 bg-white px-5 py-12 text-center text-sm text-neutral-500">
           Nenhum contrato cadastrado ainda. Os números aparecem aqui assim que o
           primeiro for lançado em{" "}
@@ -136,31 +151,87 @@ export default async function AdminPage({
        * mes" saiu: ele era o `acessorio` daquele bloco, e é a unica porta do
        * painel para a folha de lancamento. Perde-lo junto com o grafico teria
        * escondido a tarefa mais recorrente do /admin.
+       *
+       * Com pendencia ele é **o botao** da tela, cheio e com a contagem — a
+       * mesma forma do "Lançar créditos" de Recebimentos. Era um link de texto
+       * pequeno no canto, com o mesmo peso de "ciclo lançado": a tarefa do mes
+       * e a confirmacao de que nao ha tarefa se liam igual.
        */}
       <CabecalhoDaSecao
-        titulo="Painel"
+        titulo="Dashboard"
         acessorio={
-          <Link
-            href="/admin/recebimentos?lancar=1"
-            className="group flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-marinho transition-colors duration-200 hover:bg-indigo-100 hover:text-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul"
-          >
-            {faltamLancar > 0
-              ? `Faltam ${faltamLancar} de ${painel.ciclo.contratos} em ${formatarData(painel.ciclo.data)}`
-              : `Ciclo de ${formatarData(painel.ciclo.data)} lançado`}
-            <IconeSetaDireita className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </Link>
+          faltamLancar > 0 ? (
+            <Link
+              href="/admin/recebimentos?lancar=1"
+              className={BOTAO_PRIMARIO}
+              title={`Ciclo de ${formatarData(painel.ciclo.data)}: faltam ${faltamLancar} de ${painel.ciclo.contratos}`}
+            >
+              Lançar créditos de {formatarData(painel.ciclo.data).slice(0, 5)}
+              <span className="rounded-full bg-white/20 px-1.5 text-xs font-bold tabular-nums">
+                {faltamLancar}
+              </span>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-verde ring-1 ring-emerald-200 ring-inset">
+              <IconeConfere className="h-3.5 w-3.5" />
+              Ciclo de {formatarData(painel.ciclo.data)} lançado
+            </span>
+          )
         }
       />
 
       {/*
-       * O primeiro bloco: quanto entrou em cada mes.
+       * A abertura é o placar: quanto entrou contra a meta, e os quatro numeros
+       * da carteira. Antes os dois graficos grandes vinham primeiro, e o total
+       * captado — a pergunta que traz alguem ao Dashboard — ficava abaixo da
+       * primeira dobra.
+       */}
+      {painel.progresso !== null && <ProgressoDaCaptacao painel={painel} />}
+
+      {/* A faixa: larga, baixa e dividida por filetes. Nao sao quatro cartoes —
+          é uma peca só, e os numeros dela se leem numa passada horizontal. */}
+      <dl
+        className={`grid animate-surgir grid-cols-2 divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white sm:grid-cols-4 sm:divide-x ${
+          painel.progresso !== null ? "mt-4" : "mt-6"
+        }`}
+      >
+        <Indicador
+          rotulo="Total captado"
+          valor={formatarMoeda(painel.totalCaptado)}
+          apoio={`${painel.quantosContratos + painel.quantosAditivos} aportes em ${painel.quantosContratos} ${
+            painel.quantosContratos === 1 ? "contrato" : "contratos"
+          }`}
+          destaque
+        />
+        <Indicador
+          rotulo="Sai por mês"
+          valor={formatarMoeda(saiPorMes)}
+          apoio="Desembolso do ciclo cheio, só o retorno mensal."
+        />
+        <Indicador
+          rotulo="Já pago em créditos"
+          valor={formatarMoeda(painel.totalPago)}
+          apoio={`${painel.serie.length} ${
+            painel.serie.length === 1 ? "mês com crédito" : "meses com crédito"
+          }`}
+        />
+        <Indicador
+          rotulo="Investidores"
+          valor={String(painel.investidores)}
+          apoio={`em ${painel.obras.length} ${
+            painel.obras.length === 1 ? "obra" : "obras"
+          }`}
+        />
+      </dl>
+
+      {/*
+       * Depois do placar, o movimento: quanto entrou em cada mes.
        *
-       * É a pergunta mais direta que o painel responde, e por isso abre a tela.
        * Tudo o que vem depois é recorte disso — quanto do total ja foi, de onde
        * veio, sob que regra entrou, quanto rende. Aqui é só o movimento bruto,
        * mes a mes.
        */}
-      <div className="escalonar mt-6">
+      <div className="escalonar mt-4">
         <Bloco
           titulo="Entradas por mês"
           apoio="O que entrou em cada mês, entre contratos novos e aditivos."
@@ -195,69 +266,15 @@ export default async function AdminPage({
        * historico — é compromisso: contrato de 36 meses ja assinado é caixa
        * reservado ate 2029, e ate aqui isso nao aparecia em tela nenhuma.
        */}
-      <div className="escalonar mt-6">
-        <Bloco
-          titulo="Pagamentos do mensal"
-          apoio="O que sai por mês até o último contrato vencer. Passe o mouse para ver quanto cabe a cada investidor."
-          acessorio={
-            <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
-                Pago
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden className="h-2 w-2 rounded-full bg-ceu" />
-                Previsto
-              </span>
-            </span>
-          }
-        >
-          {pagamentos.length === 0 ? (
-            <p className="py-20 text-center text-sm text-neutral-500">
-              Nenhum contrato na modalidade mensal.
-            </p>
-          ) : (
-            <GraficoDePagamentos pontos={pagamentos} />
-          )}
-        </Bloco>
-      </div>
-
-      {/* Logo abaixo do movimento do mes: ela é a unica peca do painel que
-          responde com um numero contra outro — quanto entrou de quanto se quer.
-          O resto é composição do que ja entrou. */}
-      {painel.progresso !== null && <ProgressoDaCaptacao painel={painel} />}
-
-      {/* A faixa: larga, baixa e dividida por filetes. Nao sao quatro cartoes —
-          é uma peca só, e os numeros dela se leem numa passada horizontal. */}
-      <dl className="mt-4 grid animate-surgir grid-cols-2 divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white sm:grid-cols-4 sm:divide-x">
-        <Indicador
-          rotulo="Total captado"
-          valor={formatarMoeda(painel.totalCaptado)}
-          apoio={`${painel.quantosContratos + painel.quantosAditivos} aportes em ${painel.quantosContratos} ${
-            painel.quantosContratos === 1 ? "contrato" : "contratos"
-          }`}
-          destaque
-        />
-        <Indicador
-          rotulo="Sai por mês"
-          valor={formatarMoeda(saiPorMes)}
-          apoio="Desembolso do ciclo cheio, só o retorno mensal."
-        />
-        <Indicador
-          rotulo="Já pago em créditos"
-          valor={formatarMoeda(painel.totalPago)}
-          apoio={`${painel.serie.length} ${
-            painel.serie.length === 1 ? "mês com crédito" : "meses com crédito"
-          }`}
-        />
-        <Indicador
-          rotulo="Investidores"
-          valor={String(painel.investidores)}
-          apoio={`em ${painel.obras.length} ${
-            painel.obras.length === 1 ? "obra" : "obras"
-          }`}
-        />
-      </dl>
+      <Suspense
+        fallback={
+          <div className="mt-4">
+            <BlocoVazio altura="h-64" titulo="w-48" />
+          </div>
+        }
+      >
+        <BlocoDePagamentos pagamentos={pagamentos} hoje={hoje} />
+      </Suspense>
 
       {/* A curva de captacao ocupa a linha inteira: ela é a versao no tempo do
           bloco de cima, e é a unica da tela que se le da esquerda para a
@@ -346,85 +363,20 @@ export default async function AdminPage({
 
       {/* Um investidor por vez. É o unico bloco da tela que olha para uma
           pessoa; todos os outros somam a carteira. */}
-      {escolhido && (
-        <div id="investidor" className="escalonar mt-4 scroll-mt-6">
-          <Bloco
-            titulo="Contrato do investidor"
-            apoio={
-              serie
-                ? serie.modalidade === "mensal"
-                  ? "O crédito de cada ciclo. Cheio o que foi lançado, âmbar a projeção."
-                  : "O saldo mês a mês — capital mais o resultado retido até o resgate."
-                : undefined
-            }
-            acessorio={
-              <SeletorDeInvestidor
-                investidores={investidores}
-                selecionado={escolhido}
-                modalidade={modalidade}
-                destino="/admin"
-              />
-            }
-          >
-            {serie ? (
-              <>
-                <dl className="mb-5 flex flex-wrap gap-x-8 gap-y-3">
-                  <Resumo
-                    rotulo="Capital"
-                    valor={formatarMoeda(serie.capital)}
-                    apoio={`${serie.contratos} ${serie.contratos === 1 ? "contrato" : "contratos"}`}
-                  />
-                  <Resumo
-                    rotulo="Participação"
-                    valor={formatarPercentual(serie.taxa)}
-                    apoio="vigente hoje"
-                  />
-                  <Resumo
-                    rotulo={
-                      serie.modalidade === "mensal" ? "Já pago" : "Saldo hoje"
-                    }
-                    valor={formatarMoeda(serie.ateAgora)}
-                    apoio={
-                      serie.modalidade === "mensal"
-                        ? "créditos lançados"
-                        : "capital + retido"
-                    }
-                  />
-                  <Resumo
-                    rotulo={
-                      serie.modalidade === "mensal"
-                        ? "Total no prazo"
-                        : "No resgate"
-                    }
-                    valor={formatarMoeda(serie.aoFim)}
-                    apoio={`projetado até ${formatarCompetencia(serie.fimDoPrazo)}`}
-                  />
-                </dl>
-
-                <GraficoDoInvestidor
-                  pontos={serie.pontos}
-                  modalidade={serie.modalidade}
-                  competenciaAtual={hoje.slice(0, 7)}
-                />
-              </>
-            ) : (
-              /* Vazio explicando, e nao grafico de zeros: hoje ninguem tem
-                 contrato `final`, e um eixo achatado no zero pareceria defeito
-                 em vez de ausencia. */
-              <p className="py-16 text-center text-sm text-neutral-500">
-                Este investidor não tem contrato{" "}
-                <span className="font-semibold text-tinta">
-                  {modalidade === "mensal" ? "mensal" : "no final"}
-                </span>
-                .{" "}
-                {modalidade === "final"
-                  ? "Nenhum contrato dessa modalidade foi cadastrado ainda."
-                  : "Veja a outra modalidade acima."}
-              </p>
-            )}
-          </Bloco>
-        </div>
-      )}
+      <Suspense
+        fallback={
+          <div className="mt-4">
+            <BlocoVazio altura="h-72" titulo="w-44" />
+          </div>
+        }
+      >
+        <SecaoDoInvestidor
+          investidores={investidores}
+          i={i}
+          modalidade={modalidadeDaUrl(m)}
+          hoje={hoje}
+        />
+      </Suspense>
 
       {/* Sozinho na linha: o `grid gap-4` daqui existia para dividir o espaco
           com o bloco de captacao por obra, que saiu. */}
@@ -548,31 +500,98 @@ function ProgressoDaCaptacao({ painel }: { painel: PainelDoAdmin }) {
 }
 
 /**
- * Um numero da faixa que abre o bloco do investidor.
+ * O desembolso do mensal, ate o ultimo contrato vencer.
  *
- * Em linha, e nao na grade dividida da faixa do topo: sao quatro numeros sobre
- * uma pessoa só, e eles se leem como uma frase — capital, participacao, o que ja
- * saiu, o que ainda sai.
+ * O contrario do bloco de entradas, e por isso logo abaixo dele: um mostra o
+ * dinheiro entrando, o outro o mesmo dinheiro saindo em participacao.
+ *
+ * Este é o unico do painel que passa de hoje. A metade da direita nao é
+ * historico — é compromisso: contrato de 36 meses ja assinado é caixa reservado
+ * ate 2029, e ate aqui isso nao aparecia em tela nenhuma.
+ *
+ * Componente proprio, e assincrono, para poder chegar depois do resto: a
+ * projecao é a conta mais cara do Dashboard, e o `<Suspense>` em volta mostra o
+ * esqueleto no lugar enquanto ela corre.
  */
-function Resumo({
-  rotulo,
-  valor,
-  apoio,
+async function BlocoDePagamentos({
+  pagamentos,
+  hoje,
 }: {
-  rotulo: string;
-  valor: string;
-  apoio: string;
+  pagamentos: Promise<PontoDoPagamento[]>;
+  hoje: DataISO;
 }) {
+  const pontos = await pagamentos;
+
   return (
-    <div>
-      <dt className="text-[0.6875rem] font-semibold tracking-wider text-neutral-400 uppercase">
-        {rotulo}
-      </dt>
-      <dd className="mt-1 text-lg font-bold tabular-nums text-tinta">
-        {valor}
-      </dd>
-      <p className="text-xs text-neutral-400">{apoio}</p>
+    <div className="escalonar mt-4">
+      <Bloco
+        titulo="Pagamentos do mensal"
+        apoio="O que sai por mês até o último contrato vencer. Passe o mouse para ver quanto cabe a cada investidor."
+        acessorio={
+          <span className="flex shrink-0 items-center gap-3 text-xs text-neutral-500">
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="h-2 w-2 rounded-full bg-marinho" />
+              Pago
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="h-2 w-2 rounded-full bg-ceu" />
+              Previsto
+            </span>
+          </span>
+        }
+      >
+        {pontos.length === 0 ? (
+          <p className="py-20 text-center text-sm text-neutral-500">
+            Nenhum contrato na modalidade mensal.
+          </p>
+        ) : (
+          <GraficoDePagamentos
+            pontos={pontos}
+            competenciaAtual={hoje.slice(0, 7)}
+          />
+        )}
+      </Bloco>
     </div>
+  );
+}
+
+/**
+ * O bloco do investidor, com a primeira serie ja pronta.
+ *
+ * A primeira vem daqui, do servidor, para o bloco abrir cheio. As trocas
+ * seguintes o proprio bloco busca, sem refazer a pagina — ver
+ * `BlocoDoInvestidor`.
+ */
+async function SecaoDoInvestidor({
+  investidores,
+  i,
+  modalidade,
+  hoje,
+}: {
+  investidores: Promise<{ id: string; nome: string }[]>;
+  i?: string;
+  modalidade: Modalidade;
+  hoje: DataISO;
+}) {
+  const lista = await investidores;
+
+  /*
+   * O id da URL só vale se for de alguem que tem contrato: sem esta conferencia,
+   * um id inventado iria direto para a consulta. Sem escolha, abre no primeiro
+   * da lista — bloco vazio esperando um clique nao ensina nada.
+   */
+  const escolhido =
+    lista.find((investidor) => investidor.id === i)?.id ?? lista[0]?.id;
+  if (!escolhido) return null;
+
+  const serie = await serieDoInvestidor(escolhido, modalidade, hoje);
+
+  return (
+    <BlocoDoInvestidor
+      investidores={lista}
+      inicial={{ id: escolhido, modalidade, serie }}
+      competenciaAtual={hoje.slice(0, 7)}
+    />
   );
 }
 

@@ -1,8 +1,29 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { acaoAssinarUpload } from "../../acoes";
 import { paraWebp } from "./webp";
+
+/**
+ * `2026/3f9c1a2b-contrato-douglas.pdf` -> `contrato-douglas.pdf`.
+ *
+ * O ano e o sorteio na frente sao do bucket (ver `assinarUpload`): servem para
+ * dois arquivos de mesmo nome nao se sobreporem, e nao dizem nada a quem olha.
+ */
+function nomeVisivel(caminho: string): string {
+  return caminho.replace(/^\d{4}\/[0-9a-f]{8}-/i, "").split("/").pop() ?? "";
+}
+
+/** O que o campo aceita, dito como se fala: "PDF, até 15 MB". */
+function oQueAceita(aceita: string | undefined, teto: number | undefined) {
+  const tipo =
+    aceita === "application/pdf"
+      ? "PDF"
+      : aceita === "image/*"
+        ? "Foto (JPG, PNG ou WebP)"
+        : "PDF, Word, Excel ou imagem";
+  return teto ? `${tipo}, até ${emMB(teto).replace(",0 ", " ")}` : tipo;
+}
 
 /**
  * Envia o arquivo direto do browser para o bucket e guarda no formulario apenas
@@ -61,7 +82,30 @@ export function CampoArquivo({
   const [erro, setErro] = useState<string | null>(null);
   /** O que a conversao fez, para a linha de apoio poder contar. */
   const [convertida, setConvertida] = useState<string | null>(null);
+  const [arrastando, setArrastando] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
+  const trava = useRef<HTMLInputElement>(null);
+
+  const ocupado = estado === "convertendo" || estado === "enviando";
+
+  /*
+   * A trava do "Salvar".
+   *
+   * O caminho viaja num `hidden`, e campo escondido nao entra na validacao do
+   * navegador — nem o `required`. Entao dava para salvar com o envio ainda no
+   * meio (e gravar o arquivo anterior, ou nenhum), e um documento obrigatorio
+   * saia em branco. Esta caixa invisivel fica invalida enquanto houver motivo:
+   * o navegador recusa o envio do formulario e mostra a frase ao lado do campo.
+   */
+  useEffect(() => {
+    trava.current?.setCustomValidity(
+      ocupado
+        ? "Espere o arquivo terminar de subir."
+        : obrigatorio && !caminho
+          ? "Escolha um arquivo."
+          : "",
+    );
+  }, [ocupado, obrigatorio, caminho]);
 
   async function enviar(escolhido: File) {
     setErro(null);
@@ -171,8 +215,8 @@ export function CampoArquivo({
   }
 
   return (
-    <label className="block">
-      <span className="text-xs font-medium text-neutral-600">
+    <div className="relative">
+      <span className="text-xs font-semibold text-neutral-600">
         {rotulo}
         {obrigatorio && (
           <span aria-hidden className="text-red-600">
@@ -182,45 +226,149 @@ export function CampoArquivo({
         )}
       </span>
 
-      {/* O que o formulario envia. `required` aqui, e nao no seletor: o que
-          precisa existir é o caminho, e num registro que ja tem arquivo o
-          seletor fica legitimamente vazio. */}
-      <input type="hidden" name={nome} value={caminho} required={obrigatorio} />
+      {/* O que o formulario envia: so o caminho no bucket. */}
+      <input type="hidden" name={nome} value={caminho} />
 
+      {/* A trava — ver o efeito acima. `onChange` vazio, e nao `readOnly`:
+          campo somente leitura fica fora da validacao, e a trava nao travaria
+          nada. O foco que o navegador da a ela volta para o seletor. */}
       <input
-        ref={entrada}
-        type="file"
-        accept={aceita}
-        disabled={estado === "convertendo" || estado === "enviando"}
-        onChange={(e) => {
-          const arquivo = e.target.files?.[0];
-          if (arquivo) enviar(arquivo);
-        }}
-        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-marinho file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul disabled:opacity-60"
+        ref={trava}
+        tabIndex={-1}
+        aria-hidden
+        value=""
+        onChange={() => {}}
+        onFocus={() => entrada.current?.focus()}
+        className="sr-only"
       />
 
-      {/* `aria-live` porque a compressao de uma foto grande leva alguns
-          segundos, e ate aqui a unica pista de que algo acontecia era o campo
-          desabilitado. */}
-      <span className="mt-1 block text-xs text-neutral-400" aria-live="polite">
-        {estado === "convertendo"
-          ? "Convertendo a imagem..."
-          : estado === "enviando"
-            ? "Enviando..."
-            : estado === "erro"
-              ? `Nao subiu: ${erro}`
-              : caminho
-                ? `Guardado: ${caminho}`
-                : (ajuda ?? "Nenhum arquivo ainda.")}
-      </span>
+      {/*
+       * A area de soltar.
+       *
+       * O seletor de arquivo nativo cobre a area inteira, invisivel: clicar em
+       * qualquer ponto abre a janela do sistema, e soltar um arquivo em cima
+       * entrega ele ao proprio `input` — o navegador ja faz isso sozinho, sem
+       * codigo de arrastar. O que este componente acrescenta é so o realce
+       * enquanto o arquivo esta sendo arrastado por cima.
+       *
+       * Antes era o `input[type=file]` cru: um botao "Escolher arquivo" e, ao
+       * lado, o caminho do bucket (`Guardado: 2026/3f9c1a2b-contrato.pdf`).
+       */}
+      <div
+        onDragEnter={() => setArrastando(true)}
+        onDragLeave={() => setArrastando(false)}
+        onDrop={() => setArrastando(false)}
+        className={`relative mt-1.5 flex items-center gap-3 rounded-xl border border-dashed px-3.5 py-3 transition-colors duration-200 focus-within:border-azul focus-within:ring-2 focus-within:ring-azul ${
+          estado === "erro"
+            ? "border-red-300 bg-red-50/60"
+            : arrastando
+              ? "border-azul bg-indigo-50"
+              : "border-zinc-300 bg-zinc-50/60 hover:border-zinc-400 hover:bg-zinc-50"
+        } ${ocupado ? "cursor-progress" : ""}`}
+      >
+        <span
+          aria-hidden
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            caminho && !ocupado && estado !== "erro"
+              ? "bg-emerald-100 text-verde"
+              : "bg-white text-neutral-500 ring-1 ring-zinc-200"
+          }`}
+        >
+          {ocupado ? (
+            <Girando />
+          ) : caminho && estado !== "erro" ? (
+            <IconeDocumentoPronto />
+          ) : (
+            <IconeEnviar />
+          )}
+        </span>
 
-      {/* Fica separado do resto: quem escolheu um arquivo de 30 MB precisa
-          saber que o que subiu nao é bem o que ele escolheu. */}
-      {convertida && estado !== "erro" && (
-        <span className="mt-0.5 block text-xs text-neutral-500">
+        {/* `aria-live` porque a compressao de uma foto grande leva alguns
+            segundos, e ate aqui a unica pista de que algo acontecia era o
+            campo desabilitado. */}
+        <span className="min-w-0 flex-1" aria-live="polite">
+          <span className="block truncate text-sm font-medium text-tinta">
+            {estado === "convertendo"
+              ? "Convertendo a imagem…"
+              : estado === "enviando"
+                ? "Enviando…"
+                : caminho && estado !== "erro"
+                  ? nomeVisivel(caminho)
+                  : "Escolher arquivo"}
+          </span>
+          <span
+            className={`block truncate text-xs ${
+              estado === "erro" ? "font-medium text-red-700" : "text-neutral-500"
+            }`}
+          >
+            {estado === "erro"
+              ? `Não subiu: ${erro}`
+              : ocupado
+                ? "Não feche o formulário."
+                : caminho
+                  ? "Clique ou arraste outro para trocar."
+                  : `Clique ou arraste até aqui · ${oQueAceita(aceita, teto)}`}
+          </span>
+        </span>
+
+        <input
+          ref={entrada}
+          type="file"
+          accept={aceita}
+          aria-label={rotulo}
+          disabled={ocupado}
+          onChange={(e) => {
+            const arquivo = e.target.files?.[0];
+            if (arquivo) enviar(arquivo);
+          }}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-progress"
+        />
+      </div>
+
+      {/* A ajuda do registro, quando ha uma, e o que a conversao fez. Ficam
+          separadas da area: quem escolheu um arquivo de 30 MB precisa saber
+          que o que subiu nao é bem o que ele escolheu. */}
+      {convertida && estado !== "erro" ? (
+        <span className="mt-1 block text-xs text-neutral-500">
           {convertida}
         </span>
+      ) : (
+        ajuda && (
+          <span className="mt-1 block text-xs text-neutral-400">{ajuda}</span>
+        )
       )}
-    </label>
+    </div>
+  );
+}
+
+/** O mesmo circulo do `BotaoEnviar`, no tamanho do icone da area. */
+function Girando() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 animate-spin" fill="none">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Nuvem com seta: ainda nao ha arquivo. */
+function IconeEnviar() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 15V5" />
+      <path d="m8 9 4-4 4 4" />
+      <path d="M5 15v2.5A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5V15" />
+    </svg>
+  );
+}
+
+/** Folha com o visto: o arquivo esta guardado. */
+function IconeDocumentoPronto() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7.5z" />
+      <path d="M14 3.5v4h4" />
+      <path d="m9.5 14 1.8 1.8 3.4-3.6" />
+    </svg>
   );
 }

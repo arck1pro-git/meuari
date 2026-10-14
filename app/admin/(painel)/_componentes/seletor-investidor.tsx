@@ -1,49 +1,30 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import type { Modalidade } from "@/lib/portal/dados";
 import { Seletor } from "./seletor";
 
 /**
  * Quem olhar, e sob qual modalidade.
  *
- * O estado é a URL (`?i=<id>&m=mensal`), como no filtro da listagem: assim o
- * link vai por mensagem para outra pessoa ja apontando para o contrato certo, o
- * botao de voltar funciona, e a pagina — que é `force-dynamic` — refaz a
- * consulta no servidor com a serie pronta. Guardar isto num `useState` obrigaria
- * a trazer a serie de todos os investidores para o navegador so para escolher
- * uma.
+ * So escolhe — quem busca a serie e escreve a URL é o `BlocoDoInvestidor`, que
+ * o usa. Ate aqui este seletor navegava (`router.push`), e a pagina inteira do
+ * Dashboard era refeita no servidor a cada troca; a ancora `#investidor` na URL
+ * existia so para devolver a rolagem ao bloco depois do recarregamento.
  *
- * Ambos preservam o outro parametro ao mudar: trocar de modalidade nao pode
- * jogar de volta para o primeiro investidor da lista.
+ * Ambos preservam o outro valor ao mudar: trocar de modalidade nao pode jogar
+ * de volta para o primeiro investidor da lista.
  */
 export function SeletorDeInvestidor({
   investidores,
   selecionado,
   modalidade,
-  destino,
+  aoTrocar,
 }: {
   investidores: { id: string; nome: string }[];
   selecionado: string;
   modalidade: Modalidade;
-  /** Rota do painel, sem query. */
-  destino: string;
+  aoTrocar: (proxima: { id: string; modalidade: Modalidade }) => void;
 }) {
-  const router = useRouter();
-
-  function ir(proximo: { i?: string; m?: Modalidade }) {
-    const busca = new URLSearchParams({
-      i: proximo.i ?? selecionado,
-      m: proximo.m ?? modalidade,
-    });
-    /*
-     * A ancora leva de volta ao bloco depois do recarregamento. Sem ela, a
-     * pagina volta ao topo a cada troca e o grafico — que fica la embaixo — sai
-     * de vista justamente quando se quer compara-lo.
-     */
-    router.push(`${destino}?${busca}#investidor`);
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Seletor
@@ -51,7 +32,9 @@ export function SeletorDeInvestidor({
         rotuloAcessivel="Investidor"
         opcoes={investidores.map((i) => ({ valor: i.id, rotulo: i.nome }))}
         valorInicial={selecionado}
-        aoEscolher={(i) => ir({ i })}
+        aoEscolher={(id) => {
+          if (id !== selecionado) aoTrocar({ id, modalidade });
+        }}
         className="min-w-56 py-1.5"
       />
 
@@ -70,7 +53,9 @@ export function SeletorDeInvestidor({
               key={opcao}
               type="button"
               aria-pressed={ativa}
-              onClick={() => ir({ m: opcao })}
+              onClick={() => {
+                if (!ativa) aoTrocar({ id: selecionado, modalidade: opcao });
+              }}
               className={`rounded-[0.625rem] px-3 py-1 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-azul ${
                 ativa
                   ? "bg-marinho text-white"

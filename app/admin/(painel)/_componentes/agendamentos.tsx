@@ -2,7 +2,7 @@ import { listarAgendamentos, type Agendado } from "@/lib/admin/agendamentos";
 import { DIAS_DA_SEMANA } from "@/lib/admin/dias-da-semana";
 import { consultar } from "@/lib/db";
 import { acaoRemoverAgendamento } from "../../acoes";
-import { BotaoEnviar } from "./botao-enviar";
+import { BotaoExcluir } from "../[tabela]/botao-excluir";
 
 /**
  * As automacoes: avisos que se repetem sozinhos.
@@ -55,9 +55,9 @@ export async function PainelDeAgendamentos({
   const naoConfigurado = !process.env.N8N_BASE_URL || !process.env.N8N_API_KEY;
 
   return (
-    <section className="mt-10">
+    <section className="mt-8">
       <h2 className="animate-surgir text-base font-bold tracking-tight text-tinta">
-        Envio automático
+        Envios automáticos
       </h2>
       <p className="mt-1 animate-surgir text-sm text-neutral-500">
         O que repete sozinho, no dia e na hora marcados.
@@ -85,7 +85,16 @@ export async function PainelDeAgendamentos({
         <p className="mt-4 animate-surgir rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
           O n8n não está configurado neste ambiente (<code>N8N_BASE_URL</code> e{" "}
           <code>N8N_API_KEY</code>). Sem ele o envio automático não dispara —
-          use o campo acima para mandar na hora.
+          use “Enviar aviso agora” para mandar na hora.
+        </p>
+      )}
+
+      {/* A secao vazia dizia nada: titulo, frase de apoio e mais nada embaixo,
+          como se a lista nao tivesse carregado. */}
+      {agendamentos.length === 0 && !naoConfigurado && (
+        <p className="mt-4 animate-surgir rounded-xl border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-neutral-500">
+          Nenhum envio automático ainda. Use “Agendar envio”, no topo, para
+          criar o primeiro.
         </p>
       )}
 
@@ -100,7 +109,9 @@ export async function PainelDeAgendamentos({
           {agendamentos.map((a) => (
             <li
               key={a.id}
-              className="sombra-cartao flex items-start justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4"
+              // Filete e raio do resto do painel, sem a sombra de cartao do
+              // portal — ver a nota em `Bloco`.
+              className="flex items-start justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-4"
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-sm font-bold text-tinta">
@@ -125,14 +136,17 @@ export async function PainelDeAgendamentos({
               </div>
 
               {/* Apagar aqui apaga tambem o fluxo la: um fluxo vivo apontando
-                  para uma linha que sumiu bateria de hora em hora num 404. */}
-              <form action={acaoRemoverAgendamento.bind(null, a.id)}>
-                <BotaoEnviar
-                  enviando="Excluindo…"
-                  className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold text-red-600 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                >
-                  Excluir
-                </BotaoEnviar>
+                  para uma linha que sumiu bateria de hora em hora num 404.
+                  Com a pergunta antes, como no resto do painel — ate aqui
+                  este era o unico "Excluir" que apagava no primeiro clique. */}
+              <form
+                action={acaoRemoverAgendamento.bind(null, a.id)}
+                className="shrink-0"
+              >
+                <BotaoExcluir
+                  oQue={`o envio automático “${a.titulo}”`}
+                  consequencia="A automação no n8n também é apagada, e o aviso para de sair."
+                />
               </form>
             </li>
           ))}

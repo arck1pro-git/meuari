@@ -8,48 +8,57 @@
  * olhos, é chegar numa pagina sem saber onde esta.
  *
  * Agora toda tela abre por aqui, e o que era titulo virou o nome do que vem
- * abaixo. O `acessorio` é o canto direito — filtro, contagem, o que a tela
- * tiver.
+ * abaixo. O `acessorio` é o canto direito — os botoes do que a tela faz.
  *
  * Nao ha frase de apoio, e nao é esquecimento: havia uma por tela, e ela
  * repetia o titulo com outras palavras — "Fotos da obra" embaixo de "Imagens".
  * Quem administra abre a tela sabendo o que ela é; a linha só empurrava o
  * conteudo para baixo.
+ *
+ * O que ha acima do titulo é o **grupo** da coluna da esquerda — "Investimento",
+ * "Obra". Uma palavra, em cinza: no celular a coluna vira um trilho de icones e
+ * os titulos dos grupos somem, e é aqui que a pessoa continua sabendo em que
+ * parte do painel esta.
  */
 export function CabecalhoDaSecao({
   titulo,
+  grupo,
   acessorio,
 }: {
   titulo: string;
+  grupo?: string;
   acessorio?: React.ReactNode;
 }) {
   return (
-    // `items-center` porque o titulo virou uma linha só: com `items-end` o
-    // filtro e a contagem do canto direito assentavam na base do texto e
-    // subiam um fio acima dele.
-    <header className="flex animate-surgir flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-zinc-200 pb-5">
-      <h1 className="min-w-0 text-xl font-bold tracking-tight text-tinta">
-        {titulo}
-      </h1>
+    <header className="flex animate-surgir flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-zinc-200 pb-5">
+      <div className="min-w-0">
+        {grupo && (
+          <p className="text-[0.6875rem] font-semibold tracking-wider text-neutral-400 uppercase">
+            {grupo}
+          </p>
+        )}
+        <h1 className="min-w-0 text-2xl font-bold tracking-tight text-tinta">
+          {titulo}
+        </h1>
+      </div>
 
       {acessorio && (
-        <div className="flex shrink-0 items-center gap-3">{acessorio}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {acessorio}
+        </div>
       )}
     </header>
   );
 }
 
 /**
- * A contagem de registros, em pastilha.
+ * As duas formas de botao do topo das telas, num lugar só.
  *
- * Era texto solto ao lado do titulo — do mesmo tamanho e cor do resto, entao
- * lia como legenda. Fechado numa pastilha vira dado, que é o que ele é.
+ * Estavam escritas por extenso em cada `Link` — seis copias da mesma linha de
+ * classes, que ja tinham divergido no `padding` e no anel de foco.
  */
-export function Contagem({ total }: { total: number }) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-neutral-500">
-      <span className="font-bold tabular-nums text-tinta">{total}</span>
-      {total === 1 ? "registro" : "registros"}
-    </span>
-  );
-}
+export const BOTAO_PRIMARIO =
+  "inline-flex items-center gap-1.5 rounded-xl bg-marinho px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2";
+
+export const BOTAO_SECUNDARIO =
+  "inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-sm font-semibold text-neutral-700 transition-colors duration-200 hover:border-zinc-300 hover:bg-zinc-50 hover:text-tinta focus:outline-none focus-visible:ring-2 focus-visible:ring-azul";

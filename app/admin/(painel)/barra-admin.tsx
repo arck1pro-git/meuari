@@ -76,11 +76,14 @@ export function BarraAdmin({
   secoes,
   nome,
   sair,
+  selos = {},
 }: {
   secoes: Secao[];
   nome: string;
   /** A acao de servidor que fecha a sessao. */
   sair: () => void;
+  /** Pendencias por secao, pelo slug — hoje so os creditos a lancar. */
+  selos?: Record<string, number>;
 }) {
   const rota = usePathname();
   const inicial = (Array.from(nome)[0] ?? "?").toUpperCase();
@@ -147,6 +150,7 @@ export function BarraAdmin({
                       rotulo={rotulo}
                       Icone={ICONES[slug] ?? IconeTransparencia}
                       aberta={rota === `/admin/${slug}`}
+                      selo={selos[slug]}
                     />
                   </li>
                 ))}
@@ -203,17 +207,25 @@ function ItemDaColuna({
   rotulo,
   Icone,
   aberta,
+  selo,
 }: {
   href: string;
   rotulo: string;
   Icone: React.ComponentType<{ className?: string }>;
   aberta: boolean;
+  /** Quantas pendencias a secao tem. Zero ou nada = sem selo. */
+  selo?: number;
 }) {
+  const pendente = Boolean(selo && selo > 0);
+  const aviso = pendente
+    ? `${selo} ${selo === 1 ? "pendente" : "pendentes"}`
+    : undefined;
+
   return (
     <Link
       href={href}
       aria-current={aberta ? "page" : undefined}
-      title={rotulo}
+      title={aviso ? `${rotulo} · ${aviso}` : rotulo}
       /* A barrinha de ouro na borda esquerda marca a secao aberta no trilho
          estreito, onde o rotulo nao cabe e o fundo claro sozinho é pouco. */
       className={`relative flex h-11 items-center justify-center gap-3 rounded-xl text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:justify-start md:px-3 ${
@@ -229,6 +241,30 @@ function ItemDaColuna({
           `not-sr-only` o traz de volta no desktop. Dois spans alternados dariam
           o mesmo visual e dois nomes no leitor de tela. */}
       <span className="truncate sr-only md:not-sr-only">{rotulo}</span>
+
+      {/*
+       * O selo de pendencia. No desktop, o numero na ponta da linha; no trilho
+       * estreito, onde nao cabe numero, um ponto no canto do icone — a mesma
+       * informacao, so que "ha algo" em vez de "quanto".
+       *
+       * Ambar, a cor do `ouro` do painel: é o "olhe aqui" que a coluna ja usa
+       * para a secao aberta, e vermelho diria erro, que isto nao é.
+       */}
+      {pendente && (
+        <>
+          <span className="sr-only">, {aviso}</span>
+          <span
+            aria-hidden
+            className="ml-auto hidden min-w-5 rounded-full bg-ouro px-1.5 text-center text-[0.6875rem] leading-5 font-bold text-tinta tabular-nums md:block"
+          >
+            {selo}
+          </span>
+          <span
+            aria-hidden
+            className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-ouro ring-2 ring-tinta md:hidden"
+          />
+        </>
+      )}
     </Link>
   );
 }

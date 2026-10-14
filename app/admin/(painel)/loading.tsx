@@ -15,8 +15,10 @@ import { Barra, BlocoVazio } from "./_componentes/esqueleto";
 export default function Carregando() {
   return (
     <>
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-5">
-        <Barra className="h-6 w-32" />
+      {/* O titulo e, a direita, o estado do ciclo. */}
+      <div className="flex items-end justify-between border-b border-zinc-200 pb-5">
+        <Barra className="h-7 w-36" />
+        <Barra className="h-9 w-48 rounded-xl" />
       </div>
 
       {/* Captação */}

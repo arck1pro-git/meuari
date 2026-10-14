@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Area,
   AreaChart,
@@ -89,6 +90,72 @@ const EIXO = {
   tickLine: false,
 } as const;
 
+const moedaCompacta = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/**
+ * O valor do eixo e da meta: `R$ 3 mi`, `R$ 750 mil`.
+ *
+ * O eixo usava `formatarMoedaCurta` — `R$ 3.025.000`, doze caracteres numa
+ * coluna de 72px, que o Recharts corta sem avisar a partir do milhao. E no eixo
+ * ninguem le o valor exato: le a escala. O numero cheio continua no balao.
+ */
+function formatarEixo(valor: number): string {
+  return moedaCompacta.format(valor);
+}
+
+/** A largura do eixo Y para o formato compacto — "R$ 750 mil" é o mais largo. */
+const LARGURA_DO_EIXO = 64;
+
+/**
+ * Um `id` de SVG que nao se repete na pagina.
+ *
+ * O gradiente da area é referenciado por `url(#id)`, e o id era fixo: dois
+ * graficos iguais na mesma tela apontariam os dois para o primeiro gradiente
+ * do documento. O `useId` do React vem com caracteres (`«»`, `:`) que o `url()`
+ * nao aceita sem escape, e por isso sai daqui so com letras e numeros.
+ */
+function useIdDeSvg(prefixo: string): string {
+  return `${prefixo}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+}
+
+/**
+ * A marca de "hoje" nos graficos que atravessam o presente.
+ *
+ * A cor ja separava o que aconteceu do que é projecao, mas so para quem
+ * decorasse a legenda: num horizonte de tres anos, a fronteira entre as duas
+ * cores nao diz *quando* ela fica. Um fio vertical com a palavra diz.
+ *
+ * Funcao, e nao componente: o que chega ao grafico é o proprio
+ * `ReferenceLine`, como filho direto, que é a forma que o Recharts reconhece em
+ * qualquer versao. Embrulhado num componente proprio, depende de como a versao
+ * da vez procura os filhos.
+ */
+function marcaDeHoje(competenciaAtual: string, rotulos: string[]) {
+  const rotulo = formatarCompetenciaCurta(competenciaAtual);
+  // Fora da serie, nao ha onde marcar — e o Recharts desenharia no vazio.
+  if (!rotulos.includes(rotulo)) return null;
+
+  return (
+    <ReferenceLine
+      x={rotulo}
+      stroke={COR.tinta}
+      strokeOpacity={0.35}
+      strokeDasharray="3 3"
+      label={{
+        value: "hoje",
+        position: "insideTopLeft",
+        fill: COR.rotulo,
+        fontSize: 11,
+      }}
+    />
+  );
+}
+
 export type PontoDaEntrada = {
   competencia: string;
   entradas: number;
@@ -132,8 +199,8 @@ export function GraficoDeEntradas({ pontos }: { pontos: PontoDaEntrada[] }) {
           <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
           <YAxis
             {...EIXO}
-            width={72}
-            tickFormatter={formatarMoedaCurta}
+            width={LARGURA_DO_EIXO}
+            tickFormatter={formatarEixo}
             tickCount={4}
           />
 
@@ -226,8 +293,11 @@ const NOMES_NO_BALAO = 16;
  */
 export function GraficoDePagamentos({
   pontos,
+  competenciaAtual,
 }: {
   pontos: PontoDoPagamento[];
+  /** `AAAA-MM` de hoje, vindo do servidor — onde fica a marca de "hoje". */
+  competenciaAtual: string;
 }) {
   const dados = pontos.map((ponto) => ({
     ...ponto,
@@ -251,10 +321,15 @@ export function GraficoDePagamentos({
           <XAxis dataKey="rotulo" {...EIXO} interval={5} />
           <YAxis
             {...EIXO}
-            width={72}
-            tickFormatter={formatarMoedaCurta}
+            width={LARGURA_DO_EIXO}
+            tickFormatter={formatarEixo}
             tickCount={4}
           />
+
+          {marcaDeHoje(
+            competenciaAtual,
+            dados.map((d) => d.rotulo),
+          )}
 
           <Tooltip
             cursor={{ fill: COR.tinta, fillOpacity: 0.04 }}
@@ -360,6 +435,7 @@ export function GraficoDaCaptacao({
     ...ponto,
     rotulo: formatarCompetenciaCurta(ponto.competencia),
   }));
+  const gradiente = useIdDeSvg("area-captacao");
 
   return (
     <div className="h-64 w-full">
@@ -370,7 +446,7 @@ export function GraficoDaCaptacao({
           margin={{ top: 12, right: 8, bottom: 0, left: 0 }}
         >
           <defs>
-            <linearGradient id="area-captacao" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={COR.marinho} stopOpacity={0.3} />
               <stop offset="100%" stopColor={COR.marinho} stopOpacity={0} />
             </linearGradient>
@@ -379,8 +455,8 @@ export function GraficoDaCaptacao({
           <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
           <YAxis
             {...EIXO}
-            width={72}
-            tickFormatter={formatarMoedaCurta}
+            width={LARGURA_DO_EIXO}
+            tickFormatter={formatarEixo}
             tickCount={4}
             /* O topo do eixo acomoda a meta, e nao só a curva: sem isto a linha
                tracejada cairia fora da area desenhada e a comparacao — que é o
@@ -398,7 +474,7 @@ export function GraficoDaCaptacao({
               strokeDasharray="4 4"
               strokeWidth={1.5}
               label={{
-                value: `Meta ${formatarMoedaCurta(meta)}`,
+                value: `Meta ${formatarEixo(meta)}`,
                 position: "insideTopRight",
                 fill: COR.rotulo,
                 fontSize: 11,
@@ -434,7 +510,7 @@ export function GraficoDaCaptacao({
             dataKey="acumulado"
             stroke={COR.marinho}
             strokeWidth={2}
-            fill="url(#area-captacao)"
+            fill={`url(#${gradiente})`}
             dot={false}
             activeDot={{
               r: 4,
@@ -493,14 +569,19 @@ export function GraficoDoInvestidor({
         ? ponto.valor
         : null,
   }));
+  const gradiente = useIdDeSvg("area-investidor");
+  const hoje = marcaDeHoje(
+    competenciaAtual,
+    dados.map((d) => d.rotulo),
+  );
 
   const eixos = (
     <>
       <XAxis dataKey="rotulo" {...EIXO} interval="preserveStartEnd" />
       <YAxis
         {...EIXO}
-        width={72}
-        tickFormatter={formatarMoedaCurta}
+        width={LARGURA_DO_EIXO}
+        tickFormatter={formatarEixo}
         tickCount={4}
       />
     </>
@@ -546,6 +627,7 @@ export function GraficoDoInvestidor({
             margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
           >
             {eixos}
+            {hoje}
             {balao}
             <Bar
               dataKey="real"
@@ -571,19 +653,20 @@ export function GraficoDoInvestidor({
             margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
           >
             <defs>
-              <linearGradient id="area-investidor" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={COR.marinho} stopOpacity={0.28} />
                 <stop offset="100%" stopColor={COR.marinho} stopOpacity={0} />
               </linearGradient>
             </defs>
             {eixos}
+            {hoje}
             {balao}
             <Area
               type="monotone"
               dataKey="real"
               stroke={COR.marinho}
               strokeWidth={2}
-              fill="url(#area-investidor)"
+              fill={`url(#${gradiente})`}
               dot={false}
               connectNulls={false}
             />

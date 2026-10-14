@@ -85,7 +85,7 @@ export async function investidoresComContrato(): Promise<
 type AporteDoInvestidor = AporteMensal & {
   contratoId: string;
   prazoMeses: number | null;
-  /** Data de assinatura do contrato — de onde o prazo conta. */
+  /** Data do aporte de entrada do contrato — de onde o prazo conta. */
   contratoData: DataISO;
 };
 
@@ -103,15 +103,15 @@ export function mesSeguinte(competencia: string): string {
 const doisDigitos = (n: number) => String(n).padStart(2, "0");
 
 /**
- * O ultimo mes do prazo, a partir da data de assinatura.
+ * O ultimo mes do prazo, a partir da data do aporte de entrada.
  *
  * **Competencia, e nao data.** Desde que o rendimento passou a ser por mes
  * fechado (ver `apurarPosicao`), o dia nao decide mais nada: o mes em que o
- * dinheiro entra ja conta inteiro. Um contrato de 6 meses assinado em qualquer
+ * dinheiro entra ja conta inteiro. Um contrato de 6 meses com aporte em qualquer
  * dia de julho rende julho, agosto, setembro, outubro, novembro e dezembro — seis
  * parcelas iguais, terminando em **dezembro**, e nao em janeiro.
  *
- * Por isso soma `meses - 1`: o mes da assinatura é a primeira parcela, e nao a
+ * Por isso soma `meses - 1`: o mes do aporte é a primeira parcela, e nao a
  * parcela zero. Somar `meses` cheios dava sete competencias para um prazo de
  * seis.
  *
@@ -123,8 +123,8 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0");
  * ter duas definicoes de onde um contrato termina, e foi exatamente esse numero
  * que ja saiu errado tres vezes antes de assentar aqui.
  */
-export function fimDoPrazoDe(assinatura: DataISO, meses: number): string {
-  const [ano, mes] = assinatura.split("-").map(Number);
+export function fimDoPrazoDe(aporte: DataISO, meses: number): string {
+  const [ano, mes] = aporte.split("-").map(Number);
   const total = ano * 12 + (mes - 1) + Math.max(0, meses - 1);
   return `${Math.floor(total / 12)}-${doisDigitos((total % 12) + 1)}`;
 }
@@ -189,8 +189,8 @@ export async function serieDoInvestidor(
    * modalidade: com dois contratos de prazos diferentes, cortar no mais curto
    * esconderia a segunda metade do outro.
    *
-   * Competencia, e nao data: com o rendimento por mes fechado, o dia da
-   * assinatura nao decide mais nada. Ver `fimDoPrazoDe`.
+   * Competencia, e nao data: com o rendimento por mes fechado, o dia do
+   * aporte nao decide mais nada. Ver `fimDoPrazoDe`.
    */
   const fimDoPrazo = aportes.reduce((maior, a) => {
     const fim = fimDoPrazoDe(a.contratoData, a.prazoMeses ?? PRAZO_PADRAO);

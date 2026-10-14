@@ -51,6 +51,90 @@ export function textoDeDuplicado(restricao?: string): string {
   );
 }
 
+/**
+ * Por que um valor foi recusado, na frase que completa o nome do campo:
+ * "Valor de entrada **não é um número válido**".
+ *
+ * A URL leva a **chave**, e nunca a frase. Texto livre vindo da URL e impresso
+ * na tela é o caminho para alguem montar um link com a mensagem que quiser; a
+ * chave so escolhe uma das frases daqui.
+ */
+export const MOTIVOS = {
+  obrigatorio: "precisa ser preenchido",
+  numero: "não é um número válido",
+  negativo: "não pode ser negativo",
+  formato: "está num formato que não foi aceito",
+  fora: "não está entre os valores aceitos",
+  grande: "é grande demais para este campo",
+} as const;
+
+export type Motivo = keyof typeof MOTIVOS;
+
+/**
+ * Um valor do formulario que nao pode ser gravado como veio.
+ *
+ * Classe propria, e nao `Error` com texto: a acao precisa distinguir "a pessoa
+ * digitou errado" de "o banco caiu". O primeiro volta para o formulario aberto
+ * com a frase certa; o segundo continua sendo erro de verdade. Antes as duas
+ * coisas viravam a mesma tela de falha, e um numero digitado torto derrubava o
+ * cadastro inteiro.
+ */
+export class ErroDeValidacao extends Error {
+  readonly campo: string;
+  readonly motivo: Motivo;
+
+  constructor(campo: string, motivo: Motivo) {
+    super(`${campo}: ${MOTIVOS[motivo]}`);
+    this.campo = campo;
+    this.motivo = motivo;
+  }
+}
+
+/**
+ * O valor recusado — pela validacao daqui ou pelo proprio banco —, ou `null`
+ * quando o erro nao é de dado e precisa seguir adiante.
+ *
+ * Os codigos do Postgres sao os de valor que nao cabe na coluna: obrigatorio
+ * vazio (`23502`), fora do `CHECK` (`23514`), texto que nao vira numero ou data
+ * (`22P02`, `22007`, `22008`) e numero que estoura a escala (`22003`). O
+ * `column` vem junto quando o banco sabe dizer qual foi.
+ */
+export function recusaDe(
+  erro: unknown,
+): { campo: string; motivo: Motivo } | null {
+  if (erro instanceof ErroDeValidacao) {
+    return { campo: erro.campo, motivo: erro.motivo };
+  }
+
+  const { code, column } = erro as { code?: string; column?: string };
+  const campo = column ?? "";
+
+  switch (code) {
+    case "23502":
+      return { campo, motivo: "obrigatorio" };
+    case "23514":
+      return { campo, motivo: "fora" };
+    case "22P02":
+    case "22007":
+    case "22008":
+      return { campo, motivo: "formato" };
+    case "22003":
+      return { campo, motivo: "grande" };
+    default:
+      return null;
+  }
+}
+
+/**
+ * O nome do campo escondido que leva o filtro da listagem pelo formulario.
+ *
+ * Salvar volta para a listagem, e ate aqui voltava **sem** o filtro: quem
+ * olhava os contratos de uma pessoa, cadastrava mais um e caia na lista de
+ * todo mundo. O campo nao colide com coluna nenhuma — `paresDoFormulario` so
+ * le os campos declarados no registro.
+ */
+export const CAMPO_DO_FILTRO = "__filtro";
+
 /*
  * Identificadores vao para o texto do SQL entre aspas duplas. Como todos saem
  * do registro de tabelas — nunca da URL ou do formulario —, nao ha entrada do
@@ -125,6 +209,9 @@ function condicoes(t: Tabela, campoDoFiltro?: string): string {
   return partes.length ? `where ${partes.join(" and ")}` : "";
 }
 
+/** Quantas linhas a listagem traz, no maximo. A tela avisa quando bate nele. */
+export const TETO_DA_LISTAGEM = 200;
+
 export async function listar(
   t: Tabela,
   filtro?: { campo: string; valor: string },
@@ -136,11 +223,12 @@ export async function listar(
    */
   const permitido = filtro && t.filtros?.includes(filtro.campo);
   // `criado_em` no `order by` sem estar no `select`: o Postgres aceita, e nao ha
-  // tabela que mostre essa coluna em todas as telas.
+  // tabela que mostre essa coluna em todas as telas. `t.ordem` vai literal —
+  // vem do registro, como `t.onde`.
   return consultar(
     `select ${colunasVisiveis(t)} from ${ident(t.tabela)}
       ${condicoes(t, permitido ? filtro.campo : undefined)}
-      order by criado_em desc limit 200`,
+      order by ${t.ordem ?? "criado_em desc"} limit ${TETO_DA_LISTAGEM}`,
     permitido ? [filtro.valor] : [],
   );
 }
@@ -252,7 +340,7 @@ export async function opcoesDoFiltro(
  * `Intl.NumberFormat` usa como separador de milhar em alguns ambientes, que nao
  * é o espaco comum e passa batido por um `trim()`.
  */
-function numeroDeTexto(texto: string): number {
+export function numeroDeTexto(texto: string): number {
   const limpo = texto.replace(/[R$%\s  ]/gi, "").replace(/^\+/, "");
 
   const normalizado = limpo.includes(",")
@@ -292,8 +380,8 @@ async function valorDoCampo(
    */
   if (campo.tipo === "percentual") {
     const n = numeroDeTexto(texto);
-    if (Number.isNaN(n)) throw new Error(`${campo.rotulo}: numero invalido`);
-    if (n < 0) throw new Error(`${campo.rotulo}: nao pode ser negativo`);
+    if (Number.isNaN(n)) throw new ErroDeValidacao(campo.nome, "numero");
+    if (n < 0) throw new ErroDeValidacao(campo.nome, "negativo");
     // `taxa` é `numeric(6,5)`: cinco casas no decimal, que sao tres no
     // percentual. Arredondar aqui evita o `0.026000000000000002` que a divisao
     // binaria produz e que o banco recusaria por escala.
@@ -302,7 +390,7 @@ async function valorDoCampo(
 
   if (campo.tipo === "numero" || campo.tipo === "dinheiro") {
     const n = numeroDeTexto(texto);
-    if (Number.isNaN(n)) throw new Error(`${campo.rotulo}: numero invalido`);
+    if (Number.isNaN(n)) throw new ErroDeValidacao(campo.nome, "numero");
     // Dinheiro é `numeric(14,2)`; `numero` pode ser inteiro (prazo, ordem) ou
     // ter casas (percentual de etapa), e ai nao se arredonda nada.
     return campo.tipo === "dinheiro" ? arredondar(n, 2) : n;
@@ -320,7 +408,7 @@ async function paresDoFormulario(t: Tabela, dados: FormData) {
     if (valor === undefined) continue;
 
     if (campo.obrigatorio && (valor === null || valor === "")) {
-      throw new Error(`${campo.rotulo} é obrigatorio`);
+      throw new ErroDeValidacao(campo.nome, "obrigatorio");
     }
     colunas.push(coluna(campo));
     valores.push(valor);

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { sessaoValida } from "@/lib/auth";
+import { pendentesDoCiclo } from "@/lib/admin/lancamentos";
 import { TABELAS } from "@/lib/admin/tabelas";
 import { sair } from "../acoes";
 import { BarraAdmin } from "./barra-admin";
@@ -33,6 +34,24 @@ export default async function PainelLayout({
   if (!sessao) redirect("/admin/login");
   if (sessao.tipo !== "administrador") redirect("/admin/login?erro=restrito");
 
+  /*
+   * O selo de Recebimentos: quantos creditos do ciclo faltam lancar.
+   *
+   * É a unica tarefa do painel que tem prazo, e ate aqui ela so aparecia para
+   * quem abria o Dashboard ou a propria tela. Na coluna ela é vista de
+   * qualquer secao.
+   *
+   * Falha da consulta vira selo nenhum, e nao tela de erro: o layout envolve o
+   * painel inteiro, e uma contagem que nao veio nao pode derrubar todas as
+   * telas junto.
+   */
+  const pendentes = await pendentesDoCiclo()
+    .then((ciclo) => ciclo.pendentes)
+    .catch((erro) => {
+      console.error("[admin] pendencias do ciclo:", erro);
+      return 0;
+    });
+
   return (
     // `tema-painel` troca os tokens de cor para toda a arvore abaixo — é o que
     // faz o painel nao ter a paleta do portal. Ver o bloco em `globals.css`.
@@ -45,6 +64,7 @@ export default async function PainelLayout({
         nome={sessao.nome}
         sair={sair}
         secoes={TABELAS.map(({ slug, rotulo }) => ({ slug, rotulo }))}
+        selos={{ recebimentos: pendentes }}
       />
 
       {/* O padding abre o espaco da coluna fixa — 64px do trilho de icones,

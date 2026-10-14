@@ -63,17 +63,29 @@ export async function PainelDeLancamentos({
           e passaria por cima do seletor de mes. */}
       <div className="flex flex-wrap items-start justify-between gap-4 pr-10">
         <div>
-          <h2 className="text-base font-bold tracking-tight text-tinta">
+          <h2 className="text-lg font-bold tracking-tight text-tinta">
             Créditos a lançar
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
-            Ciclo de {formatarData(data)}.{" "}
+            Ciclo de{" "}
+            <span className="font-semibold text-tinta tabular-nums">
+              {formatarData(data)}
+            </span>
+            .{" "}
             {pendentes.length === 0
               ? "Nada pendente."
               : `${pendentes.length} de ${linhas.length} ${
                   linhas.length === 1 ? "contrato" : "contratos"
                 }, ${formatarMoeda(aLancar)} no total.`}
           </p>
+          {/* A regra do campo vazio, dita uma vez para a lista toda — antes so
+              se descobria lendo o codigo. */}
+          {pendentes.length > 0 && (
+            <p className="mt-1 text-xs text-neutral-400">
+              Campo vazio lança o valor estimado. Digite outro só se o crédito
+              fugiu da conta.
+            </p>
+          )}
         </div>
         <SeletorDeMes competencia={competencia} />
       </div>
@@ -87,6 +99,12 @@ export async function PainelDeLancamentos({
         <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           Já havia um crédito lançado para este investidor nesta data. Nada foi
           gravado.
+        </p>
+      )}
+      {aviso === "valor" && (
+        <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          O valor digitado não é um número válido. Nada foi gravado — confira
+          e lance de novo, ou deixe o campo vazio para usar a estimativa.
         </p>
       )}
 
@@ -144,25 +162,53 @@ function CartaoDeLancamento({
       className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 transition-colors duration-200 hover:border-zinc-300"
     >
       {/* O nome ocupa o que sobrar, e o valor e o botao tem largura fixa: assim
-          as linhas alinham entre si mesmo com nomes de tamanhos diferentes. */}
+          as linhas alinham entre si mesmo com nomes de tamanhos diferentes.
+
+          A obra vem embaixo do nome. Sem ela, quem tem dois contratos mensais
+          aparecia em dois cartoes identicos, e nao havia como saber qual
+          credito era de qual obra. A data saiu daqui: é a mesma em todos os
+          cartoes, e ja esta no topo da folha. */}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-tinta">
           {linha.investidor}
         </span>
-        <span className="mt-0.5 block text-xs text-neutral-500 tabular-nums">
-          {formatarData(dataDoCredito(competencia))}
+        <span className="mt-0.5 block truncate text-xs text-neutral-500">
+          {linha.empreendimento}
+          <span className="text-neutral-400">
+            {" · "}estimado{" "}
+            <span className="tabular-nums">
+              {formatarMoeda(estimativa.valor)}
+            </span>
+          </span>
         </span>
       </span>
 
-      <label className="w-36 shrink-0">
-        <span className="sr-only">Valor do crédito de {linha.investidor}</span>
+      {/*
+       * Texto, e nao `type="number"`: o numero recusa `7.316,67`, que é como se
+       * escreve dinheiro aqui, e no Firefox devolve vazio sem avisar — vazio
+       * que a acao leria como "usar a estimativa". O servidor le os dois
+       * formatos (`numeroDeTexto`).
+       */}
+      <label className="relative w-40 shrink-0">
+        <span className="sr-only">
+          Valor do crédito de {linha.investidor} em {linha.empreendimento}
+        </span>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs text-neutral-400"
+        >
+          R$
+        </span>
         <input
           name="valor"
-          type="number"
-          step="0.01"
+          type="text"
           inputMode="decimal"
-          placeholder={estimativa.valor.toFixed(2)}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-right text-sm text-tinta tabular-nums transition-colors duration-200 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
+          autoComplete="off"
+          placeholder={estimativa.valor.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+          className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pr-3 pl-9 text-right text-sm text-tinta tabular-nums transition-colors duration-200 placeholder:text-neutral-400 hover:border-zinc-300 focus:outline-none focus-visible:border-azul focus-visible:ring-2 focus-visible:ring-azul"
         />
       </label>
 

@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { DIAS_DA_SEMANA } from "@/lib/admin/dias-da-semana";
 import { acaoAgendarNotificacao } from "../../acoes";
 import { BotaoEnviar } from "./botao-enviar";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "./cabecalho";
+import { DESTINOS_DO_AVISO } from "./rodape-da-folha";
 import { Seletor } from "./seletor";
 
 /**
@@ -30,18 +33,59 @@ const RECORRENCIAS: { valor: Recorrencia; rotulo: string; apoio: string }[] = [
   { valor: "mensal", rotulo: "Todo mês", apoio: "num dia fixo" },
 ];
 
+/**
+ * A regra montada, em uma frase — "Toda semana · seg e qua · às 09:00".
+ *
+ * Tres controles separados (frequencia, dias, horarios) se leem um de cada vez,
+ * e a conferencia de "é isso mesmo que eu quero" ficava para depois de salvar,
+ * na lista. A frase junta os tres antes do clique.
+ */
+function emPalavras(
+  recorrencia: Recorrencia,
+  dias: number[],
+  diaDoMes: string,
+  horarios: string[],
+): string {
+  const lista = (itens: string[]) =>
+    itens.length <= 1
+      ? (itens[0] ?? "")
+      : `${itens.slice(0, -1).join(", ")} e ${itens.at(-1)}`;
+
+  const quando =
+    recorrencia === "diaria"
+      ? "Todo dia"
+      : recorrencia === "semanal"
+        ? dias.length === 0
+          ? "Toda semana · escolha os dias"
+          : `Toda semana · ${lista(
+              DIAS_DA_SEMANA.filter((d) => dias.includes(d.valor)).map(
+                (d) => d.curto,
+              ),
+            )}`
+        : `Todo mês · dia ${diaDoMes || "?"}`;
+
+  const horas = [...new Set(horarios.filter(Boolean))].sort();
+  return `${quando} · às ${horas.length ? lista(horas) : "?"}`;
+}
+
 export function FormularioDeAgendamento({
   investidores,
+  fechar,
 }: {
   investidores: { id: string; nome: string }[];
+  /** Para onde o "Cancelar" leva. */
+  fechar: string;
 }) {
   const [recorrencia, setRecorrencia] = useState<Recorrencia>("diaria");
   const [dias, setDias] = useState<number[]>([]);
+  const [diaDoMes, setDiaDoMes] = useState("1");
+  const [faltaDia, setFaltaDia] = useState(false);
   // Um horario ja aberto: agendamento sem horario nenhum nao existe, e o campo
   // vazio diz melhor que um botao "adicionar horario" sozinho.
   const [horarios, setHorarios] = useState<string[]>(["09:00"]);
 
   function trocarDia(valor: number) {
+    setFaltaDia(false);
     setDias((atuais) =>
       atuais.includes(valor)
         ? atuais.filter((d) => d !== valor)
@@ -50,31 +94,64 @@ export function FormularioDeAgendamento({
   }
 
   return (
+    /*
+     * Sem cartao proprio: a folha ja é a superficie. Antes havia um cartao com
+     * sombra dentro da folha — uma caixa dentro da outra.
+     */
     <form
       action={acaoAgendarNotificacao}
-      className="sombra-cartao animate-surgir rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7"
+      /*
+       * "Toda semana" sem dia nenhum o servidor recusa — e recusava com a tela
+       * de falha, depois de a pessoa preencher tudo. Checar aqui é o que deixa
+       * o erro aparecer ao lado dos dias, antes do envio.
+       */
+      onSubmit={(evento) => {
+        if (recorrencia === "semanal" && dias.length === 0) {
+          evento.preventDefault();
+          setFaltaDia(true);
+        }
+      }}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <header className="mb-5 pr-10">
+        <h2 className="text-lg font-bold tracking-tight text-tinta">
+          Agendar envio
+        </h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Um aviso que se repete sozinho, no dia e na hora marcados.
+        </p>
+      </header>
+
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="text-xs font-semibold text-neutral-600">
             Título <span className="text-red-600">*</span>
           </span>
-          <input name="titulo" required className={CLASSE_CAMPO} />
+          <input
+            name="titulo"
+            required
+            placeholder="Ex.: Seu crédito do mês caiu"
+            className={CLASSE_CAMPO}
+          />
         </label>
 
         <label className="block sm:col-span-2">
           <span className="text-xs font-semibold text-neutral-600">Texto</span>
-          <textarea name="corpo" rows={2} className={CLASSE_CAMPO} />
+          <textarea
+            name="corpo"
+            rows={3}
+            placeholder="O que a pessoa lê ao abrir o aviso."
+            className={CLASSE_CAMPO}
+          />
         </label>
 
         <label className="block">
           <span className="text-xs font-semibold text-neutral-600">
-            Investidor
+            Para quem
           </span>
           <div className="mt-1.5">
             <Seletor
               nome="usuario_id"
-              rotuloAcessivel="Investidor"
+              rotuloAcessivel="Para quem"
               opcoes={investidores.map((i) => ({
                 valor: i.id,
                 rotulo: i.nome,
@@ -82,16 +159,27 @@ export function FormularioDeAgendamento({
               vazio="Todos os investidores"
             />
           </div>
-          <span className="mt-1 block text-xs text-neutral-400">
-            Em branco = aviso geral.
-          </span>
         </label>
 
         <label className="block">
-          <span className="text-xs font-semibold text-neutral-600">Link</span>
-          <input name="url" placeholder="/portal" className={CLASSE_CAMPO} />
+          <span className="text-xs font-semibold text-neutral-600">
+            Ao tocar, abre
+          </span>
+          <input
+            name="url"
+            list="destinos-do-agendamento"
+            placeholder="/portal"
+            className={CLASSE_CAMPO}
+          />
+          <datalist id="destinos-do-agendamento">
+            {DESTINOS_DO_AVISO.map((d) => (
+              <option key={d.caminho} value={d.caminho}>
+                {d.nome}
+              </option>
+            ))}
+          </datalist>
           <span className="mt-1 block text-xs text-neutral-400">
-            Para onde o toque leva.
+            Escolha uma tela ou escreva o caminho.
           </span>
         </label>
       </div>
@@ -108,7 +196,7 @@ export function FormularioDeAgendamento({
             return (
               <label
                 key={opcao.valor}
-                className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors duration-200 ${
+                className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-azul ${
                   ativa
                     ? "border-marinho bg-indigo-50"
                     : "border-zinc-200 hover:bg-zinc-50"
@@ -146,10 +234,14 @@ export function FormularioDeAgendamento({
                   <label
                     key={dia.valor}
                     title={dia.nome}
-                    className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 ${
+                    // `has-[:focus-visible]`: a caixa de verdade é `sr-only`, e
+                    // sem isto quem anda por Tab nao via em que dia estava.
+                    className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-azul ${
                       marcado
                         ? "border-marinho bg-marinho text-white"
-                        : "border-zinc-200 text-neutral-600 hover:bg-zinc-50"
+                        : faltaDia
+                          ? "border-red-300 text-neutral-600 hover:bg-zinc-50"
+                          : "border-zinc-200 text-neutral-600 hover:bg-zinc-50"
                     }`}
                   >
                     <input
@@ -165,6 +257,11 @@ export function FormularioDeAgendamento({
                 );
               })}
             </div>
+            {faltaDia && (
+              <p role="alert" className="mt-1.5 text-xs font-medium text-red-700">
+                Escolha ao menos um dia.
+              </p>
+            )}
           </div>
         )}
 
@@ -178,7 +275,9 @@ export function FormularioDeAgendamento({
               name="dia_mes"
               min={1}
               max={31}
-              defaultValue={1}
+              required
+              value={diaDoMes}
+              onChange={(evento) => setDiaDoMes(evento.target.value)}
               className={CLASSE_CAMPO}
             />
             <span className="mt-1 block text-xs text-neutral-400">
@@ -237,12 +336,24 @@ export function FormularioDeAgendamento({
         </div>
       </fieldset>
 
-      <BotaoEnviar
-        enviando="Agendando…"
-        className="mt-6 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-azul focus:outline-none focus-visible:ring-2 focus-visible:ring-azul focus-visible:ring-offset-2"
-      >
-        Agendar e criar automação
-      </BotaoEnviar>
+      {/* O mesmo rodape das outras folhas, com a regra em palavras no lugar
+          da nota — é a ultima coisa que se le antes de apertar. Escrito aqui,
+          e nao com `RodapeDaFolha`, porque a frase muda a cada clique e aquele
+          é de servidor. */}
+      <div className="sticky bottom-0 -mx-5 mt-7 -mb-5 flex flex-wrap items-center gap-3 border-t border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
+        <p
+          className="mr-auto min-w-0 text-xs font-medium text-neutral-600 tabular-nums"
+          aria-live="polite"
+        >
+          {emPalavras(recorrencia, dias, diaDoMes, horarios)}
+        </p>
+        <Link href={fechar} className={BOTAO_SECUNDARIO}>
+          Cancelar
+        </Link>
+        <BotaoEnviar enviando="Agendando…" className={BOTAO_PRIMARIO}>
+          Agendar
+        </BotaoEnviar>
+      </div>
     </form>
   );
 }

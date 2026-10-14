@@ -14,10 +14,13 @@ import { consultar } from "@/lib/db";
 import { agendar, removerAgendamento } from "@/lib/admin/agendamentos";
 import {
   atualizar,
+  CAMPO_DO_FILTRO,
   camposAlterados,
   criar,
   ehDuplicado,
   excluir,
+  numeroDeTexto,
+  recusaDe,
   restricaoDe,
 } from "@/lib/admin/crud";
 import {
@@ -117,12 +120,52 @@ export async function sair() {
  * O `redirect` funciona lancando, entao ele mora no `catch` de quem chama, e
  * nao aqui dentro: aqui ele seria engolido pelo proprio bloco.
  */
-function avisoDeDuplicado(erro: unknown, slug: string): string {
-  if (!ehDuplicado(erro)) throw erro;
-  const onde = encodeURIComponent(restricaoDe(erro));
-  // `novo=1` mantem o formulario aberto: o aviso serve para corrigir e tentar de
-  // novo, e fechar a tela junto obrigaria a reabrir para isso.
-  return `/admin/${slug}?erro=duplicado&onde=${onde}&novo=1`;
+function destinoDaRecusa(
+  erro: unknown,
+  slug: string,
+  dados: FormData,
+  /**
+   * O que reabre o formulario: `novo=1` ao criar, `editar=<id>` ao editar. O
+   * aviso serve para corrigir e tentar de novo, e fechar a tela junto obrigaria
+   * a reabrir para isso. Ate aqui a edicao recusada reabria como **criacao**.
+   */
+  reabrir: Record<string, string>,
+): string {
+  const busca = retornoDaListagem(dados);
+  for (const [chave, valor] of Object.entries(reabrir)) busca.set(chave, valor);
+
+  if (ehDuplicado(erro)) {
+    busca.set("erro", "duplicado");
+    busca.set("onde", restricaoDe(erro));
+    return `/admin/${slug}?${busca}`;
+  }
+
+  /*
+   * Valor que nao pode ser gravado — numero torto, obrigatorio vazio, data que
+   * o banco recusa. Antes isto virava a tela de falha do Next, e o formulario
+   * inteiro se perdia por causa de uma virgula.
+   */
+  const recusa = recusaDe(erro);
+  if (!recusa) throw erro;
+
+  busca.set("erro", "invalido");
+  busca.set("motivo", recusa.motivo);
+  if (recusa.campo) busca.set("campo", recusa.campo);
+  return `/admin/${slug}?${busca}`;
+}
+
+/**
+ * O filtro da listagem, de volta na URL depois de gravar.
+ *
+ * Chega por um campo escondido do formulario (ver `CAMPO_DO_FILTRO`). Só passa
+ * o formato de um id: o valor volta para a URL e dali para uma consulta, e o
+ * que nao tiver cara de id simplesmente nao volta — a lista abre sem filtro.
+ */
+function retornoDaListagem(dados: FormData): URLSearchParams {
+  const busca = new URLSearchParams();
+  const filtro = String(dados.get(CAMPO_DO_FILTRO) ?? "");
+  if (/^[0-9a-f-]{1,64}$/i.test(filtro)) busca.set("f", filtro);
+  return busca;
 }
 
 export async function acaoCriar(slug: string, dados: FormData) {
@@ -134,7 +177,7 @@ export async function acaoCriar(slug: string, dados: FormData) {
   try {
     ({ id, colunas } = await criar(tabela, dados));
   } catch (erro) {
-    redirect(avisoDeDuplicado(erro, slug));
+    redirect(destinoDaRecusa(erro, slug, dados, { novo: "1" }));
   }
 
   /*
@@ -180,25 +223,36 @@ export async function acaoCriar(slug: string, dados: FormData) {
    * O painel volta dizendo quantos foram avisados. É a unica parte do que
    * acabou de acontecer que a tabela nao mostra sozinha — a linha nova aparece
    * na lista, o push nao aparece em lugar nenhum.
+   *
+   * O resto volta com `ok=criado`, que vira o aviso passageiro da listagem:
+   * sem ele a folha fechava e nada dizia se tinha dado certo.
    */
-  redirect(
-    entrega
-      ? `/admin/${slug}?ok=avisado&pessoas=${entrega.pessoas}&entregues=${entrega.entregues}&aparelhos=${entrega.inscricoes}`
-      : `/admin/${slug}`,
-  );
+  const busca = retornoDaListagem(dados);
+  if (entrega) {
+    busca.set("ok", "avisado");
+    busca.set("pessoas", String(entrega.pessoas));
+    busca.set("entregues", String(entrega.entregues));
+    busca.set("aparelhos", String(entrega.inscricoes));
+  } else {
+    busca.set("ok", "criado");
+  }
+  redirect(`/admin/${slug}?${busca}`);
 }
 
 export async function acaoAtualizar(slug: string, id: string, dados: FormData) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
-  const campos = await camposAlterados(tabela, dados);
 
+  let campos: string[];
   try {
+    // Dentro do `try`: `camposAlterados` passa pela mesma validacao do
+    // `atualizar`, e um numero torto ali escapava do aviso.
+    campos = await camposAlterados(tabela, dados);
     await atualizar(tabela, id, dados);
   } catch (erro) {
     // Mesma historia da criacao: editar a data de um credito para uma que ja
     // tem lancamento esbarra na mesma restricao.
-    redirect(avisoDeDuplicado(erro, slug));
+    redirect(destinoDaRecusa(erro, slug, dados, { editar: id }));
   }
 
   await registrar({
@@ -209,7 +263,9 @@ export async function acaoAtualizar(slug: string, id: string, dados: FormData) {
   });
 
   revalidatePath(`/admin/${slug}`);
-  redirect(`/admin/${slug}`);
+  const busca = retornoDaListagem(dados);
+  busca.set("ok", "salvo");
+  redirect(`/admin/${slug}?${busca}`);
 }
 
 /**
@@ -283,16 +339,22 @@ export async function acaoLancarCredito(
     redirect(`${destino}&aviso=duplicado`);
   }
 
-  const digitado = String(dados.get("valor") ?? "")
-    .trim()
-    .replace(",", ".");
+  const digitado = String(dados.get("valor") ?? "").trim();
 
+  /*
+   * `numeroDeTexto`, a mesma leitura do resto do painel: aceita `1.234,56`,
+   * `1234,56` e `1234.56`. Antes só a primeira virgula virava ponto, e o
+   * milhar com ponto — o jeito como se escreve dinheiro aqui — dava "valor
+   * invalido" e a tela de falha.
+   */
   const valor =
     digitado === ""
       ? (await estimativaDe(alvo.contratoId, data)).valor
-      : Number(digitado);
+      : numeroDeTexto(digitado);
 
-  if (!Number.isFinite(valor)) throw new Error("Valor invalido");
+  if (!Number.isFinite(valor) || valor < 0) {
+    redirect(`${destino}&aviso=valor`);
+  }
 
   const observacao = String(dados.get("observacao") ?? "").trim() || null;
 
@@ -474,7 +536,7 @@ export async function acaoRemoverAgendamento(id: string) {
  */
 const VINCULO = new Set(["23503", "23001"]);
 
-export async function acaoExcluir(slug: string, id: string) {
+export async function acaoExcluir(slug: string, id: string, dados: FormData) {
   await exigirAdmin();
   const tabela = exigirTabela(slug);
 
@@ -494,8 +556,10 @@ export async function acaoExcluir(slug: string, id: string) {
     const codigo = (erro as { code?: string }).code;
     if (!codigo || !VINCULO.has(codigo)) throw erro;
 
-    const onde = (erro as { table?: string }).table ?? "outra tabela";
-    redirect(`/admin/${slug}?erro=vinculo&onde=${encodeURIComponent(onde)}`);
+    const busca = retornoDaListagem(dados);
+    busca.set("erro", "vinculo");
+    busca.set("onde", (erro as { table?: string }).table ?? "");
+    redirect(`/admin/${slug}?${busca}`);
   }
 
   await registrar({
@@ -513,6 +577,11 @@ export async function acaoExcluir(slug: string, id: string) {
   });
 
   revalidatePath(`/admin/${slug}`);
+  // A linha some sozinha da lista, mas some *sem dizer nada* — e numa tabela
+  // longa nao se nota que foi a que se queria. O aviso confirma.
+  const busca = retornoDaListagem(dados);
+  busca.set("ok", "excluido");
+  redirect(`/admin/${slug}?${busca}`);
 }
 
 /**
