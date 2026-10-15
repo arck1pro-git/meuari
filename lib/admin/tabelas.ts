@@ -128,6 +128,19 @@ export type Tabela = {
    */
   colunasMoeda?: string[];
   /**
+   * Colunas calculadas (`colunasSql`) que devolvem `date`. As que sao campo ja
+   * dizem o tipo pelo registro; estas precisam ser declaradas, senao a tela as
+   * trataria como carimbo de hora e, no fuso do servidor, mostraria a vespera.
+   */
+  colunasData?: string[];
+  /**
+   * A coluna do numero sequencial da linha — o "Nº" ao lado do nome.
+   *
+   * Sai discreta, em cinza, e **nao** é o link de editar: o link vai para a
+   * coluna seguinte, o nome, que é onde se clica.
+   */
+  numeracao?: string;
+  /**
    * Uma condicao fixa que **toda** consulta desta tabela aplica — listagem,
    * edicao e as opcoes de referencia em outras telas.
    *
@@ -224,14 +237,37 @@ export const TABELAS: Tabela[] = [
      */
     onde: "tipo = 'investidor'",
     // `tipo` saiu: com o filtro acima ela seria a mesma palavra em toda linha.
-    colunas: ["nome", "email", "na_operacao", "senha_definida", "criado_em"],
+    colunas: [
+      "numero",
+      "nome",
+      "email",
+      "primeiro_contrato",
+      "na_operacao",
+      "senha_definida",
+      "criado_em",
+    ],
     colunasMoeda: ["na_operacao"],
+    colunasData: ["primeiro_contrato"],
+    numeracao: "numero",
+    /*
+     * Na ordem de entrada: quem fechou contrato primeiro vem primeiro, e o
+     * numero ao lado é essa posicao. Quem ainda nao tem contrato fica no fim,
+     * na ordem de cadastro.
+     *
+     * Pelo apelido da coluna calculada (ver `numero` em `colunasSql`), e nao
+     * pela regra repetida aqui: assim a ordem da lista e o numero na tela saem
+     * da mesma conta e nao tem como divergir.
+     */
+    ordem: "numero",
     singular: "investidor",
     cabecalhos: {
+      numero: "Nº",
+      primeiro_contrato: "Contrato desde",
       na_operacao: "Na operação",
       senha_definida: "Acesso",
       criado_em: "Cadastro",
     },
+    vazios: { primeiro_contrato: "Sem contrato" },
     // Quem nunca definiu senha nao consegue entrar — é o que a pastilha avisa.
     selos: { senha_definida: { ok: ["definida"], alerta: ["sem senha"] } },
     /*
@@ -241,6 +277,43 @@ export const TABELAS: Tabela[] = [
      * tentando.
      */
     colunasSql: {
+      /*
+       * A posicao do investidor na ordem de entrada: 1, 2, 3…
+       *
+       * A ordem é a do **primeiro contrato** — a data dele, que é a do aporte de
+       * entrada (o banco nao guarda data de assinatura; ver o campo `data` em
+       * Contratos). Empate no mesmo dia desempata pelo cadastro da pessoa, e o
+       * `id` no fim garante que dois cadastros no mesmo instante nunca troquem
+       * de lugar entre uma visita e outra.
+       *
+       * A conta corre sobre **todos** os investidores, numa subconsulta, e nao
+       * com `row_number()` direto na listagem: ali a janela contaria so as
+       * linhas daquela consulta, e a edicao — que busca uma linha só — daria
+       * "Nº 1" para todo mundo. Assim o numero de cada pessoa é o mesmo na
+       * lista, na edicao e na busca.
+       *
+       * Calculado, e nao gravado: um contrato lancado com data antiga entra no
+       * lugar certo da fila e empurra os seguintes, que é o que "ordem de
+       * contrato" quer dizer.
+       */
+      numero: `(
+        select fila.posicao
+          from (
+            select u2.id,
+                   row_number() over (
+                     order by (select min(c.data) from contratos c
+                                where c.usuario_id = u2.id) nulls last,
+                              u2.criado_em,
+                              u2.id
+                   ) as posicao
+              from usuarios u2
+             where u2.tipo = 'investidor'
+          ) fila
+         where fila.id = usuarios.id
+      )`,
+      // Quando a pessoa entrou: a data do primeiro contrato dela.
+      primeiro_contrato: `(select min(c.data) from contratos c
+                            where c.usuario_id = usuarios.id)`,
       senha_definida: `case when senha_hash is null or senha_hash = '' then 'sem senha' else 'definida' end`,
       /*
        * Quanto a pessoa tem na operacao: a entrada de cada contrato dela mais

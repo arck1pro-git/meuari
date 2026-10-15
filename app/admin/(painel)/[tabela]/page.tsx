@@ -90,7 +90,9 @@ function formatoDe(tabela: Tabela, coluna: string): Formato {
     return "moeda";
   }
   if (campo?.tipo === "percentual") return "percentual";
-  if (campo?.tipo === "data") return "data";
+  if (campo?.tipo === "data" || tabela.colunasData?.includes(coluna)) {
+    return "data";
+  }
   if (campo?.tipo === "numero") return "numero";
   if (campo?.tipo === "referencia") return "referencia";
   if (campo?.tipo === "escolha") return "escolha";
@@ -156,6 +158,24 @@ function celula(
       no: <span className="text-neutral-400">{vazio ?? "—"}</span>,
       texto: vazio ?? "",
       ordem: null,
+    };
+  }
+
+  /*
+   * O numero da fila — "Nº 1", "Nº 2". Cinza e estreito: ele situa a linha, e
+   * quem le procura o nome ao lado dele. Na busca entra como "nº 3", para quem
+   * digitar o numero achar a pessoa.
+   */
+  if (coluna === tabela.numeracao) {
+    const posicao = Number(valor);
+    return {
+      no: (
+        <span className="font-medium text-neutral-400 tabular-nums">
+          {posicao}
+        </span>
+      ),
+      texto: `Nº ${posicao}`,
+      ordem: posicao,
     };
   }
 
@@ -516,24 +536,33 @@ export default async function TabelaPage({
      * A primeira celula abre a edicao. Era preciso caçar o "Editar" no fim da
      * linha, a uma tabela inteira de distancia do nome que se estava lendo — e
      * clicar no nome é o que se tenta primeiro.
+     *
+     * "Primeira" pulando o numero da fila, quando a tabela tem um: o link vai
+     * no nome, que é onde se clica, e nao no "3" cinza ao lado dele.
      */
-    const [primeira, ...resto] = celulas.map((c) => c.no);
-    const abertura = tabela.semFormulario ? (
-      <span className="font-medium text-tinta">{primeira}</span>
-    ) : (
-      <Link
-        href={editarHref}
-        className="font-semibold text-tinta underline-offset-2 transition-colors duration-200 hover:text-marinho hover:underline focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-azul"
-      >
-        {primeira}
-      </Link>
+    const indiceDoLink = Math.max(
+      0,
+      tabela.colunas.findIndex((c) => c !== tabela.numeracao),
     );
+    const nos = celulas.map((c, indice) => {
+      if (indice !== indiceDoLink) return c.no;
+      return tabela.semFormulario ? (
+        <span className="font-medium text-tinta">{c.no}</span>
+      ) : (
+        <Link
+          href={editarHref}
+          className="font-semibold text-tinta underline-offset-2 transition-colors duration-200 hover:text-marinho hover:underline focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-azul"
+        >
+          {c.no}
+        </Link>
+      );
+    });
 
     return {
       id,
       busca: normalizar(celulas.map((c) => c.texto).join(" ")),
       ordem: celulas.map((c) => c.ordem),
-      celulas: [abertura, ...resto],
+      celulas: nos,
       acoes: (
         <>
           {/*
