@@ -32,3 +32,19 @@ sem as cores do cabecalho e dos cartoes:
 
 Para conferir mudanca de tela, use o proprio `npm run dev` — ele ja recompila
 sozinho. `lint` e `tsc --noEmit` sao seguros e nao tocam em `.next`.
+
+# Dois bancos: producao e desenvolvimento
+
+- `.env` guarda a `DATABASE_URL` de **producao** — a mesma da Vercel. É o que
+  `next build`/`next start` usam nesta pasta, e o que os scripts de `db/`
+  acertam só com `--prod` (ou `BANCO=prod`).
+- `.env.development.local` guarda a de **desenvolvimento**. O `next dev` le
+  esse arquivo antes do `.env` (ordem do proprio Next), e os scripts de `db/`
+  tambem: **por padrao eles mexem no banco de dev**. A primeira linha que cada
+  um imprime diz em qual banco ele esta. Ver `db/env.mjs`.
+- Montar o banco de dev do zero: `node db/monta.mjs` aplica os `.sql` de `db/`
+  na ordem certa (`--zerar` apaga tudo antes); `node db/seed.mjs --exemplo`
+  cria o administrador e uma carteira de exemplo. E-mail e senha do admin saem
+  de `SEED_ADMIN_EMAIL`/`SEED_SENHA`, no proprio `.env.development.local`.
+- Dado de investidor real nunca vai para o banco de dev: lá só entra o que o
+  seed inventa. Para olhar dado real, é producao — e só leitura.

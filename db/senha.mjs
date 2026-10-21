@@ -1,45 +1,37 @@
 /**
  * Define a senha de um usuario.
  *
- *   node db/senha.mjs douglas@exemplo.com teste
+ *   node db/senha.mjs douglas@exemplo.com teste          no banco de desenvolvimento
+ *   node db/senha.mjs douglas@exemplo.com teste --prod   em producao
+ *
+ * O banco vem de `db/env.mjs`: desenvolvimento por padrao, producao so com
+ * `--prod`. A primeira linha impressa diz em qual dos dois a senha mudou.
  *
  * O banco guarda so o hash (`scrypt$sal$hash`, o mesmo formato de `lib/auth.ts`),
  * entao a senha em claro nao fica em lugar nenhum depois daqui — nem no proprio
  * banco. Para trocar, rode de novo.
  */
-import { readFileSync } from "node:fs";
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import pg from "pg";
+import { anunciar, argumentos, banco } from "./env.mjs";
 
 const scrypt = promisify(scryptCb);
 
-const [email, senha] = process.argv.slice(2);
+const [email, senha] = argumentos();
 if (!email || !senha) {
-  console.error("uso: node db/senha.mjs <email> <senha>");
+  console.error("uso: node db/senha.mjs <email> <senha> [--prod]");
   process.exit(1);
 }
 
-function lerEnv() {
-  const env = {};
-  for (const linha of readFileSync(
-    new URL("../.env", import.meta.url),
-    "utf8",
-  ).split(/\r?\n/)) {
-    const corte = linha.indexOf("=");
-    if (corte < 1 || linha.trimStart().startsWith("#")) continue;
-    let valor = linha.slice(corte + 1).trim();
-    if (/^['"]/.test(valor)) valor = valor.slice(1, -1);
-    env[linha.slice(0, corte).trim()] = valor;
-  }
-  return env;
-}
+const b = banco();
+anunciar(b);
 
 const sal = randomBytes(16);
 const hash = await scrypt(senha, sal, 64);
 const guardado = `scrypt$${sal.toString("hex")}$${hash.toString("hex")}`;
 
-const cliente = new pg.Client({ connectionString: lerEnv().DATABASE_URL });
+const cliente = new pg.Client({ connectionString: b.url });
 await cliente.connect();
 
 const { rows } = await cliente.query(

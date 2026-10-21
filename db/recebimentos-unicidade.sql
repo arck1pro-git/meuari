@@ -5,7 +5,9 @@
 -- empreendimentos pagando no mesmo dia 17, o segundo credito era recusado.
 --
 -- Ja aplicado no banco; este arquivo existe para quem for montar o schema do
--- zero seguir a mesma ordem.
+-- zero seguir a mesma ordem. Como `recebimentos-empreendimento.sql` foi
+-- corrigido depois e ja cria a restricao, aqui ela só entra se ainda nao
+-- existir — senao montar do zero (`db/monta.mjs`) pararia neste arquivo.
 --
 -- Rodar uma vez:  node db/aplica.mjs db/recebimentos-unicidade.sql
 
@@ -16,8 +18,16 @@ ALTER TABLE recebimentos DROP CONSTRAINT IF EXISTS recebimentos_usuario_id_data_
 -- `NULLS NOT DISTINCT` (PostgreSQL 15+) mantem a garantia antiga para o credito
 -- geral: sem ele, cada NULL conta como valor unico e o mesmo credito sem
 -- empreendimento poderia ser lancado duas vezes na mesma data.
-ALTER TABLE recebimentos
-  ADD CONSTRAINT recebimentos_usuario_empreendimento_data_key
-  UNIQUE NULLS NOT DISTINCT (usuario_id, empreendimento_id, data);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'recebimentos_usuario_empreendimento_data_key'
+  ) THEN
+    ALTER TABLE recebimentos
+      ADD CONSTRAINT recebimentos_usuario_empreendimento_data_key
+      UNIQUE NULLS NOT DISTINCT (usuario_id, empreendimento_id, data);
+  END IF;
+END $$;
 
 COMMIT;

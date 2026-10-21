@@ -1,36 +1,29 @@
 /**
- * Roda um arquivo .sql no banco do .env. Nao ha psql nesta maquina.
+ * Roda um arquivo .sql no banco. Nao ha psql nesta maquina.
  *
- *   node db/aplica.mjs db/recebimentos.sql
+ *   node db/aplica.mjs db/recebimentos.sql           no banco de desenvolvimento
+ *   node db/aplica.mjs db/recebimentos.sql --prod    em producao
+ *
+ * O banco vem de `db/env.mjs`: desenvolvimento por padrao, producao so com
+ * `--prod`. A primeira linha impressa diz em qual dos dois o arquivo entrou.
  *
  * O arquivo inteiro vai numa chamada só; como os schemas abrem com BEGIN e
  * fecham com COMMIT, um erro no meio nao deixa a tabela pela metade.
  */
 import { readFileSync } from "node:fs";
 import pg from "pg";
+import { anunciar, argumentos, banco } from "./env.mjs";
 
-const arquivo = process.argv[2];
+const [arquivo] = argumentos();
 if (!arquivo) {
-  console.error("uso: node db/aplica.mjs <arquivo.sql>");
+  console.error("uso: node db/aplica.mjs <arquivo.sql> [--prod]");
   process.exit(1);
 }
 
-function lerEnv() {
-  const env = {};
-  for (const linha of readFileSync(
-    new URL("../.env", import.meta.url),
-    "utf8",
-  ).split(/\r?\n/)) {
-    const corte = linha.indexOf("=");
-    if (corte < 1 || linha.trimStart().startsWith("#")) continue;
-    let valor = linha.slice(corte + 1).trim();
-    if (/^['"]/.test(valor)) valor = valor.slice(1, -1);
-    env[linha.slice(0, corte).trim()] = valor;
-  }
-  return env;
-}
+const b = banco();
+anunciar(b);
 
-const cliente = new pg.Client({ connectionString: lerEnv().DATABASE_URL });
+const cliente = new pg.Client({ connectionString: b.url });
 await cliente.connect();
 
 try {
