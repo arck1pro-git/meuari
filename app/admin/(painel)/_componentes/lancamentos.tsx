@@ -54,7 +54,17 @@ export async function PainelDeLancamentos({
    * O historico completo continua na tabela por baixo, que é o lugar dele, e o
    * cartao lancado tinha ali o mesmo "Editar" que a listagem ja oferece.
    */
-  const pendentes = linhas.filter((l) => !l.lancado);
+  /*
+   * Em carencia fica fora da folha: o contrato ainda nao fechou 30 dias para
+   * este ciclo e nao ha o que lancar. Mas ele aparece numa linha a parte, com a
+   * data do primeiro credito — senao quem acabou de cadastrar um contrato novo
+   * o procuraria aqui e nao entenderia por que sumiu.
+   */
+  const emCarencia = linhas.flatMap((l) =>
+    l.carencia && !l.lancado ? [{ linha: l, primeiroCredito: l.carencia }] : [],
+  );
+  const doCiclo = linhas.filter((l) => !emCarencia.some((c) => c.linha === l));
+  const pendentes = doCiclo.filter((l) => !l.lancado);
   const aLancar = pendentes.reduce((soma, l) => soma + l.estimativa.valor, 0);
 
   return (
@@ -74,8 +84,8 @@ export async function PainelDeLancamentos({
             .{" "}
             {pendentes.length === 0
               ? "Nada pendente."
-              : `${pendentes.length} de ${linhas.length} ${
-                  linhas.length === 1 ? "contrato" : "contratos"
+              : `${pendentes.length} de ${doCiclo.length} ${
+                  doCiclo.length === 1 ? "contrato" : "contratos"
                 }, ${formatarMoeda(aLancar)} no total.`}
           </p>
           {/* A regra do campo vazio, dita uma vez para a lista toda — antes so
@@ -84,6 +94,24 @@ export async function PainelDeLancamentos({
             <p className="mt-1 text-xs text-neutral-400">
               Campo vazio lança o valor estimado. Digite outro só se o crédito
               fugiu da conta.
+            </p>
+          )}
+          {emCarencia.length > 0 && (
+            <p className="mt-2 text-xs text-neutral-500">
+              Em carência, sem crédito neste ciclo:{" "}
+              {emCarencia.map(({ linha, primeiroCredito }, indice) => (
+                <span key={linha.contratoId}>
+                  {indice > 0 && "; "}
+                  <span className="font-semibold text-tinta">
+                    {linha.investidor}
+                  </span>{" "}
+                  ({linha.empreendimento}), primeiro crédito em{" "}
+                  <span className="tabular-nums">
+                    {formatarData(primeiroCredito)}
+                  </span>
+                </span>
+              ))}
+              .
             </p>
           )}
         </div>
@@ -112,7 +140,9 @@ export async function PainelDeLancamentos({
         <p className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 px-5 py-10 text-center text-sm text-neutral-500">
           {linhas.length === 0
             ? "Nenhum investidor com contrato mensal."
-            : "Todos os créditos deste ciclo já foram lançados."}
+            : doCiclo.length === 0
+              ? "Nenhum contrato fechou os 30 dias para este ciclo."
+              : "Todos os créditos deste ciclo já foram lançados."}
         </p>
       ) : (
         <ul className="mt-5 space-y-2.5">

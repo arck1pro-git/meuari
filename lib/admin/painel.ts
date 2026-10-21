@@ -3,6 +3,7 @@ import { consultar } from "@/lib/db";
 import type { DataISO, Modalidade } from "@/lib/portal/dados";
 import {
   dataDoCredito,
+  entraNoCiclo,
   faixasDeParticipacao,
   taxaEm,
 } from "@/lib/portal/recebimentos";
@@ -51,6 +52,8 @@ type ContratoApurado = {
   taxa: number;
   /** Um mes cheio na participacao vigente: `capital x taxa`. */
   porMes: number;
+  /** Data do aporte mais antigo — de onde a carencia do primeiro credito conta. */
+  entradaEm: DataISO;
 };
 
 export type ResumoDeModalidade = {
@@ -127,7 +130,10 @@ export type PontoDaCaptacao = {
 /** Onde esta o lancamento do credito deste mes. */
 export type CicloDoMes = {
   data: DataISO;
-  /** Contratos `mensal` que esperam credito. */
+  /**
+   * Contratos `mensal` que esperam credito neste ciclo — fora os que ainda
+   * estao em carencia (ver `entraNoCiclo`).
+   */
   contratos: number;
   lancados: number;
 };
@@ -257,6 +263,10 @@ function apurarContratos(
       modalidade: primeiro.modalidade,
       empreendimentoId: primeiro.empreendimentoId,
       empreendimento: primeiro.empreendimento,
+      entradaEm: doContrato.reduce(
+        (menor, l) => (l.data < menor ? l.data : menor),
+        primeiro.data,
+      ),
       capital,
       entrada,
       aditivos,
@@ -538,7 +548,13 @@ export async function montarPainel(
     captacao: curvaDaCaptacao(linhas),
     ciclo: {
       data: dataDoCiclo,
-      contratos: apurados.filter((c) => c.modalidade === "mensal").length,
+      // Fora a carencia: contrato que ainda nao fechou 30 dias nao tem credito
+      // a lancar neste ciclo, e conta-lo diria que falta o que nao falta. É o
+      // mesmo recorte de `pendentesDoCiclo`, para o selo e o Dashboard baterem.
+      contratos: apurados.filter(
+        (c) =>
+          c.modalidade === "mensal" && entraNoCiclo(c.entradaEm, dataDoCiclo),
+      ).length,
       lancados: lancados[0]?.total ?? 0,
     },
   };

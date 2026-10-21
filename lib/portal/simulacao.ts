@@ -22,8 +22,10 @@ import type { Modalidade } from "./dados";
  *   e nao so para o dinheiro que acabou de entrar. É a mesma regra que o portal
  *   ja aplica quando um aporte traz taxa nova (ver `recebimentos.ts`), e é o
  *   que faz um aporte perto da borda valer mais do que ele mesmo.
- * - **Sem IR, sem taxa de administracao, sem carencia.** O rendimento é
- *   declarado isento, e o simulador nao aplica desconto nenhum.
+ * - **Sem IR, sem taxa de administracao.** O rendimento é declarado isento, e
+ *   o simulador nao aplica desconto nenhum. A carencia de 30 dias do primeiro
+ *   credito (ver `recebimentos.ts`) nao entra aqui porque nao muda o total: so
+ *   adia o primeiro pagamento, que vem somado ao seguinte.
  *
  * As faixas sao constante daqui, e nao tabela de banco: é regra de produto,
  * entra com o codigo e muda com ele.

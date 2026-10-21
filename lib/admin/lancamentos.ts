@@ -3,7 +3,9 @@ import { consultar } from "@/lib/db";
 import { dataDeReferencia, type DataISO } from "@/lib/portal/dados";
 import {
   dataDoCredito,
+  entraNoCiclo,
   estimarCiclo,
+  primeiroCreditoDe,
   type AporteMensal,
   type Estimativa,
 } from "@/lib/portal/recebimentos";
@@ -28,6 +30,12 @@ export type LinhaDeLancamento = {
   /** Quantos aportes compoem o capital: a entrada mais os aditivos. */
   aportes: number;
   estimativa: Estimativa;
+  /**
+   * Preenchido quando o contrato ainda nao fechou os 30 dias para este ciclo:
+   * a data do primeiro credito dele. A folha nao o lista como pendente — nao
+   * ha o que lancar —, mas diz que ele existe e quando entra.
+   */
+  carencia: DataISO | null;
   /** O que ja foi lancado nesta data, se ja foi. */
   lancado: { id: string; valor: number; observacao: string | null } | null;
 };
@@ -108,6 +116,12 @@ export async function montarLancamentos(
   return [...porContrato.values()].map((doContrato) => {
     const [primeiro] = doContrato;
     const lancado = lancados.find((l) => l.contratoId === primeiro.contratoId);
+    // A entrada do contrato é o aporte mais antigo; se nem ela fechou 30 dias,
+    // nenhum aditivo fechou, e o contrato inteiro esta em carencia.
+    const entrada = doContrato.reduce(
+      (menor, a) => (a.data < menor ? a.data : menor),
+      primeiro.data,
+    );
 
     return {
       contratoId: primeiro.contratoId,
@@ -115,6 +129,7 @@ export async function montarLancamentos(
       empreendimento: primeiro.empreendimento,
       aportes: doContrato.length,
       estimativa: estimarCiclo(doContrato, data),
+      carencia: entraNoCiclo(entrada, data) ? null : primeiroCreditoDe(entrada),
       lancado: lancado
         ? {
             id: lancado.id,
@@ -165,20 +180,23 @@ export async function estimativaDe(
 /**
  * Quantos contratos `mensal` ainda estao sem o credito do ciclo corrente.
  *
- * Uma contagem só, sem a estimativa de cada um: é o numero do selo na coluna da
- * esquerda e do botao "Lançar créditos", e montar a folha inteira para contar
- * as linhas dela custaria a conta do ciclo de todos os contratos a cada tela.
+ * Só a data de entrada de cada um, sem a estimativa: é o numero do selo na
+ * coluna da esquerda e do botao "Lançar créditos", e montar a folha inteira para
+ * contar as linhas dela custaria a conta do ciclo de todos os contratos a cada
+ * tela. A data basta para a unica regra que a contagem precisa aplicar — a
+ * carencia: contrato que ainda nao fechou 30 dias nao é pendencia deste ciclo,
+ * porque nao ha o que lancar para ele.
  *
- * O recorte é o do Dashboard — só investidores, só `mensal` —, para os dois
- * lugares nunca darem numeros diferentes para a mesma pendencia.
+ * O recorte é o do Dashboard — só investidores, só `mensal`, fora a carencia —,
+ * para os dois lugares nunca darem numeros diferentes para a mesma pendencia.
  */
 export async function pendentesDoCiclo(): Promise<{
   data: DataISO;
   pendentes: number;
 }> {
   const data = dataDoCredito((await dataDeReferencia()).slice(0, 7));
-  const [linha] = await consultar<{ total: number }>(
-    `select count(*)::int as total
+  const semCredito = await consultar<{ data: DataISO }>(
+    `select to_char(c.data, 'YYYY-MM-DD') as data
        from contratos c
        join usuarios u on u.id = c.usuario_id
       where c.modalidade = 'mensal'
@@ -189,7 +207,10 @@ export async function pendentesDoCiclo(): Promise<{
             )`,
     [data],
   );
-  return { data, pendentes: linha?.total ?? 0 };
+  return {
+    data,
+    pendentes: semCredito.filter((c) => entraNoCiclo(c.data, data)).length,
+  };
 }
 
 /** Ja existe credito para este contrato nesta data? */

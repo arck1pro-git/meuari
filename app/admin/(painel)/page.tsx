@@ -142,7 +142,12 @@ export default async function AdminPage({
     .filter((m) => MODALIDADES[m.modalidade].saiDoCaixa)
     .reduce((soma, m) => soma + m.porMes, 0);
 
-  const faltamLancar = painel.ciclo.contratos - painel.ciclo.lancados;
+  // Nunca negativo: um credito lancado a mao para contrato ainda em carencia
+  // conta em `lancados` sem contar em `contratos`.
+  const faltamLancar = Math.max(
+    0,
+    painel.ciclo.contratos - painel.ciclo.lancados,
+  );
 
   return (
     <>

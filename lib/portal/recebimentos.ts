@@ -28,13 +28,20 @@ import type { Aporte, DataISO } from "./dados";
  *   duas pontas — 30 dias na base 30/360. O dia 17 é o ultimo dia do ciclo que
  *   fecha; o 18 é o primeiro do seguinte, e nenhum dia pertence a dois ciclos.
  *
- *   A consequencia pratica esta nas bordas: um aporte feito **no dia 17** rende
- *   um dia naquele ciclo, e um feito **no dia 18** pega o ciclo seguinte
- *   inteiro. Antes o intervalo era `[17, 17)` — abria no 17 e fechava no 16 —,
- *   e as duas bordas saiam trocadas: quem entrava no 17 nao recebia nada, e quem
- *   entrava no 18 perdia um dia de um ciclo em que esteve o tempo todo.
- * - **Aporte fora do dia 18** nao espera o ciclo inteiro: recebe o *quebrado*,
- *   so os dias entre a entrada e o proximo dia 17.
+ *   A consequencia pratica esta nas bordas: um aporte feito **no dia 18** pega
+ *   o ciclo inteiro e recebe no 17 seguinte; um feito **no dia 19** ja nao
+ *   fecha 30 dias ate la, e espera o outro 17 (ver a carencia, abaixo). Antes o
+ *   intervalo era `[17, 17)` — abria no 17 e fechava no 16 —, e as duas bordas
+ *   saiam trocadas: quem entrava no 17 nao recebia nada, e quem entrava no 18
+ *   perdia um dia de um ciclo em que esteve o tempo todo.
+ * - **Carencia de 30 dias.** Um aporte so entra no credito depois de 30 dias
+ *   (na base 30/360) — ou seja, so no ciclo que ja estava aberto quando ele
+ *   entrou. Quem entra depois do dia 18 nao recebe o *quebrado* no 17 seguinte:
+ *   espera o 17 do outro mes, e esse primeiro credito traz junto os dias que
+ *   ficaram esperando — o pedaco do ciclo passado somado ao ciclo inteiro. O
+ *   total nao muda; so o primeiro pagamento anda um mes. Vale para os aportes a
+ *   partir de `CARENCIA_DESDE`: os anteriores ja receberam o quebrado no
+ *   primeiro 17, e recontar os dias deles pagaria duas vezes.
  * - **A participacao vigente vale para o capital inteiro.** Quando um aporte
  *   traz taxa nova, ela passa a valer para tudo a partir daquele dia — sem
  *   efeito retroativo. Se a troca cai no meio de um ciclo, o ciclo é rateado:
@@ -173,6 +180,53 @@ export function dataDoCredito(competencia: string): DataISO {
   return `${competencia}-${String(DIA_DO_CREDITO).padStart(2, "0")}`;
 }
 
+/** O primeiro dia do ciclo que fecha em `data` — o dia 18 do mes anterior. */
+function aberturaDoCiclo(data: DataISO): DataISO {
+  return diaSeguinte(somarMes(data, -1));
+}
+
+/**
+ * A partir de que data de aporte vale a carencia de 30 dias.
+ *
+ * Regime novo: o aporte so entra no credito do ciclo que ja estava aberto
+ * quando ele entrou — 30 dias na base 30/360 entre a entrada e o dia 17. Antes
+ * disso, o primeiro credito era o *quebrado*: os dias entre a entrada e o 17
+ * seguinte, mesmo que fossem tres.
+ *
+ * A data é a abertura do primeiro ciclo apurado pela regra nova. Os aportes
+ * anteriores a ela ja tiveram o quebrado lancado (ou pendente) no primeiro 17
+ * pela regra antiga, e se a carencia os alcancasse o ciclo seguinte recontaria
+ * esses dias — pagando duas vezes o mesmo pedaco. Por isso a regra olha a data
+ * do aporte, e nao a do ciclo: cada aporte segue um regime so, do inicio ao fim.
+ */
+export const CARENCIA_DESDE: DataISO = "2026-10-18";
+
+/**
+ * Este aporte entra no credito que fecha em `data` (um dia 17)?
+ *
+ * Com carencia, so se entrou ate a abertura do ciclo — o dia 18 do mes
+ * anterior —, que é o que faz ele ter 30 dias dentro. No regime antigo, basta
+ * ter entrado ate o proprio dia 17.
+ *
+ * É a regra em um lugar so: a estimativa, a folha de lancamento e as duas
+ * contagens de pendencia (Dashboard e selo) decidem por aqui, para um contrato
+ * em carencia nao aparecer como pendente numa tela e sumir na outra.
+ */
+export function entraNoCiclo(aporte: DataISO, data: DataISO): boolean {
+  if (aporte < CARENCIA_DESDE) return aporte <= data;
+  return aporte <= aberturaDoCiclo(data);
+}
+
+/**
+ * A data do primeiro credito de um aporte — o primeiro dia 17 em cujo ciclo ele
+ * entra. Com carencia, quase sempre o 17 do mes seguinte ao da entrada.
+ */
+export function primeiroCreditoDe(aporte: DataISO): DataISO {
+  let data = dataDoCredito(competenciaDe(aporte));
+  while (!entraNoCiclo(aporte, data)) data = somarMes(data, 1);
+  return data;
+}
+
 /** O que a conta precisa de um aporte — o resto do `Aporte` nao entra nela. */
 export type AporteMensal = Pick<
   Aporte,
@@ -283,7 +337,11 @@ export type Estimativa = {
    * taxa mudou no meio, e ai cada um traz os dias que lhe couberam.
    */
   trechos: TrechoDeTaxa[];
-  /** `true` quando algum aporte ou troca de taxa partiu o ciclo. */
+  /**
+   * `true` quando o ciclo nao saiu redondo: a taxa mudou no meio, ou algum
+   * aporte teve aqui o primeiro credito — o quebrado do regime antigo, ou o
+   * acumulado com a carencia, que traz mais de 30 dias.
+   */
   quebrado: boolean;
   /** Participacao vigente no fim do ciclo, em decimal. */
   taxaVigente: number;
@@ -293,9 +351,13 @@ export type Estimativa = {
  * Quanto renderia o ciclo que fecha em `data` — um dia 17.
  *
  * É a conta do contrato, e serve de sugestao para quem lanca: o ciclo cobre
- * **do dia 18 do mes anterior ao dia 17 desta data**, as duas pontas incluidas,
- * e um aporte entra a partir da propria data — entao o primeiro credito dele é
- * sempre o quebrado.
+ * **do dia 18 do mes anterior ao dia 17 desta data**, as duas pontas incluidas.
+ *
+ * Um aporte so entra depois de 30 dias — ver `entraNoCiclo`. Quem entrou no
+ * meio do ciclo passado nao recebeu nada la; recebe aqui, e o credito conta
+ * desde o dia da entrada: o pedaco que ficou esperando mais o ciclo inteiro,
+ * num lancamento so. Nos aportes anteriores a `CARENCIA_DESDE` vale a conta
+ * antiga, em que o primeiro credito é o quebrado do proprio ciclo da entrada.
  *
  * Os intervalos internos sao meio-abertos, `[de, ate)`, e por isso as duas
  * pontas do ciclo aparecem deslocadas de um dia em relacao ao enunciado: o
@@ -316,9 +378,15 @@ export function estimarCiclo(
   const faixas = faixasDeParticipacao(mensais);
 
   /** Dia 18 do mes anterior — o primeiro dia do ciclo. */
-  const abertura = diaSeguinte(somarMes(data, -1));
+  const abertura = aberturaDoCiclo(data);
   /** Dia 18 deste mes — o primeiro que ja pertence ao ciclo seguinte. */
   const fim = diaSeguinte(data);
+  /**
+   * Dia 18 de dois meses atras — a abertura do ciclo anterior. Com carencia,
+   * quem entrou depois dela nao recebeu nada naquele ciclo, e este é o
+   * primeiro credito: os dias de la vem para ca.
+   */
+  const aberturaAnterior = aberturaDoCiclo(somarMes(data, -1));
 
   // A participacao do ciclo é do periodo, e nao de cada aporte: mesmo quem
   // entrou no dia 8 rende pela taxa que valia nos dias em que esteve dentro.
@@ -329,34 +397,54 @@ export function estimarCiclo(
   // unica vez, no fim — arredondar cada aporte antes de somar mudaria o total.
   let micro = 0;
   let capital = 0;
-  let entrouNoMeio = false;
+  let primeiroCredito = false;
 
   for (const aporte of mensais) {
-    // `>= fim`, e nao `>= data`: quem entrou no proprio dia 17 fecha o ciclo
-    // dentro dele, e rende um dia. So o dia 18 em diante é do ciclo seguinte.
+    // `>= fim`, e nao `>= data`: no regime antigo quem entrou no proprio dia
+    // 17 fecha o ciclo dentro dele, e rende um dia. So o dia 18 em diante é do
+    // ciclo seguinte.
     if (aporte.data >= fim) break; // (a lista esta ordenada)
 
-    // Do dia do aporte, e nao do inicio do ciclo: quem entrou no dia 8 rende
-    // pelos dias que esteve dentro, na taxa diaria de cada um deles.
-    const de = aporte.data > abertura ? aporte.data : abertura;
+    // Carencia: quem ainda nao fechou 30 dias fica para o ciclo seguinte, e la
+    // recebe estes dias junto. O capital dele tambem nao conta aqui — nao
+    // rendeu neste credito.
+    if (!entraNoCiclo(aporte.data, data)) continue;
+
+    /*
+     * De onde contam os dias deste aporte. Da abertura, como todo capital que
+     * ja estava dentro — menos no primeiro credito dele, que conta desde o dia
+     * da entrada:
+     *
+     * - com carencia, a entrada ficou no ciclo passado (depois da abertura
+     *   anterior), e o pedaco que esperou la vem somado ao ciclo inteiro;
+     * - no regime antigo, a entrada caiu neste ciclo mesmo, e o credito é o
+     *   quebrado — so os dias que esteve dentro, na taxa diaria de cada um.
+     */
+    const desdeAEntrada =
+      aporte.data >= CARENCIA_DESDE
+        ? aporte.data > aberturaAnterior
+        : aporte.data > abertura;
+    const de = desdeAEntrada ? aporte.data : abertura;
     const fator = fatorMicro(faixas, de, fim);
     if (fator <= 0) continue;
 
     micro += paraCentavos(aporte.valor) * fator;
     capital += aporte.valor;
-    if (aporte.data > abertura) entrouNoMeio = true;
+    // So marca quando a ponta de fato saiu da abertura: quem entrou exatamente
+    // no dia 18 tem o primeiro credito redondo, de 30 dias.
+    if (de !== abertura) primeiroCredito = true;
   }
 
   return {
     valor: dividirMeioParaCima(micro, DIVISOR) / 100,
     capital,
     trechos,
-    // Rateado por qualquer um dos tres motivos: a taxa mudou no meio, o ciclo
-    // nao teve os 30 dias, ou um aporte entrou depois do dia 17. Sem capital
-    // nao ha ciclo, e ai nao ha o que ratear.
+    // Fora do redondo por qualquer um dos tres motivos: a taxa mudou no meio,
+    // o ciclo nao teve os 30 dias, ou algum aporte teve aqui o primeiro
+    // credito. Sem capital nao ha ciclo, e ai nao ha o que ratear.
     quebrado:
       capital > 0 &&
-      (trechos.length > 1 || diasCobertos < DIAS_DO_MES || entrouNoMeio),
+      (trechos.length > 1 || diasCobertos < DIAS_DO_MES || primeiroCredito),
     taxaVigente: taxaEm(faixas, data),
   };
 }
