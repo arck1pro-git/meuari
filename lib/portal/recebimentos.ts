@@ -193,13 +193,20 @@ function aberturaDoCiclo(data: DataISO): DataISO {
  * disso, o primeiro credito era o *quebrado*: os dias entre a entrada e o 17
  * seguinte, mesmo que fossem tres.
  *
- * A data é a abertura do primeiro ciclo apurado pela regra nova. Os aportes
- * anteriores a ela ja tiveram o quebrado lancado (ou pendente) no primeiro 17
- * pela regra antiga, e se a carencia os alcancasse o ciclo seguinte recontaria
- * esses dias — pagando duas vezes o mesmo pedaco. Por isso a regra olha a data
- * do aporte, e nao a do ciclo: cada aporte segue um regime so, do inicio ao fim.
+ * Os aportes anteriores a esta data ja tiveram o quebrado lancado no primeiro
+ * 17 pela regra antiga, e se a carencia os alcancasse o ciclo seguinte
+ * recontaria esses dias — pagando duas vezes o mesmo pedaco. Por isso a regra
+ * olha a data do aporte, e nao a do ciclo: cada aporte segue um regime so, do
+ * inicio ao fim.
+ *
+ * Nasceu em 18/10/2026, a abertura do primeiro ciclo apurado pela regra nova,
+ * e recuou para 01/10 em 23/10/2026: os unicos aportes de outubro (03/10 e
+ * 05/10) ainda nao tinham credito nenhum lancado, entao nao havia quebrado a
+ * recontar — e, pela regra, eles nao deviam estar pendentes no 17/10, e sim
+ * entrar inteiros no 17/11. Tudo de setembro para tras continua no regime
+ * antigo.
  */
-export const CARENCIA_DESDE: DataISO = "2026-10-18";
+export const CARENCIA_DESDE: DataISO = "2026-10-01";
 
 /**
  * Este aporte entra no credito que fecha em `data` (um dia 17)?
