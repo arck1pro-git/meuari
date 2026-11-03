@@ -47,6 +47,17 @@ function lerEnv() {
 }
 
 const env = lerEnv();
+
+// Este script so conhece o Supabase. Com o Neon como armazenamento (ver
+// `lib/storage.ts`), a varredura seria do bucket antigo, e o `--apagar`
+// apagaria o backup em vez das sobras do bucket vivo.
+if (env.NEON_STORAGE_ENDPOINT) {
+  console.error(
+    "O armazenamento agora é o Neon (NEON_STORAGE_ENDPOINT definido). Este script so varre o Supabase; nao rode.",
+  );
+  process.exit(1);
+}
+
 const base = env.SUPABASE_URL.replace(/\/+$/, "");
 const auth = {
   apikey: env.SUPABASE_SECRET_KEY,

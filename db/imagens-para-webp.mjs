@@ -54,6 +54,17 @@ function lerEnv() {
 }
 
 const env = lerEnv();
+
+// Este script converte pelo Supabase e aponta a linha para o arquivo novo no
+// Supabase. Com o Neon como armazenamento (ver `lib/storage.ts`), a linha
+// passaria a apontar para um objeto que o Neon nao tem, e a foto sumiria.
+if (env.NEON_STORAGE_ENDPOINT) {
+  console.error(
+    "O armazenamento agora é o Neon (NEON_STORAGE_ENDPOINT definido). Este script so converte no Supabase; nao rode.",
+  );
+  process.exit(1);
+}
+
 const base = env.SUPABASE_URL.replace(/\/+$/, "");
 const auth = {
   apikey: env.SUPABASE_SECRET_KEY,

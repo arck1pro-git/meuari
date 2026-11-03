@@ -9,10 +9,11 @@ import "server-only";
  * URL — sem assinatura, o navegador nao tem para onde enviar.
  *
  * O teto de tamanho é o unico que **nao** dá para garantir aqui: o arquivo vai
- * do navegador direto ao Supabase, e o nosso servidor nunca o ve. O numero
- * abaixo é conferido no navegador antes de pedir a URL, o que resolve o caso
- * comum (alguem escolhendo o arquivo errado). O limite que ninguem contorna é o
- * do proprio bucket, no painel do Supabase — vale configurar la tambem.
+ * do navegador direto ao armazenamento, e o nosso servidor nunca o ve. O numero
+ * abaixo é conferido no navegador e de novo aqui, contra o tamanho que o painel
+ * declara ao pedir a URL (`conferirTamanho`) — o que resolve o caso comum, de
+ * alguem escolhendo o arquivo errado. No Supabase havia ainda o limite do
+ * proprio bucket; no Neon nao ha, e quem manda o tamanho é o administrador.
  */
 
 /** Extensoes que nao entram, mesmo em bucket privado e com o tipo certo. */
@@ -69,4 +70,59 @@ export function conferirArquivo(nomeArquivo: string, aceita?: string): void {
       `Arquivo .${extensao} nao serve para este campo (esperado: ${permitidas.join(", ")})`,
     );
   }
+}
+
+/**
+ * Teto do campo, conferido no servidor contra o tamanho que o painel declara.
+ *
+ * O navegador ja confere antes de pedir a URL; repetir aqui pega a chamada
+ * direta a acao, que pula o navegador. O numero continua sendo o declarado — o
+ * arquivo em si vai direto ao armazenamento —, entao é trava contra engano, e
+ * nao contra o proprio administrador.
+ */
+export function conferirTamanho(bytes: number, aceita?: string): void {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    throw new Error("Tamanho do arquivo invalido");
+  }
+  const teto = aceita ? TETOS[aceita] : undefined;
+  if (teto && bytes > teto) {
+    throw new Error(
+      `Arquivo acima do limite de ${Math.round(teto / (1024 * 1024))} MB`,
+    );
+  }
+}
+
+/** O tipo de cada extensao aceita, no nome que o navegador tambem usa. */
+const TIPOS: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  gif: "image/gif",
+  heic: "image/heic",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  m4v: "video/x-m4v",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  csv: "text/csv",
+  txt: "text/plain",
+};
+
+/**
+ * O `Content-Type` com que o arquivo vai ser gravado, tirado da extensao.
+ *
+ * Quem decide é o servidor, e nao o navegador: o tipo entra na assinatura do
+ * envio (ver `assinarUpload`), e é ele que o armazenamento devolve a quem abre
+ * o arquivo. Deixar o navegador escolher permitia gravar HTML com nome de
+ * `.pdf`. Extensao sem tipo conhecido vai como binario, que o navegador baixa
+ * em vez de abrir.
+ */
+export function tipoDoArquivo(nome: string): string {
+  return TIPOS[extensaoDe(nome)] ?? "application/octet-stream";
 }

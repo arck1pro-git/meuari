@@ -35,7 +35,7 @@ import { acharTabela } from "@/lib/admin/tabelas";
 import { dataDoCredito } from "@/lib/portal/recebimentos";
 import { emMinutos, limparTentativas, podeTentar } from "@/lib/limite";
 import { assinarUpload } from "@/lib/storage";
-import { conferirArquivo } from "@/lib/upload";
+import { conferirArquivo, conferirTamanho, tipoDoArquivo } from "@/lib/upload";
 
 /**
  * Toda acao passa por aqui antes de tocar no banco.
@@ -279,6 +279,8 @@ export async function acaoAssinarUpload(
   slug: string,
   campo: string,
   nomeArquivo: string,
+  /** Em bytes, como o navegador ve o arquivo. */
+  tamanho: number,
 ) {
   await exigirAdmin();
 
@@ -288,13 +290,20 @@ export async function acaoAssinarUpload(
   if (!alvo?.bucket) throw new Error("Campo de arquivo desconhecido");
 
   /*
-   * A extensao é conferida aqui, e nao no navegador: o `accept` do seletor de
-   * arquivo é dica de interface e some com uma chamada direta a esta acao. Sem
-   * URL assinada, nao ha para onde enviar — é este o ponto de controle.
+   * A extensao e o tamanho sao conferidos aqui, e nao so no navegador: o
+   * `accept` do seletor e a conta do teto sao interface, e somem com uma
+   * chamada direta a esta acao. Sem URL assinada, nao ha para onde enviar — é
+   * este o ponto de controle. O tipo do arquivo sai daqui tambem, e entra na
+   * assinatura do envio.
    */
   conferirArquivo(nomeArquivo, alvo.aceita);
+  conferirTamanho(tamanho, alvo.aceita);
 
-  const assinado = await assinarUpload(alvo.bucket, nomeArquivo);
+  const assinado = await assinarUpload(
+    alvo.bucket,
+    nomeArquivo,
+    tipoDoArquivo(nomeArquivo),
+  );
   await registrar({
     acao: "upload",
     alvoTabela: exigirTabela(slug).tabela,

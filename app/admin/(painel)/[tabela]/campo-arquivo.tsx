@@ -161,15 +161,17 @@ export function CampoArquivo({
 
     setEstado("enviando");
     try {
-      const { envio, caminho: destino } = await acaoAssinarUpload(
-        slug,
-        nome,
-        arquivo.name,
-      );
+      const {
+        envio,
+        caminho: destino,
+        tipo,
+      } = await acaoAssinarUpload(slug, nome, arquivo.name, arquivo.size);
 
+      // O tipo vem do servidor, e nao do `arquivo.type`: ele esta dentro da
+      // assinatura do envio, e qualquer diferenca faz o bucket recusar.
       const resposta = await fetch(envio, {
         method: "PUT",
-        headers: { "content-type": arquivo.type || "application/octet-stream" },
+        headers: { "content-type": tipo },
         body: arquivo,
       });
       if (!resposta.ok)

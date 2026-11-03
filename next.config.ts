@@ -61,9 +61,10 @@ const nextConfig: NextConfig = {
      *   é justamente por isso que o HTML de terceiros é sanitizado antes de
      *   entrar na pagina — ver `lib/artigos.ts`.
      * - `img-src`: as capas dos artigos vem da Airticles e as fotos de obra do
-     *   Supabase, em URL assinada. `data:` fica para os icones embutidos.
+     *   armazenamento (Supabase ou Neon), em URL assinada. `data:` fica para
+     *   os icones embutidos.
      * - `connect-src`: a acao de push fala com o serviço do navegador, e o
-     *   upload do /admin manda o arquivo direto ao Supabase.
+     *   upload do /admin manda o arquivo direto ao armazenamento.
      * - `frame-ancestors 'none'`: ninguem embute este app num iframe. É a
      *   versao moderna do `X-Frame-Options`, e vale para navegador atual.
      * - `form-action 'self'`: um formulario daqui nao posta em outro dominio.
@@ -78,14 +79,25 @@ const nextConfig: NextConfig = {
      */
     const desenvolvimento = process.env.NODE_ENV === "development";
 
+    /*
+     * O Neon Object Storage, quando ele é o armazenamento (ver `lib/storage.ts`):
+     * a origem exata do endpoint do branch, e nao um curinga `*.neon.tech` —
+     * esse liberaria o bucket de qualquer outro cliente do Neon. Sem a
+     * variavel, fica só o Supabase, como antes. O Supabase continua na lista
+     * durante a troca: é para ele que a volta aponta.
+     */
+    const neon = process.env.NEON_STORAGE_ENDPOINT
+      ? ` ${new URL(process.env.NEON_STORAGE_ENDPOINT).origin}`
+      : "";
+
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${desenvolvimento ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://api.airticles.ai https://*.supabase.co",
+      `img-src 'self' data: blob: https://api.airticles.ai https://*.supabase.co${neon}`,
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co",
-      "media-src 'self' https://*.supabase.co",
+      `connect-src 'self' https://*.supabase.co${neon}`,
+      `media-src 'self' https://*.supabase.co${neon}`,
       "frame-ancestors 'none'",
       "form-action 'self'",
       "base-uri 'self'",

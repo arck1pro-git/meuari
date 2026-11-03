@@ -1,19 +1,37 @@
 import "server-only";
+import { presignar, type CredenciaisS3 } from "./s3";
 
 /**
- * Supabase Storage, so o que precisamos: assinar upload, assinar leitura e
+ * Os arquivos do portal, so o que precisamos: assinar upload, assinar leitura e
  * apagar.
  *
- * Sem o `@supabase/supabase-js`: sao tres rotas REST, e o cliente oficial traria
- * postgrest, realtime e auth junto para nao usar nenhum deles.
+ * **Dois armazenamentos, um de cada vez.** O destino é o Neon Object Storage,
+ * num bucket só (`portal`); a origem é o Supabase Storage, em quatro buckets.
+ * Quem decide é o ambiente: com `NEON_STORAGE_ENDPOINT` preenchido, tudo vai e
+ * vem do Neon; sem ela, do Supabase, como sempre foi. Assim o codigo pode ir
+ * para producao antes de os arquivos serem copiados, a troca é preencher uma
+ * variavel, e voltar atras é apaga-la — os originais continuam no Supabase.
+ * A copia é `db/storage-para-neon.ts`.
  *
- * A chave secreta ignora qualquer politica do Storage — ela mora aqui, num
- * modulo `server-only`, e nunca chega ao browser. Quem decide o que cada pessoa
- * pode ver é o nosso codigo: uma URL assinada só é gerada depois de a consulta
- * provar que aquele arquivo é de quem esta pedindo.
+ * **Os quatro buckets viraram pastas.** No Neon, `scp`, `docs`,
+ * `fotos-empreendimentos` e `videos` sao prefixos dentro do `portal`: o objeto
+ * `docs/2026/abc-memorial.pdf` é o mesmo `2026/abc-memorial.pdf` que estava no
+ * bucket `docs`. Por isso o banco nao muda — a coluna continua guardando o
+ * caminho dentro da pasta, e a pasta sai da tabela, como antes saia o bucket.
+ *
+ * Sem SDK nos dois lados: o Supabase sao tres rotas REST, e o Neon fala S3,
+ * assinado em `lib/s3.ts`.
+ *
+ * A chave secreta ignora qualquer politica do armazenamento — ela mora aqui,
+ * num modulo `server-only`, e nunca chega ao browser. Quem decide o que cada
+ * pessoa pode ver é o nosso codigo: uma URL assinada só é gerada depois de a
+ * consulta provar que aquele arquivo é de quem esta pedindo.
  */
 
-/** Buckets do projeto. Nome do bucket nunca vem de requisicao — sai daqui. */
+/**
+ * Buckets do Supabase, e pastas do bucket do Neon. Nome nunca vem de
+ * requisicao — sai daqui.
+ */
 export const BUCKETS = {
   /** Contratos e instrumentos, por investidor. */
   contratos: "scp",
@@ -21,13 +39,19 @@ export const BUCKETS = {
   documentos: "docs",
   /** Fotos do empreendimento. */
   imagens: "fotos-empreendimentos",
-  /** Videos — bucket publico, servido direto, sem assinatura. */
+  /**
+   * Videos — no Supabase, bucket publico, servido direto e sem assinatura. No
+   * Neon o bucket é um só e privado, e o video sai assinado como o resto.
+   */
   videos: "videos",
 } as const;
 
 export type Bucket = (typeof BUCKETS)[keyof typeof BUCKETS];
 
-/** Os privados. O de video é publico de proposito: video pede range request. */
+/**
+ * Os privados do Supabase. O de video é publico de proposito: video pede range
+ * request. No Neon nao ha esta distincao — tudo é privado.
+ */
 const PRIVADOS: Bucket[] = [
   BUCKETS.contratos,
   BUCKETS.documentos,
@@ -80,6 +104,92 @@ function autorizacao(): Record<string, string> {
 }
 
 /**
+ * As credenciais do Neon, ou `null` quando o armazenamento ainda é o Supabase.
+ *
+ * O nome das variaveis é proprio (`NEON_STORAGE_*`), e nao o padrao da AWS: a
+ * Vercel reserva `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_REGION`
+ * para uso interno, e recusa quem tentar definir.
+ *
+ * O endpoint é o do branch de producao do Neon — os buckets do Neon pertencem a
+ * um branch, e o de desenvolvimento tem os seus.
+ */
+function neon(): CredenciaisS3 | null {
+  const endpoint = process.env.NEON_STORAGE_ENDPOINT;
+  if (!endpoint) return null;
+
+  const chave = process.env.NEON_STORAGE_ACCESS_KEY_ID;
+  const segredo = process.env.NEON_STORAGE_SECRET_ACCESS_KEY;
+  if (!chave || !segredo) {
+    throw new Error(
+      "NEON_STORAGE_ACCESS_KEY_ID ou NEON_STORAGE_SECRET_ACCESS_KEY ausente no ambiente",
+    );
+  }
+  // A URL assinada carrega a assinatura na query: em `http` ela viajaria
+  // aberta, e quem a visse no caminho poderia usa-la ate vencer.
+  if (!endpoint.startsWith("https://")) {
+    throw new Error("NEON_STORAGE_ENDPOINT precisa comecar com https://");
+  }
+  return {
+    endpoint: endpoint.replace(/\/+$/, ""),
+    regiao: process.env.NEON_STORAGE_REGION || "us-east-2",
+    chave,
+    segredo,
+    bucket: process.env.NEON_STORAGE_BUCKET || "portal",
+  };
+}
+
+/**
+ * Leitura no Neon: confere que o objeto existe e devolve a URL assinada.
+ *
+ * Assinar no Neon é conta local — nao vai a rede, e por isso nao descobre
+ * arquivo apagado. O Supabase descobria: a assinatura de um objeto inexistente
+ * falhava, e as telas contam com isso (o documento vira 404, a foto sai da
+ * lista). O `HEAD` antes devolve esse comportamento. Na foto ele só acontece
+ * quando a URL nao esta no cache de `assinarVarias`, uma ida por arquivo por
+ * hora; no documento, que nao entra em cache, é uma ida por download.
+ *
+ * Assinar fica fora do `try`: endpoint malformado é configuracao errada, e
+ * precisa estourar, e nao virar "arquivo nao existe". Qualquer resposta que nao
+ * seja 404 vai para o log — chave trocada, regiao errada ou o Neon fora do ar
+ * fariam todo documento sumir em silencio. O caminho nao entra no log: ele
+ * carrega o nome do arquivo do investidor.
+ */
+async function lerDoNeon(
+  cred: CredenciaisS3,
+  pasta: Bucket,
+  caminho: string,
+  segundos: number,
+): Promise<string | null> {
+  const chave = `${pasta}/${caminho}`;
+  const conferir = presignar(cred, { metodo: "HEAD", chave, segundos: 60 });
+  const ler = presignar(cred, { metodo: "GET", chave, segundos });
+
+  try {
+    const existe = await fetch(conferir, { method: "HEAD", cache: "no-store" });
+    if (existe.ok) return ler;
+    if (existe.status !== 404) {
+      console.error(`Storage Neon: HEAD em ${pasta} respondeu ${existe.status}`);
+    }
+  } catch (erro) {
+    console.error(`Storage Neon: HEAD em ${pasta} falhou`, (erro as Error).message);
+  }
+  return null;
+}
+
+/**
+ * O caminho cabe numa chave de objeto sem sair da pasta?
+ *
+ * Recusa trecho vazio, `.` e `..`. O valor vem do banco, gravado pelo painel, e
+ * no Supabase um `../scp/...` numa coluna de documento de obra assinaria um
+ * contrato de outro investidor com a chave de servico. No Neon ele ja falharia
+ * (o `fetch` normaliza o `..` e a assinatura deixa de bater), mas a recusa vale
+ * para os dois, antes de assinar qualquer coisa.
+ */
+function caminhoSeguro(caminho: string): boolean {
+  return caminho.split("/").every((t) => t !== "" && t !== "." && t !== "..");
+}
+
+/**
  * Um valor guardado no banco é caminho de bucket, ou é endereco pronto?
  *
  * Endereco pronto começa com `http` (link externo, como um video no YouTube) ou
@@ -121,6 +231,13 @@ export async function assinarLeitura(
   segundos = VALIDADE_PADRAO,
 ): Promise<string | null> {
   if (!ehCaminhoDeBucket(valor)) return valor || null;
+  if (!caminhoSeguro(valor)) return null;
+
+  // No Neon o bucket é um só e privado, inclusive para video: tudo sai
+  // assinado. A URL assinada aceita `Range`, que é o que o video precisa.
+  const cred = neon();
+  if (cred) return lerDoNeon(cred, bucket, valor, segundos);
+
   if (!PRIVADOS.includes(bucket)) return urlPublica(bucket, valor);
 
   try {
@@ -164,8 +281,17 @@ type UrlGuardada = { url: string; expiraEm: number };
 
 const global_ = globalThis as typeof globalThis & {
   urlsAssinadas?: Map<string, UrlGuardada>;
+  urlsEmVoo?: Map<string, Promise<string | null>>;
 };
 const guardadas = (global_.urlsAssinadas ??= new Map());
+
+/*
+ * As leituras do Neon ainda em andamento, por chave do cache. A tela da obra
+ * pede as fotos em duas larguras ao mesmo tempo (ver `resolverFotos`), e no
+ * Neon as duas caem na mesma chave: sem isto, cada foto faria dois `HEAD`
+ * iguais quando o cache esta vazio.
+ */
+const emVoo = (global_.urlsEmVoo ??= new Map());
 
 /**
  * Quanto da vida do token se usa antes de assinar outro.
@@ -204,13 +330,19 @@ export async function assinarVarias(
   const { segundos = VALIDADE_PADRAO, transformar } = opcoes;
   const mapa = new Map<string, string | null>();
 
-  const daBucket = valores.filter(ehCaminhoDeBucket);
+  const daBucket = valores.filter(
+    (valor) => ehCaminhoDeBucket(valor) && caminhoSeguro(valor),
+  );
   for (const valor of valores) {
-    if (!daBucket.includes(valor)) mapa.set(valor, valor || null);
+    if (daBucket.includes(valor)) continue;
+    // Caminho que sairia da pasta nao é assinado nem devolvido cru.
+    mapa.set(valor, ehCaminhoDeBucket(valor) ? null : valor || null);
   }
   if (daBucket.length === 0) return mapa;
 
-  if (!PRIVADOS.includes(bucket)) {
+  const cred = neon();
+
+  if (!cred && !PRIVADOS.includes(bucket)) {
     for (const caminho of daBucket) mapa.set(caminho, urlPublica(bucket, caminho));
     return mapa;
   }
@@ -218,9 +350,16 @@ export async function assinarVarias(
   const agora = Date.now();
   limpar(agora);
 
-  // A largura entra na chave: a mesma foto em duas larguras sao dois enderecos.
+  /*
+   * A largura entra na chave: a mesma foto em duas larguras sao dois
+   * enderecos. No Neon nao ha largura — ele nao redimensiona —, e a chave
+   * leva o endpoint e o bucket: uma URL do Supabase, ou de outro branch, nunca
+   * é servida no lugar da certa na virada.
+   */
   const chaveDe = (caminho: string) =>
-    `${bucket}|${caminho}|${transformar ? `${transformar.largura}x${transformar.qualidade}` : "cru"}`;
+    cred
+      ? `neon|${cred.endpoint}|${cred.bucket}|${bucket}|${caminho}`
+      : `${bucket}|${caminho}|${transformar ? `${transformar.largura}x${transformar.qualidade}` : "cru"}`;
 
   const faltando = daBucket.filter((caminho) => {
     const guardada = guardadas.get(chaveDe(caminho));
@@ -228,6 +367,39 @@ export async function assinarVarias(
     mapa.set(caminho, guardada.url);
     return false;
   });
+
+  /*
+   * No Neon a foto sai do tamanho em que foi enviada: ele nao tem o
+   * redimensionamento na borda que o Supabase tinha, e o `transformar` é
+   * ignorado. O painel ja manda WebP de ate 2560px (ver `paraWebp`), entao a
+   * perda é de banda, nao de imagem.
+   */
+  if (cred) {
+    await Promise.all(
+      faltando.map(async (caminho) => {
+        const chave = chaveDe(caminho);
+        let pendente = emVoo.get(chave);
+        if (!pendente) {
+          pendente = lerDoNeon(cred, bucket, caminho, segundos).then((url) => {
+            // Falha nao entra no cache, como no Supabase.
+            if (url) {
+              guardadas.set(chave, {
+                url,
+                expiraEm: agora + segundos * APROVEITAMENTO * 1000,
+              });
+            }
+            return url;
+          });
+          emVoo.set(chave, pendente);
+          // O `catch` é só desta corrente de limpeza: quem espera a promessa
+          // abaixo continua recebendo o erro, se houver.
+          pendente.finally(() => emVoo.delete(chave)).catch(() => {});
+        }
+        mapa.set(caminho, await pendente);
+      }),
+    );
+    return mapa;
+  }
 
   await Promise.all(
     faltando.map(async (caminho) => {
@@ -297,22 +469,74 @@ function higienizar(nome: string): string {
  * limite de corpo de 1 MB por padrao, e um PDF de 3 MB atravessando o Node so
  * para ser reenviado é trabalho sem ganho. O token da URL vale para aquele
  * caminho e nada mais.
+ *
+ * `tipo` é o `Content-Type` que o servidor tirou da extensao (ver
+ * `tipoDoArquivo`), e o navegador precisa manda-lo igual — ele volta junto,
+ * para o painel nao ter de adivinhar.
  */
 export async function assinarUpload(
   bucket: Bucket,
   nomeOriginal: string,
-): Promise<{ envio: string; caminho: string }> {
+  tipo: string,
+): Promise<{ envio: string; caminho: string; tipo: string }> {
   const agora = new Date();
   const caminho = `${agora.getFullYear()}/${crypto.randomUUID().slice(0, 8)}-${higienizar(nomeOriginal)}`;
+
+  /*
+   * No Neon, uma URL de `PUT` assinada para aquela chave, com o `Content-Type`
+   * dentro da assinatura: o objeto só pode ser gravado com o tipo que a
+   * extensao justifica. Sem isso, um `.pdf` aprovado pelo nome podia subir com
+   * `text/html` e abrir como pagina para o investidor.
+   *
+   * Dois minutos bastam: o prazo vale para o pedido comecar, e nao para o
+   * arquivo terminar de subir — um video grande numa conexao lenta passa do
+   * prazo no meio do envio e ainda assim é aceito.
+   */
+  const cred = neon();
+  if (cred) {
+    return {
+      envio: presignar(cred, {
+        metodo: "PUT",
+        chave: `${bucket}/${caminho}`,
+        segundos: 120,
+        cabecalhos: { "content-type": tipo },
+      }),
+      caminho,
+      tipo,
+    };
+  }
 
   const { url } = await pedir(`/object/upload/sign/${bucket}/${caminho}`, {
     method: "POST",
   });
 
-  return { envio: `${base()}/storage/v1${url}`, caminho };
+  return { envio: `${base()}/storage/v1${url}`, caminho, tipo };
 }
 
 export async function apagar(bucket: Bucket, caminho: string): Promise<void> {
   if (!ehCaminhoDeBucket(caminho)) return;
+  if (!caminhoSeguro(caminho)) {
+    throw new Error("Storage DELETE: caminho fora da pasta, recusado");
+  }
+
+  const cred = neon();
+  if (cred) {
+    const resposta = await fetch(
+      presignar(cred, {
+        metodo: "DELETE",
+        chave: `${bucket}/${caminho}`,
+        segundos: 60,
+      }),
+      { method: "DELETE", cache: "no-store" },
+    );
+    // 404 é o resultado que se queria: o objeto nao esta la.
+    if (!resposta.ok && resposta.status !== 404) {
+      throw new Error(
+        `Storage DELETE ${bucket}/${caminho}: ${resposta.status} ${await resposta.text()}`,
+      );
+    }
+    return;
+  }
+
   await pedir(`/object/${bucket}/${caminho}`, { method: "DELETE" });
 }
